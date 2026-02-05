@@ -1,0 +1,79 @@
+﻿src/components/ApprovalTimeline.tsx(3,34): error TS6133: 'Calendar' is declared but its value is never read.
+src/components/ApprovalTimeline.tsx(117,39): error TS6133: 'idx' is declared but its value is never read.
+src/components/ApprovalTimeline.tsx(292,5): error TS6133: 'isFirst' is declared but its value is never read.
+src/components/ApprovalTimeline.tsx(293,5): error TS6133: 'isLast' is declared but its value is never read.
+src/components/auth/ProtectedRoute.tsx(3,30): error TS2307: Cannot find module '../store/auth.store' or its corresponding type declarations.
+src/components/auth/ProtectedRoute.tsx(4,10): error TS6133: 'Shield' is declared but its value is never read.
+src/components/auth/ProtectedRoute.tsx(16,5): error TS6133: 'requiredPermissions' is declared but its value is never read.
+src/components/auth/ProtectedRoute.tsx(28,40): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/components/auth/ProtectedRoute.tsx(76,41): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/components/auth/ProtectedRoute.tsx(126,47): error TS7006: Parameter 'role' implicitly has an 'any' type.
+src/components/auth/ProtectedRoute.tsx(166,21): error TS2345: Argument of type 'readonly string[]' is not assignable to parameter of type 'string[]'.
+  The type 'readonly string[]' is 'readonly' and cannot be assigned to the mutable type 'string[]'.
+src/components/LeaveCalendar.tsx(4,20): error TS6133: 'Users' is declared but its value is never read.
+src/components/LeaveCalendar.tsx(269,87): error TS2322: Type '{ size: number; className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/components/LeaveCalendar.tsx(275,77): error TS6133: 'i' is declared but its value is never read.
+src/components/notifications/NotificationBell.tsx(5,30): error TS6133: 'Trash2' is declared but its value is never read.
+src/components/notifications/NotificationBell.tsx(5,48): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/pages/ApprovalHistoryPage.tsx(8,21): error TS6133: 'Building2' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(6,18): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(6,53): error TS6133: 'Building2' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(7,5): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(7,32): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(8,15): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(8,38): error TS6133: 'Users' is declared but its value is never read.
+src/pages/ApprovalsPage.tsx(631,124): error TS2339: Property 'action' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(632,45): error TS2339: Property 'action' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(636,42): error TS2339: Property 'action' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(637,42): error TS2339: Property 'action' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(647,85): error TS2339: Property 'action' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(649,53): error TS2339: Property 'action' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(649,72): error TS2339: Property 'approver' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(651,49): error TS2339: Property 'comment' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(652,104): error TS2339: Property 'comment' does not exist on type '{}'.
+src/pages/ApprovalsPage.tsx(655,62): error TS2339: Property 'acted_at' does not exist on type '{}'.
+src/pages/ClaimsPage.tsx(7,20): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/DashboardPage.tsx(7,5): error TS6133: 'Users' is declared but its value is never read.
+src/pages/DashboardPage.tsx(11,5): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/DashboardPage.tsx(17,5): error TS6133: 'UserCheck' is declared but its value is never read.
+src/pages/DashboardPage.tsx(60,11): error TS6133: 'isHR' is declared but its value is never read.
+src/pages/DashboardPage.tsx(61,11): error TS6133: 'isManager' is declared but its value is never read.
+src/pages/dashboards/CEODashboard.tsx(8,5): error TS6133: 'TrendingDown' is declared but its value is never read.
+src/pages/dashboards/HRDashboard.tsx(9,5): error TS6133: 'UserX' is declared but its value is never read.
+src/pages/dashboards/HRDashboard.tsx(15,5): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/LeavePage.tsx(6,5): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/pages/LeavePage.tsx(6,18): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/LeavePage.tsx(6,26): error TS6133: 'Download' is declared but its value is never read.
+src/pages/LeavePage.tsx(7,34): error TS6133: 'User' is declared but its value is never read.
+src/pages/LeavePage.tsx(108,11): error TS6133: 'leaveStats' is declared but its value is never read.
+src/pages/LeavePage.tsx(889,44): error TS6133: 'idx' is declared but its value is never read.
+src/pages/LoansPage.tsx(8,29): error TS6133: 'User' is declared but its value is never read.
+src/pages/LoansPage.tsx(9,48): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(5,35): error TS6133: 'Phone' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(6,30): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(6,57): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(7,5): error TS6133: 'Video' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(7,18): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(7,33): error TS6133: 'Edit' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(7,39): error TS6133: 'Send' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(7,45): error TS6133: 'Check' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(7,52): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(8,27): error TS6133: 'Award' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(8,57): error TS6133: 'UserX' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(131,29): error TS6133: 'setCandidateSearch' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(132,12): error TS6133: 'showInterviewModal' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(132,32): error TS6133: 'setShowInterviewModal' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(133,12): error TS6133: 'interviewFormData' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(133,31): error TS6133: 'setInterviewFormData' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(134,12): error TS6133: 'selectedCandidate' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(134,31): error TS6133: 'setSelectedCandidate' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(169,11): error TS6133: 'candidates' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(180,11): error TS6133: 'interviews' is declared but its value is never read.
+src/pages/RecruitmentPage.tsx(186,11): error TS6133: 'hrStaff' is declared but its value is never read.
+src/pages/ReportsPage.tsx(7,42): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/ReportsPage.tsx(11,5): error TS6133: 'LineChart' is declared but its value is never read.
+src/pages/ReportsPage.tsx(11,16): error TS6133: 'Line' is declared but its value is never read.
+src/pages/ReportsPage.tsx(11,60): error TS6133: 'ComposedChart' is declared but its value is never read.
+src/pages/ReportsPage.tsx(25,7): error TS6133: 'CHART_COLORS' is declared but its value is never read.
+src/pages/ReportsPage.tsx(441,80): error TS18048: 'percent' is possibly 'undefined'.
