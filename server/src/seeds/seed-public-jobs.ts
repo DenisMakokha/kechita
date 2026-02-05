@@ -7,8 +7,11 @@ import { Branch } from '../org/entities/branch.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { Position } from '../org/entities/position.entity';
 import { Region } from '../org/entities/region.entity';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-public-jobs');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

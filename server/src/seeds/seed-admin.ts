@@ -16,8 +16,11 @@ import { OnboardingTemplate } from '../staff/entities/onboarding-template.entity
 import { OnboardingTask } from '../staff/entities/onboarding-task.entity';
 import { OnboardingInstance } from '../staff/entities/onboarding-instance.entity';
 import { OnboardingTaskStatus } from '../staff/entities/onboarding-task-status.entity';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-admin');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

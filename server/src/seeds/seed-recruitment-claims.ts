@@ -29,8 +29,11 @@ import { Application } from '../recruitment/entities/application.entity';
 import { Interview } from '../recruitment/entities/interview.entity';
 import { Offer } from '../recruitment/entities/offer.entity';
 import { BranchDailyReport } from '../reporting/entities/branch-daily-report.entity';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-recruitment-claims');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

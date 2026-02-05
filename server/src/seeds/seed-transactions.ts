@@ -12,6 +12,7 @@ import { StaffLoan, LoanType, LoanStatus } from '../loans/entities/staff-loan.en
 import { StaffLoanRepayment } from '../loans/entities/staff-loan-repayment.entity';
 import { ApprovalFlow } from '../approval/entities/approval-flow.entity';
 import { faker } from '@faker-js/faker';
+import { assertSeedingEnabled } from './seed-utils';
 
 // Import other required entities for TypeORM generic connection
 import { Role } from '../auth/entities/role.entity';
@@ -43,6 +44,8 @@ import { NotificationPreference } from '../notifications/entities/notification-p
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-transactions');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

@@ -7,6 +7,7 @@ import { PettyCashReplenishment, ReplenishmentStatus } from './entities/petty-ca
 import { PettyCashReconciliation, ReconciliationStatus } from './entities/petty-cash-reconciliation.entity';
 import { Branch } from '../org/entities/branch.entity';
 import { Staff } from '../staff/entities/staff.entity';
+import { generateRef } from '../common/id-utils';
 
 // ==================== DTOs ====================
 
@@ -170,7 +171,7 @@ export class PettyCashService {
         document_id?: string;
         notes?: string;
     }): Promise<PettyCashTransaction> {
-        const txnNumber = `PCT-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const txnNumber = generateRef('PCT', { digits: 6 });
 
         const transaction = this.transactionRepo.create({
             transaction_number: txnNumber,
@@ -320,7 +321,7 @@ export class PettyCashService {
             throw new BadRequestException(`Maximum replenishment amount is ${maxReplenishment}`);
         }
 
-        const requestNumber = `REP-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const requestNumber = generateRef('REP', { digits: 6 });
 
         const replenishment = this.replenishmentRepo.create({
             request_number: requestNumber,
@@ -417,7 +418,7 @@ export class PettyCashService {
         const systemBalance = Number(float.current_balance);
         const variance = data.physical_count - systemBalance;
 
-        const reconNumber = `REC-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const reconNumber = generateRef('REC', { digits: 6 });
 
         const reconciliation = this.reconciliationRepo.create({
             reconciliation_number: reconNumber,

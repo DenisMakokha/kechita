@@ -14,6 +14,10 @@ export interface DailyReportDto {
     arrears_collected?: number;
     prepayments_due?: number;
     par_amount?: number;
+    par_1_30?: number;
+    par_31_60?: number;
+    par_61_90?: number;
+    par_90_plus?: number;
     par_ratio?: number;
     manager_comment?: string;
 }
@@ -65,6 +69,10 @@ export class KpiService {
                 arrears_collected: data.arrears_collected ?? existing.arrears_collected,
                 prepayments_due: data.prepayments_due ?? existing.prepayments_due,
                 par_amount: data.par_amount ?? existing.par_amount,
+                par_1_30: data.par_1_30 ?? existing.par_1_30,
+                par_31_60: data.par_31_60 ?? existing.par_31_60,
+                par_61_90: data.par_61_90 ?? existing.par_61_90,
+                par_90_plus: data.par_90_plus ?? existing.par_90_plus,
                 par_ratio: data.par_ratio ?? existing.par_ratio,
                 manager_comment: data.manager_comment ?? existing.manager_comment,
                 status: 'submitted',
@@ -83,6 +91,10 @@ export class KpiService {
             arrears_collected: data.arrears_collected || 0,
             prepayments_due: data.prepayments_due || 0,
             par_amount: data.par_amount || 0,
+            par_1_30: data.par_1_30 || 0,
+            par_31_60: data.par_31_60 || 0,
+            par_61_90: data.par_61_90 || 0,
+            par_90_plus: data.par_90_plus || 0,
             par_ratio: data.par_ratio || 0,
             manager_comment: data.manager_comment,
         });
@@ -222,6 +234,10 @@ export class KpiService {
             arrears_collected: this.parseNumber(row.arrears_collected) || this.parseNumber(row.arrears),
             prepayments_due: this.parseNumber(row.prepayments_due) || this.parseNumber(row.prepayments),
             par_amount: this.parseNumber(row.par_amount),
+            par_1_30: this.parseNumber(row.par_1_30) || this.parseNumber(row.par1_30),
+            par_31_60: this.parseNumber(row.par_31_60) || this.parseNumber(row.par31_60),
+            par_61_90: this.parseNumber(row.par_61_90) || this.parseNumber(row.par61_90),
+            par_90_plus: this.parseNumber(row.par_90_plus) || this.parseNumber(row.par90_plus),
             par_ratio: this.parseNumber(row.par_ratio) || this.parseNumber(row.par),
             manager_comment: row.manager_comment || row.comment || row.notes,
         }, staffId);
@@ -236,8 +252,6 @@ export class KpiService {
     // ==================== PAR CALCULATIONS ====================
 
     async getBranchPAR(branchId: string, date: Date): Promise<PARBreakdown> {
-        // In a real system, this would query the loan portfolio
-        // For now, we'll return mock data based on the daily report
         const report = await this.reportRepo.findOne({
             where: {
                 branch: { id: branchId },
@@ -249,15 +263,13 @@ export class KpiService {
             return { par_1_30: 0, par_31_60: 0, par_61_90: 0, par_90_plus: 0, total_par: 0 };
         }
 
-        // Mock breakdown based on total PAR
-        const totalPAR = Number(report.par_amount);
-        return {
-            par_1_30: totalPAR * 0.4,
-            par_31_60: totalPAR * 0.25,
-            par_61_90: totalPAR * 0.2,
-            par_90_plus: totalPAR * 0.15,
-            total_par: totalPAR,
-        };
+        const par_1_30 = Number(report.par_1_30 || 0);
+        const par_31_60 = Number(report.par_31_60 || 0);
+        const par_61_90 = Number(report.par_61_90 || 0);
+        const par_90_plus = Number(report.par_90_plus || 0);
+        const total_par = Number(report.par_amount || (par_1_30 + par_31_60 + par_61_90 + par_90_plus));
+
+        return { par_1_30, par_31_60, par_61_90, par_90_plus, total_par };
     }
 
     async getRegionalPARSummary(regionId: string, startDate: Date, endDate: Date): Promise<{
@@ -362,6 +374,10 @@ export class KpiService {
             { header: 'arrears_collected', key: 'arrears_collected', width: 16 },
             { header: 'prepayments_due', key: 'prepayments_due', width: 15 },
             { header: 'par_amount', key: 'par_amount', width: 12 },
+            { header: 'par_1_30', key: 'par_1_30', width: 12 },
+            { header: 'par_31_60', key: 'par_31_60', width: 12 },
+            { header: 'par_61_90', key: 'par_61_90', width: 12 },
+            { header: 'par_90_plus', key: 'par_90_plus', width: 12 },
             { header: 'par_ratio', key: 'par_ratio', width: 10 },
             { header: 'manager_comment', key: 'manager_comment', width: 30 },
         ];
@@ -386,6 +402,10 @@ export class KpiService {
             arrears_collected: 25000,
             prepayments_due: 10000,
             par_amount: 75000,
+            par_1_30: 30000,
+            par_31_60: 20000,
+            par_61_90: 15000,
+            par_90_plus: 10000,
             par_ratio: 3.5,
             manager_comment: 'Good performance this period',
         });

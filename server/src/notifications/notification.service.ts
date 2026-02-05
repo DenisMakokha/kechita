@@ -5,6 +5,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Notification, NotificationType, NotificationPriority } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { User } from '../auth/entities/user.entity';
+import { EmailService } from '../email/email.service';
+import { SmsService } from '../sms/sms.service';
 
 export interface CreateNotificationDto {
     userId: string;
@@ -41,9 +43,11 @@ export class NotificationService {
         @InjectRepository(User)
         private userRepo: Repository<User>,
         private eventEmitter: EventEmitter2,
+        private emailService: EmailService,
+        private smsService: SmsService,
     ) { }
 
-    async create(dto: CreateNotificationDto): Promise<Notification> {
+    async create(dto: CreateNotificationDto): Promise<Notification | null> {
         // Check user preferences
         const preference = await this.preferenceRepo.findOne({
             where: {
@@ -54,7 +58,7 @@ export class NotificationService {
 
         // If preference exists and in-app is disabled, skip
         if (preference && !preference.in_app_enabled) {
-            return null as any;
+            return null;
         }
 
         const notification = this.notificationRepo.create({
@@ -79,12 +83,34 @@ export class NotificationService {
             notification: saved,
         });
 
-        // TODO: Trigger email/push notifications based on preferences
+        // Trigger email notification based on preferences
         if (preference?.email_enabled) {
-            this.eventEmitter.emit('notification.email', {
-                userId: dto.userId,
-                notification: saved,
+            const user = await this.userRepo.findOne({ where: { id: dto.userId } });
+            if (user?.email) {
+                const emailName = user.email.split('@')[0].replace(/[._]/g, ' ');
+                await this.emailService.sendNotificationEmail({
+                    email: user.email,
+                    name: emailName || 'Team Member',
+                    subject: dto.title,
+                    title: dto.title,
+                    message: dto.body,
+                });
+            }
+        }
+
+        // Trigger SMS notification based on preferences
+        if (preference?.sms_enabled) {
+            const user = await this.userRepo.findOne({
+                where: { id: dto.userId },
+                relations: ['staff'],
             });
+            const phone = user?.staff?.phone;
+            if (phone) {
+                await this.smsService.sendSms({
+                    to: phone,
+                    message: `${dto.title}\n\n${dto.body}`,
+                });
+            }
         }
 
         return saved;

@@ -39,6 +39,19 @@ export class BranchDailyReport {
     @Column('decimal', { precision: 14, scale: 2, default: 0 })
     par_amount: number;
 
+    // PAR buckets (persisted) - used for PAR breakdown reporting
+    @Column('decimal', { precision: 14, scale: 2, default: 0 })
+    par_1_30: number;
+
+    @Column('decimal', { precision: 14, scale: 2, default: 0 })
+    par_31_60: number;
+
+    @Column('decimal', { precision: 14, scale: 2, default: 0 })
+    par_61_90: number;
+
+    @Column('decimal', { precision: 14, scale: 2, default: 0 })
+    par_90_plus: number;
+
     @Column('decimal', { precision: 5, scale: 2, default: 0 })
     par_ratio: number;
 

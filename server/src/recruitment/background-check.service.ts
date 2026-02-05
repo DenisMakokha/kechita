@@ -7,6 +7,7 @@ import { Candidate } from './entities/candidate.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { EmailService } from '../email/email.service';
 import { Application } from './entities/application.entity';
+import { generateRef } from '../common/id-utils';
 
 // ==================== DTOs ====================
 
@@ -77,7 +78,7 @@ export class BackgroundCheckService {
         const candidate = await this.candidateRepo.findOneBy({ id: data.candidate_id });
         if (!candidate) throw new NotFoundException('Candidate not found');
 
-        const checkNumber = `BGC-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const checkNumber = generateRef('BGC', { digits: 6 });
 
         const bgCheck = this.bgCheckRepo.create({
             check_number: checkNumber,

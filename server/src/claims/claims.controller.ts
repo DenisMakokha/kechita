@@ -8,6 +8,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ClaimStatus } from './entities/claim.entity';
 import { ClaimItemStatus } from './entities/claim-item.entity';
+import { CreateClaimTypeDto, UpdateClaimTypeDto, SaveClaimDraftDto } from './dto/claims.dto';
 
 @Controller('claims')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -28,14 +29,14 @@ export class ClaimsController {
 
     @Post('types')
     @Roles('CEO', 'HR_MANAGER')
-    createClaimType(@Body() body: any) {
-        return this.claimsService.createClaimType(body);
+    createClaimType(@Body() dto: CreateClaimTypeDto) {
+        return this.claimsService.createClaimType(dto);
     }
 
     @Patch('types/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateClaimType(@Param('id') id: string, @Body() body: any) {
-        return this.claimsService.updateClaimType(id, body);
+    updateClaimType(@Param('id') id: string, @Body() dto: UpdateClaimTypeDto) {
+        return this.claimsService.updateClaimType(id, dto);
     }
 
     // ==================== MY CLAIMS ====================
@@ -74,8 +75,8 @@ export class ClaimsController {
     }
 
     @Post('draft')
-    saveDraft(@Request() req: any, @Body() body: any) {
-        return this.claimsService.saveDraft(req.user.staff_id, body);
+    saveDraft(@Request() req: any, @Body() dto: SaveClaimDraftDto) {
+        return this.claimsService.saveDraft(req.user.staff_id, dto);
     }
 
     @Patch(':id/submit')

@@ -4,8 +4,11 @@ import { LeaveType } from '../leave/entities/leave-type.entity';
 import { PublicHoliday } from '../leave/entities/public-holiday.entity';
 import { ApprovalFlow } from '../approval/entities/approval-flow.entity';
 import { ApprovalFlowStep, ApproverType } from '../approval/entities/approval-flow-step.entity';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-leave-approval');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

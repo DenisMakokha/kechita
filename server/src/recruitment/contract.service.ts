@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { uuid } from '../common/id-utils';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
@@ -80,7 +81,8 @@ export class ContractService {
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Contract_${data.employee_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+                const safeName = (data.employee_name || 'employee').replace(/[^a-z0-9_-]/gi, '_');
+                const fileName = `Contract_${safeName}_${uuid()}.pdf`;
                 const filePath = path.join(this.uploadDir, fileName);
                 const writeStream = fs.createWriteStream(filePath);
 
@@ -244,7 +246,8 @@ export class ContractService {
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Offer_${data.candidate_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+                const safeName = (data.candidate_name || 'candidate').replace(/[^a-z0-9_-]/gi, '_');
+                const fileName = `Offer_${safeName}_${uuid()}.pdf`;
                 const filePath = path.join(this.uploadDir, fileName);
                 const writeStream = fs.createWriteStream(filePath);
 

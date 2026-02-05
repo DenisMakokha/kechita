@@ -5,6 +5,7 @@ import { Announcement, AnnouncementRead, AnnouncementStatus, AnnouncementPriorit
 import { Staff } from '../staff/entities/staff.entity';
 import { User } from '../auth/entities/user.entity';
 import { EmailService } from '../email/email.service';
+import { SmsService } from '../sms/sms.service';
 
 export interface CreateAnnouncementDto {
     title: string;
@@ -36,6 +37,7 @@ export class CommunicationsService {
         @InjectRepository(User)
         private userRepo: Repository<User>,
         private emailService: EmailService,
+        private smsService: SmsService,
     ) { }
 
     // ==================== ANNOUNCEMENTS ====================
@@ -153,8 +155,21 @@ export class CommunicationsService {
 
         // SMS would be sent here if configured
         if (announcement.channels.includes(DeliveryChannel.SMS)) {
-            // TODO: Integrate Africa's Talking SMS API
-            console.log(`[SMS] Would send SMS to ${targetUsers.length} users`);
+            const usersWithStaff = await this.userRepo.find({
+                where: { id: In(targetUsers.map((u) => u.id)) },
+                relations: ['staff'],
+            });
+
+            const message = `${announcement.title}\n\n${announcement.summary || announcement.content.substring(0, 300)}`;
+
+            for (const user of usersWithStaff) {
+                const phone = user.staff?.phone;
+                if (!phone) continue;
+                await this.smsService.sendSms({
+                    to: phone,
+                    message,
+                });
+            }
         }
     }
 
@@ -217,11 +232,11 @@ export class CommunicationsService {
                 case TargetAudience.ROLES:
                     return a.target_role_codes?.some(rc => user.roles?.some(r => r.code === rc));
                 case TargetAudience.BRANCHES:
-                    return a.target_branch_ids?.includes(user.staff?.branch?.id);
+                    return !!(user.staff?.branch?.id && a.target_branch_ids?.includes(user.staff.branch.id));
                 case TargetAudience.REGIONS:
-                    return a.target_region_ids?.includes(user.staff?.region?.id);
+                    return !!(user.staff?.region?.id && a.target_region_ids?.includes(user.staff.region.id));
                 case TargetAudience.DEPARTMENTS:
-                    return a.target_department_ids?.includes(user.staff?.department?.id);
+                    return !!(user.staff?.department?.id && a.target_department_ids?.includes(user.staff.department.id));
                 case TargetAudience.SPECIFIC_USERS:
                     return a.target_user_ids?.includes(userId);
                 default:
@@ -230,9 +245,17 @@ export class CommunicationsService {
         });
 
         // Get read status
+        if (!user.staff?.id || filteredAnnouncements.length === 0) {
+            return filteredAnnouncements.map(a => ({
+                ...a,
+                is_read: false,
+                is_acknowledged: false,
+            }));
+        }
+
         const reads = await this.readRepo.find({
             where: {
-                staff: { id: user.staff?.id },
+                staff: { id: user.staff.id },
                 announcement: { id: In(filteredAnnouncements.map(a => a.id)) },
             },
         });

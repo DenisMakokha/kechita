@@ -12,6 +12,7 @@ import { Department } from '../org/entities/department.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
 import { OnboardingService } from './services/onboarding.service';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
+import { generateTempPassword as generateTempPasswordSecure } from '../common/id-utils';
 
 // Re-export for convenience
 export { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
@@ -528,11 +529,6 @@ export class StaffService {
     }
 
     private generateTempPassword(): string {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-        let password = '';
-        for (let i = 0; i < 10; i++) {
-            password += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return password;
+        return generateTempPasswordSecure(10);
     }
 }

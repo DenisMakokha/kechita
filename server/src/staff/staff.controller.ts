@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { StaffStatus, ProbationStatus } from './entities/staff.entity';
+import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('staff')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,9 +28,8 @@ export class StaffController {
 
     @Post()
     @Roles('CEO', 'HR_MANAGER')
-    create(@Body() createStaffDto: CreateStaffDto, @Req() req: any) {
-        const userId = (req.user as any)?.id;
-        return this.staffService.create(createStaffDto, userId);
+    create(@Body() createStaffDto: CreateStaffDto, @Req() req: AuthenticatedRequest) {
+        return this.staffService.create(createStaffDto, req.user.id);
     }
 
     @Get()
@@ -86,9 +86,8 @@ export class StaffController {
 
     @Put(':id')
     @Roles('CEO', 'HR_MANAGER')
-    update(@Param('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: any) {
-        const userId = (req.user as any)?.id;
-        return this.staffService.update(id, updateStaffDto, userId);
+    update(@Param('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: AuthenticatedRequest) {
+        return this.staffService.update(id, updateStaffDto, req.user.id);
     }
 
     @Patch(':id/activate')
@@ -177,7 +176,7 @@ export class StaffController {
         )
         file: Express.Multer.File,
         @Body('documentTypeId') documentTypeId: string,
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
         @Body('expiryDate') expiryDate?: string,
         @Body('issueDate') issueDate?: string,
         @Body('referenceNumber') referenceNumber?: string,
@@ -185,8 +184,6 @@ export class StaffController {
         if (!documentTypeId) {
             throw new BadRequestException('Document type is required');
         }
-
-        const userId = (req.user as any)?.id;
         return this.documentService.uploadStaffDocument(
             staffId,
             documentTypeId,
@@ -203,7 +200,7 @@ export class StaffController {
                 issueDate: issueDate ? new Date(issueDate) : undefined,
                 referenceNumber,
             },
-            userId,
+            req.user.id,
         );
     }
 
@@ -211,11 +208,10 @@ export class StaffController {
     @Roles('CEO', 'HR_MANAGER')
     verifyDocument(
         @Param('docId') docId: string,
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
         @Body('notes') notes?: string,
     ) {
-        const userId = (req.user as any)?.id;
-        return this.documentService.verifyDocument(docId, userId, notes);
+        return this.documentService.verifyDocument(docId, req.user.id, notes);
     }
 
     @Patch('documents/:docId/reject')
@@ -223,10 +219,9 @@ export class StaffController {
     rejectDocument(
         @Param('docId') docId: string,
         @Body('reason') reason: string,
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
     ) {
-        const userId = (req.user as any)?.id;
-        return this.documentService.rejectDocument(docId, reason, userId);
+        return this.documentService.rejectDocument(docId, reason, req.user.id);
     }
 
     @Delete('documents/:docId')
@@ -276,9 +271,8 @@ export class StaffController {
 
     @Post('onboarding/templates')
     @Roles('CEO', 'HR_MANAGER')
-    createOnboardingTemplate(@Body() data: CreateTemplateDto, @Req() req: any) {
-        const userId = (req.user as any)?.id;
-        return this.onboardingService.createTemplate(data, userId);
+    createOnboardingTemplate(@Body() data: CreateTemplateDto, @Req() req: AuthenticatedRequest) {
+        return this.onboardingService.createTemplate(data, req.user.id);
     }
 
     @Put('onboarding/templates/:id')
@@ -340,22 +334,20 @@ export class StaffController {
     @Roles('CEO', 'HR_MANAGER')
     createStaffOnboarding(
         @Param('staffId') staffId: string,
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
         @Body('templateId') templateId?: string,
     ) {
-        const userId = req?.user?.id;
-        return this.onboardingService.createInstance(staffId, templateId, userId);
+        return this.onboardingService.createInstance(staffId, templateId, req.user.id);
     }
 
     @Patch('onboarding/tasks/:taskStatusId/complete')
     completeOnboardingTask(
         @Param('taskStatusId') taskStatusId: string,
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
         @Body('notes') notes?: string,
         @Body('documentId') documentId?: string,
     ) {
-        const staffId = req?.user?.staff_id;
-        return this.onboardingService.completeTask(taskStatusId, staffId, notes, documentId);
+        return this.onboardingService.completeTask(taskStatusId, req.user.staff_id || '', notes, documentId);
     }
 
     @Patch('onboarding/tasks/:taskStatusId/skip')
@@ -363,9 +355,8 @@ export class StaffController {
     skipOnboardingTask(
         @Param('taskStatusId') taskStatusId: string,
         @Body('reason') reason: string,
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
     ) {
-        const userId = (req.user as any)?.id;
-        return this.onboardingService.skipTask(taskStatusId, reason, userId);
+        return this.onboardingService.skipTask(taskStatusId, reason, req.user.id);
     }
 }

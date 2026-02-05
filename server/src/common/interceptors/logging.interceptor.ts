@@ -8,6 +8,7 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
+import { uuid } from '../id-utils';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -54,6 +55,6 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     private generateCorrelationId(): string {
-        return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        return uuid();
     }
 }

@@ -3,6 +3,12 @@ import { OrgService } from './org.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import {
+    CreateRegionDto, UpdateRegionDto,
+    CreateBranchDto, UpdateBranchDto,
+    CreateDepartmentDto, UpdateDepartmentDto,
+    CreatePositionDto, UpdatePositionDto,
+} from './dto/org.dto';
 
 @Controller('org')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,14 +28,14 @@ export class OrgController {
 
     @Post('regions')
     @Roles('CEO', 'HR_MANAGER')
-    createRegion(@Body() body: { name: string; code: string }) {
-        return this.orgService.createRegion(body);
+    createRegion(@Body() dto: CreateRegionDto) {
+        return this.orgService.createRegion(dto);
     }
 
     @Put('regions/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateRegion(@Param('id') id: string, @Body() body: any) {
-        return this.orgService.updateRegion(id, body);
+    updateRegion(@Param('id') id: string, @Body() dto: UpdateRegionDto) {
+        return this.orgService.updateRegion(id, dto);
     }
 
     @Delete('regions/:id')
@@ -51,14 +57,14 @@ export class OrgController {
 
     @Post('branches')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
-    createBranch(@Body() body: { name: string; code: string; region_id: string }) {
-        return this.orgService.createBranch(body);
+    createBranch(@Body() dto: CreateBranchDto) {
+        return this.orgService.createBranch(dto);
     }
 
     @Put('branches/:id')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
-    updateBranch(@Param('id') id: string, @Body() body: any) {
-        return this.orgService.updateBranch(id, body);
+    updateBranch(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
+        return this.orgService.updateBranch(id, dto);
     }
 
     @Delete('branches/:id')
@@ -80,14 +86,14 @@ export class OrgController {
 
     @Post('departments')
     @Roles('CEO', 'HR_MANAGER')
-    createDepartment(@Body() body: { name: string; code: string }) {
-        return this.orgService.createDepartment(body);
+    createDepartment(@Body() dto: CreateDepartmentDto) {
+        return this.orgService.createDepartment(dto);
     }
 
     @Put('departments/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateDepartment(@Param('id') id: string, @Body() body: any) {
-        return this.orgService.updateDepartment(id, body);
+    updateDepartment(@Param('id') id: string, @Body() dto: UpdateDepartmentDto) {
+        return this.orgService.updateDepartment(id, dto);
     }
 
     @Delete('departments/:id')
@@ -109,14 +115,14 @@ export class OrgController {
 
     @Post('positions')
     @Roles('CEO', 'HR_MANAGER')
-    createPosition(@Body() body: { name: string; code: string }) {
-        return this.orgService.createPosition(body);
+    createPosition(@Body() dto: CreatePositionDto) {
+        return this.orgService.createPosition(dto);
     }
 
     @Put('positions/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updatePosition(@Param('id') id: string, @Body() body: any) {
-        return this.orgService.updatePosition(id, body);
+    updatePosition(@Param('id') id: string, @Body() dto: UpdatePositionDto) {
+        return this.orgService.updatePosition(id, dto);
     }
 
     @Delete('positions/:id')

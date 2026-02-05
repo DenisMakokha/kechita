@@ -12,12 +12,13 @@ import { Offer } from './entities/offer.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { EmailService } from '../email/email.service';
 import { CalendarService } from '../email/calendar.service';
+import { randomDigits, uuid } from '../common/id-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 
-interface CreateJobDto {
+export interface CreateJobDto {
     title: string;
     position_id?: string;
     department_id?: string;
@@ -44,6 +45,31 @@ interface CreateJobDto {
     hiring_manager_id?: string;
 }
 
+export interface UpdateJobDto {
+    title?: string;
+    description?: string;
+    responsibilities?: string;
+    requirements?: string;
+    benefits?: string;
+    employment_type?: EmploymentType;
+    experience_level?: ExperienceLevel;
+    salary_min?: number;
+    salary_max?: number;
+    deadline?: string;
+    location?: string;
+    is_remote?: boolean;
+    is_urgent?: boolean;
+    status?: JobStatus;
+}
+
+export interface UpdateCandidateDto {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    phone?: string;
+    status?: CandidateStatus;
+}
+
 interface ApplyJobDto {
     first_name: string;
     last_name: string;
@@ -60,7 +86,7 @@ interface ApplyJobDto {
     custom_responses?: Record<string, string>;
 }
 
-interface ScheduleInterviewDto {
+export interface ScheduleInterviewDto {
     application_id: string;
     type: InterviewType;
     title: string;
@@ -101,7 +127,7 @@ export class RecruitmentService {
 
     private generateJobCode(): string {
         const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        const random = randomDigits(4);
         return `JOB-${year}-${random}`;
     }
 
@@ -126,12 +152,25 @@ export class RecruitmentService {
         return this.jobPostRepo.save(post);
     }
 
-    async updateJobPost(id: string, data: Partial<JobPost>): Promise<JobPost> {
+    async updateJobPost(id: string, dto: UpdateJobDto): Promise<JobPost> {
         const post = await this.jobPostRepo.findOne({ where: { id } });
         if (!post) throw new NotFoundException('Job post not found');
 
-        Object.assign(post, data);
-        if (data.deadline) post.deadline = new Date(data.deadline as any);
+        // Explicit field mapping - no Object.assign
+        if (dto.title !== undefined) post.title = dto.title;
+        if (dto.description !== undefined) post.description = dto.description;
+        if (dto.responsibilities !== undefined) post.responsibilities = dto.responsibilities;
+        if (dto.requirements !== undefined) post.requirements = dto.requirements;
+        if (dto.benefits !== undefined) post.benefits = dto.benefits;
+        if (dto.employment_type !== undefined) post.employment_type = dto.employment_type;
+        if (dto.experience_level !== undefined) post.experience_level = dto.experience_level;
+        if (dto.salary_min !== undefined) post.salary_min = dto.salary_min;
+        if (dto.salary_max !== undefined) post.salary_max = dto.salary_max;
+        if (dto.deadline !== undefined) post.deadline = new Date(dto.deadline);
+        if (dto.location !== undefined) post.location = dto.location;
+        if (dto.is_remote !== undefined) post.is_remote = dto.is_remote;
+        if (dto.is_urgent !== undefined) post.is_urgent = dto.is_urgent;
+        if (dto.status !== undefined) post.status = dto.status;
 
         return this.jobPostRepo.save(post);
     }
@@ -202,7 +241,7 @@ export class RecruitmentService {
 
     private generateApplicationNumber(): string {
         const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+        const random = randomDigits(5);
         return `APP-${year}-${random}`;
     }
 
@@ -486,10 +525,17 @@ export class RecruitmentService {
         });
     }
 
-    async updateCandidate(id: string, data: Partial<Candidate>): Promise<Candidate> {
+    async updateCandidate(id: string, dto: UpdateCandidateDto): Promise<Candidate> {
         const candidate = await this.candidateRepo.findOne({ where: { id } });
         if (!candidate) throw new NotFoundException('Candidate not found');
-        Object.assign(candidate, data);
+
+        // Explicit field mapping - no Object.assign
+        if (dto.first_name !== undefined) candidate.first_name = dto.first_name;
+        if (dto.last_name !== undefined) candidate.last_name = dto.last_name;
+        if (dto.email !== undefined) candidate.email = dto.email;
+        if (dto.phone !== undefined) candidate.phone = dto.phone;
+        if (dto.status !== undefined) candidate.status = dto.status;
+
         return this.candidateRepo.save(candidate);
     }
 
@@ -915,7 +961,8 @@ export class RecruitmentService {
     private async generateOfferPdf(offer: Offer, application: Application, notes?: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const doc = new PDFDocument({ margin: 50 });
-            const fileName = `offer-${application.candidate.first_name}-${Date.now()}.pdf`;
+            const safeFirstName = (application.candidate.first_name || 'candidate').replace(/[^a-z0-9_-]/gi, '');
+            const fileName = `offer-${safeFirstName}-${uuid()}.pdf`;
             // Ensure path resolution is correct relative to dist/src/recruitment/recruitment.service.js
             // Or use process.cwd()
             const uploadDir = path.join(process.cwd(), 'uploads', 'offers');

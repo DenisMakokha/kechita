@@ -6,6 +6,8 @@ import { KpiService } from './kpi.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { SubmitReportDto } from './reporting.service';
+import { DailyReportDto } from './kpi.service';
 
 @Controller('reporting')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -19,9 +21,9 @@ export class ReportingController {
     @Roles('BRANCH_MANAGER', 'RELATIONSHIP_OFFICER')
     submitDailyReport(
         @Request() req: any,
-        @Body() body: any,
+        @Body() dto: SubmitReportDto,
     ) {
-        return this.reportingService.submitReport(req.user.staff_id, body.branch_id, body);
+        return this.reportingService.submitReport(req.user.staff_id, dto.branch_id, dto);
     }
 
     @Get('branch/:branchId')
@@ -101,8 +103,8 @@ export class ReportingController {
 
     @Post('kpi/daily')
     @Roles('BRANCH_MANAGER', 'ACCOUNTANT')
-    submitKPIReport(@Body() body: any, @Request() req: any) {
-        return this.kpiService.submitDailyReport(body, req.user?.staff_id);
+    submitKPIReport(@Body() dto: DailyReportDto, @Request() req: any) {
+        return this.kpiService.submitDailyReport(dto, req.user?.staff_id);
     }
 
     @Post('kpi/import/csv')

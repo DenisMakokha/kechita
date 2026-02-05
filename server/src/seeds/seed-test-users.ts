@@ -38,8 +38,11 @@ import { Offer } from '../recruitment/entities/offer.entity';
 import { BranchDailyReport } from '../reporting/entities/branch-daily-report.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-test-users');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

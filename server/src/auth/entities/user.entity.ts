@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToMany, JoinTable, OneToOne } from 'typeorm';
 import { Role } from './role.entity';
+import { Staff } from '../../staff/entities/staff.entity';
 
 @Entity('users')
 export class User {
@@ -28,6 +29,7 @@ export class User {
 
     // Inverse relation to Staff - will be populated when joined
     // Note: We use a lazy loading approach to avoid circular dependency
-    staff?: any;
+    @OneToOne(() => Staff, (staff) => staff.user)
+    staff?: Staff;
 }
 

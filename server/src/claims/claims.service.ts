@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -7,6 +7,7 @@ import { ClaimType } from './entities/claim-type.entity';
 import { ClaimItem, ClaimItemStatus } from './entities/claim-item.entity';
 import { ApprovalService, ApprovalCompletedEvent } from '../approval/approval.service';
 import { Staff } from '../staff/entities/staff.entity';
+import { randomDigits } from '../common/id-utils';
 
 interface SubmitClaimDto {
     purpose?: string;
@@ -36,6 +37,8 @@ interface ClaimItemReview {
 
 @Injectable()
 export class ClaimsService {
+    private readonly logger = new Logger(ClaimsService.name);
+
     constructor(
         @InjectRepository(Claim)
         private claimRepo: Repository<Claim>,
@@ -80,7 +83,7 @@ export class ClaimsService {
         }
 
         await this.claimRepo.save(claim);
-        console.log(`Claim ${claim.claim_number} status updated to ${claim.status}`);
+        this.logger.log(`Claim ${claim.claim_number} status updated to ${claim.status}`);
     }
 
     // ==================== CLAIM TYPES ====================
@@ -137,7 +140,7 @@ export class ClaimsService {
 
     private generateClaimNumber(): string {
         const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+        const random = randomDigits(5);
         return `CLM-${year}-${random}`;
     }
 
@@ -254,11 +257,12 @@ export class ClaimsService {
         }
     }
 
-    async saveDraft(staffId: string, dto: SubmitClaimDto): Promise<Claim> {
+    async saveDraft(staffId: string, dto: Partial<SubmitClaimDto>): Promise<Claim> {
         const staff = await this.staffRepo.findOne({ where: { id: staffId } });
         if (!staff) throw new NotFoundException('Staff not found');
 
-        const totalAmount = dto.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+        const items = dto.items || [];
+        const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
         const claim = this.claimRepo.create({
             claim_number: this.generateClaimNumber(),
@@ -275,7 +279,7 @@ export class ClaimsService {
         const savedClaim = await this.claimRepo.save(claim);
 
         // Save items
-        for (const itemData of dto.items) {
+        for (const itemData of items) {
             const claimType = await this.claimTypeRepo.findOne({ where: { id: itemData.claim_type_id } });
             if (!claimType) continue;
 

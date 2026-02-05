@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { DocumentService } from './services/document.service';
+import { DocumentService, UploadedFile as ServiceUploadedFile } from './services/document.service';
+import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -64,12 +65,20 @@ export class DocumentController {
     }))
     async uploadFile(
         @UploadedFile() file: Express.Multer.File,
-        @Request() req: any,
+        @Request() req: AuthenticatedRequest,
     ) {
         if (!file) {
             throw new BadRequestException('No file provided');
         }
-        return this.documentService.uploadFile(file as any, req.user?.staff_id);
+        const uploadedFile: ServiceUploadedFile = {
+            fieldname: file.fieldname,
+            originalname: file.originalname,
+            encoding: file.encoding || 'utf-8',
+            mimetype: file.mimetype,
+            size: file.size,
+            buffer: file.buffer,
+        };
+        return this.documentService.uploadFile(uploadedFile, req.user.staff_id);
     }
 
     @Post('staff/:staffId/upload')
@@ -108,10 +117,18 @@ export class DocumentController {
             throw new BadRequestException('documentTypeId is required');
         }
 
+        const uploadedFile: ServiceUploadedFile = {
+            fieldname: file.fieldname,
+            originalname: file.originalname,
+            encoding: file.encoding || 'utf-8',
+            mimetype: file.mimetype,
+            size: file.size,
+            buffer: file.buffer,
+        };
         return this.documentService.uploadStaffDocument(
             staffId,
             documentTypeId,
-            file as any,
+            uploadedFile,
             {
                 expiryDate: expiryDate ? new Date(expiryDate) : undefined,
                 issueDate: issueDate ? new Date(issueDate) : undefined,

@@ -8,10 +8,17 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { uuid } from '../common/id-utils';
 import { JobStatus } from './entities/job-post.entity';
 import { ApplicationStatus } from './entities/application.entity';
 import { CandidateStatus } from './entities/candidate.entity';
 import { InterviewOutcome } from './entities/interview.entity';
+import {
+    CreateJobPostDto, UpdateJobPostDto, ApplyToJobDto, UpdateCandidateDto,
+    ScheduleInterviewDto, CreatePipelineStageDto, UpdatePipelineStageDto,
+    CreateOfferDto,
+} from './dto/recruitment.dto';
+import { UpdateBackgroundCheckDto } from './background-check.service';
 
 @Controller('recruitment')
 export class RecruitmentController {
@@ -42,21 +49,18 @@ export class RecruitmentController {
         storage: diskStorage({
             destination: './uploads/resumes',
             filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                return cb(null, `${randomName}${extname(file.originalname)}`);
+                return cb(null, `${uuid()}${extname(file.originalname)}`);
             }
         })
     }))
     applyToJob(
         @Param('id') id: string,
-        @Body() body: any,
+        @Body() dto: ApplyToJobDto,
         @UploadedFile() file: any,
     ) {
         const applicationData = {
-            ...body,
-            years_of_experience: body.years_of_experience ? Number(body.years_of_experience) : undefined,
-            expected_salary: body.expected_salary ? Number(body.expected_salary) : undefined,
-            resume_url: file ? `/uploads/resumes/${file.filename}` : body.resume_url,
+            ...dto,
+            resume_url: file ? `/uploads/resumes/${file.filename}` : undefined,
         };
         return this.recruitmentService.applyToJob(id, applicationData);
     }
@@ -88,15 +92,15 @@ export class RecruitmentController {
     @Post('jobs')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    createJobPost(@Body() body: any, @Request() req: any) {
-        return this.recruitmentService.createJobPost(body, req.user?.staff_id);
+    createJobPost(@Body() dto: CreateJobPostDto, @Request() req: any) {
+        return this.recruitmentService.createJobPost(dto, req.user?.staff_id);
     }
 
     @Put('jobs/:id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    updateJobPost(@Param('id') id: string, @Body() body: any) {
-        return this.recruitmentService.updateJobPost(id, body);
+    updateJobPost(@Param('id') id: string, @Body() dto: UpdateJobPostDto) {
+        return this.recruitmentService.updateJobPost(id, dto);
     }
 
     @Patch('jobs/:id/publish')
@@ -213,8 +217,8 @@ export class RecruitmentController {
     @Put('candidates/:id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    updateCandidate(@Param('id') id: string, @Body() body: any) {
-        return this.recruitmentService.updateCandidate(id, body);
+    updateCandidate(@Param('id') id: string, @Body() dto: UpdateCandidateDto) {
+        return this.recruitmentService.updateCandidate(id, dto);
     }
 
     @Post('candidates/:id/notes')
@@ -264,8 +268,8 @@ export class RecruitmentController {
     @Post('interviews')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    scheduleInterview(@Body() body: any, @Request() req: any) {
-        return this.recruitmentService.scheduleInterview(body, req.user?.staff_id);
+    scheduleInterview(@Body() dto: ScheduleInterviewDto, @Request() req: any) {
+        return this.recruitmentService.scheduleInterview(dto, req.user?.staff_id);
     }
 
     @Patch('interviews/:id/feedback')
@@ -324,15 +328,15 @@ export class RecruitmentController {
     @Post('stages')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    createPipelineStage(@Body() body: any) {
-        return this.recruitmentService.createPipelineStage(body);
+    createPipelineStage(@Body() dto: CreatePipelineStageDto) {
+        return this.recruitmentService.createPipelineStage(dto);
     }
 
     @Put('stages/:id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    updatePipelineStage(@Param('id') id: string, @Body() body: any) {
-        return this.recruitmentService.updatePipelineStage(id, body);
+    updatePipelineStage(@Param('id') id: string, @Body() dto: UpdatePipelineStageDto) {
+        return this.recruitmentService.updatePipelineStage(id, dto);
     }
 
     // ==================== DASHBOARD ====================
@@ -349,8 +353,8 @@ export class RecruitmentController {
     @Post('applications/:id/offer')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    createOffer(@Param('id') id: string, @Body() body: any, @Request() req: any) {
-        return this.recruitmentService.createOffer(id, body, req.user?.id);
+    createOffer(@Param('id') id: string, @Body() dto: CreateOfferDto, @Request() req: any) {
+        return this.recruitmentService.createOffer(id, dto, req.user?.id);
     }
 
     // ==================== BACKGROUND CHECKS ====================
@@ -386,8 +390,8 @@ export class RecruitmentController {
     @Patch('background-checks/:id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    updateBackgroundCheck(@Param('id') id: string, @Body() body: any) {
-        return this.backgroundCheckService.updateBackgroundCheck(id, body);
+    updateBackgroundCheck(@Param('id') id: string, @Body() dto: UpdateBackgroundCheckDto) {
+        return this.backgroundCheckService.updateBackgroundCheck(id, dto);
     }
 
     @Patch('background-checks/:id/review')

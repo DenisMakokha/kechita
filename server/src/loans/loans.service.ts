@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -6,6 +6,7 @@ import { StaffLoan, LoanType, LoanStatus } from './entities/staff-loan.entity';
 import { StaffLoanRepayment, RepaymentStatus } from './entities/staff-loan-repayment.entity';
 import { ApprovalService, ApprovalCompletedEvent } from '../approval/approval.service';
 import { Staff } from '../staff/entities/staff.entity';
+import { randomDigits } from '../common/id-utils';
 
 interface ApplyLoanDto {
     loan_type: LoanType;
@@ -29,6 +30,8 @@ interface RecordPaymentDto {
 
 @Injectable()
 export class LoansService {
+    private readonly logger = new Logger(LoansService.name);
+
     constructor(
         @InjectRepository(StaffLoan)
         private loanRepo: Repository<StaffLoan>,
@@ -66,7 +69,7 @@ export class LoansService {
         }
 
         await this.loanRepo.save(loan);
-        console.log(`Loan ${loan.loan_number} status updated to ${loan.status}`);
+        this.logger.log(`Loan ${loan.loan_number} status updated to ${loan.status}`);
     }
 
     // ==================== LOAN APPLICATION ====================
@@ -74,7 +77,7 @@ export class LoansService {
     private generateLoanNumber(type: LoanType): string {
         const prefix = type === LoanType.SALARY_ADVANCE ? 'ADV' : type === LoanType.EMERGENCY_LOAN ? 'EMG' : 'LN';
         const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+        const random = randomDigits(5);
         return `${prefix}-${year}-${random}`;
     }
 

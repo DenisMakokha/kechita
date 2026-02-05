@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Between, LessThanOrEqual, MoreThanOrEqual, In, IsNull, Not } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -81,6 +81,8 @@ export interface LeaveConflictAnalysis {
 
 @Injectable()
 export class LeaveService {
+    private readonly logger = new Logger(LeaveService.name);
+
     constructor(
         @InjectRepository(LeaveType)
         private leaveTypeRepo: Repository<LeaveType>,
@@ -107,7 +109,7 @@ export class LeaveService {
         } else if (event.status === 'rejected') {
             await this.onLeaveRejected(event.targetId, event.comment);
         }
-        console.log(`Leave ${event.targetId} status updated to ${event.status}`);
+        this.logger.log(`Leave ${event.targetId} status updated to ${event.status}`);
     }
 
     // ==================== LEAVE TYPES ====================

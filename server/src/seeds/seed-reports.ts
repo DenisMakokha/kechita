@@ -1,7 +1,10 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-reports', { destructive: true });
 
 const AppDataSource = new DataSource({
     type: 'postgres',

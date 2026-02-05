@@ -20,15 +20,12 @@ export const LoginPage: React.FC = () => {
             const response = await api.post('/auth/login', { email, password });
             const { access_token } = response.data;
 
-            // Decode JWT to get user info (simplified)
-            const payload = JSON.parse(atob(access_token.split('.')[1]));
-            const user = {
-                id: payload.sub,
-                email: payload.email,
-                roles: payload.roles.map((code: string) => ({ code })),
-            };
+            // Ensure subsequent requests include the token
+            localStorage.setItem('token', access_token);
 
-            login(access_token, user);
+            // Fetch canonical profile from server
+            const meResponse = await api.get('/auth/me');
+            login(access_token, meResponse.data);
             navigate('/dashboard');
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed');

@@ -84,6 +84,13 @@ import { PettyCashReconciliation } from './petty-cash/entities/petty-cash-reconc
 // Communications Entities
 import { Announcement, AnnouncementRead } from './communications/entities/announcement.entity';
 
+const shouldSynchronize = (() => {
+  const fromEnv = process.env.DB_SYNCHRONIZE;
+  if (fromEnv === 'true') return true;
+  if (fromEnv === 'false') return false;
+  return process.env.NODE_ENV !== 'production';
+})();
+
 @Module({
   imports: [
     ServeStaticModule.forRoot({
@@ -131,7 +138,7 @@ import { Announcement, AnnouncementRead } from './communications/entities/announ
         // Communications
         Announcement, AnnouncementRead,
       ],
-      synchronize: true,
+      synchronize: shouldSynchronize,
     }),
     AuthModule,
     OrgModule,

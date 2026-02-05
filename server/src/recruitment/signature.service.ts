@@ -56,7 +56,10 @@ export class SignatureService {
         const saved = await this.signatureRepo.save(signature);
 
         // Send signature request email
-        const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:5173';
+        const frontendUrl = this.configService.get('FRONTEND_URL');
+        if (!frontendUrl) {
+            throw new Error('FRONTEND_URL environment variable is required for signature requests');
+        }
         const signatureUrl = `${frontendUrl}/offer/sign/${saved.signature_token}`;
 
         // Get job post title via application
@@ -241,8 +244,10 @@ export class SignatureService {
     }
 
     getSigningUrl(token: string): string {
-        // This would be configured based on your frontend URL
-        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const baseUrl = this.configService.get('FRONTEND_URL');
+        if (!baseUrl) {
+            throw new Error('FRONTEND_URL environment variable is required');
+        }
         return `${baseUrl}/offer/sign/${token}`;
     }
 

@@ -5,8 +5,11 @@ import { OnboardingTemplate } from '../staff/entities/onboarding-template.entity
 import { OnboardingTask, TaskCategory } from '../staff/entities/onboarding-task.entity';
 import { Position } from '../org/entities/position.entity';
 import { Department } from '../org/entities/department.entity';
+import { assertSeedingEnabled } from './seed-utils';
 
 dotenv.config();
+
+assertSeedingEnabled('seed-staff');
 
 const AppDataSource = new DataSource({
     type: 'postgres',

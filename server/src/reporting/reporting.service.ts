@@ -22,6 +22,23 @@ export interface MonthlyTrend {
     par: number;
 }
 
+export interface SubmitReportDto {
+    branch_id: string;
+    report_date?: string;
+    loans_new_count?: number;
+    loans_disbursed_amount?: number;
+    recoveries_amount?: number;
+    arrears_collected?: number;
+    prepayments_due?: number;
+    par_amount?: number;
+    par_ratio?: number;
+    par_1_30?: number;
+    par_31_60?: number;
+    par_61_90?: number;
+    par_90_plus?: number;
+    manager_comment?: string;
+}
+
 export interface AnalyticsSummary {
     period: { start: Date; end: Date };
     totalDisbursed: number;
@@ -59,12 +76,24 @@ export class ReportingService {
         private reportRepo: Repository<BranchDailyReport>,
     ) { }
 
-    async submitReport(staffId: string, branchId: string, data: Partial<BranchDailyReport>) {
+    async submitReport(staffId: string, branchId: string, dto: SubmitReportDto) {
         const report = this.reportRepo.create({
-            ...data,
             branch: { id: branchId } as any,
             submittedBy: { id: staffId } as any,
             status: 'submitted',
+            report_date: dto.report_date ? new Date(dto.report_date) : new Date(),
+            loans_new_count: dto.loans_new_count,
+            loans_disbursed_amount: dto.loans_disbursed_amount,
+            recoveries_amount: dto.recoveries_amount,
+            arrears_collected: dto.arrears_collected,
+            prepayments_due: dto.prepayments_due,
+            par_amount: dto.par_amount,
+            par_ratio: dto.par_ratio,
+            par_1_30: dto.par_1_30,
+            par_31_60: dto.par_31_60,
+            par_61_90: dto.par_61_90,
+            par_90_plus: dto.par_90_plus,
+            manager_comment: dto.manager_comment,
         });
         return this.reportRepo.save(report);
     }

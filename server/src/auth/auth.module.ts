@@ -8,15 +8,22 @@ import { AuthController } from './auth.controller';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { JwtStrategy } from './jwt.strategy';
+import { Staff } from '../staff/entities/staff.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User, Role]),
+        TypeOrmModule.forFeature([User, Role, Staff]),
         PassportModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => ({
-                secret: configService.get<string>('JWT_SECRET') || 'supersecretkey',
+                secret: (() => {
+                    const secret = configService.get<string>('JWT_SECRET');
+                    if (!secret) {
+                        throw new Error('JWT_SECRET is required');
+                    }
+                    return secret;
+                })(),
                 signOptions: { expiresIn: '60m' },
             }),
             inject: [ConfigService],

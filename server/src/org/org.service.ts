@@ -20,7 +20,7 @@ export class OrgService {
     ) { }
 
     // Regions
-    async createRegion(data: { name: string; code: string }) {
+    async createRegion(data: { name: string; code?: string; description?: string }) {
         const region = this.regionRepo.create(data);
         return this.regionRepo.save(region);
     }
@@ -46,13 +46,13 @@ export class OrgService {
     }
 
     // Branches
-    async createBranch(data: { name: string; code: string; region_id: string }) {
+    async createBranch(data: { name: string; code?: string; region_id: string }) {
         const region = await this.regionRepo.findOne({ where: { id: data.region_id } });
         if (!region) throw new NotFoundException('Region not found');
 
         const branch = this.branchRepo.create({
             name: data.name,
-            code: data.code,
+            code: data.code || data.name.toUpperCase().replace(/\s+/g, '_').slice(0, 10),
             region,
         });
         return this.branchRepo.save(branch);
@@ -80,7 +80,7 @@ export class OrgService {
     }
 
     // Departments
-    async createDepartment(data: { name: string; code: string }) {
+    async createDepartment(data: { name: string; code?: string; description?: string }) {
         const department = this.departmentRepo.create(data);
         return this.departmentRepo.save(department);
     }
@@ -106,7 +106,7 @@ export class OrgService {
     }
 
     // Positions
-    async createPosition(data: { name: string; code: string }) {
+    async createPosition(data: { name: string; code?: string; description?: string; level?: number }) {
         const position = this.positionRepo.create(data);
         return this.positionRepo.save(position);
     }
