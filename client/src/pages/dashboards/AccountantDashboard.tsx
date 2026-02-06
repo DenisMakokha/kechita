@@ -167,14 +167,14 @@ export default function AccountantDashboard() {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+                <div className="bg-[#0066B3] rounded-2xl p-5 text-white shadow-lg">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-purple-100 text-sm">Total Collected</p>
+                            <p className="text-blue-100 text-sm">Total Collected</p>
                             <p className="text-2xl font-bold mt-1">
                                 {formatCurrency(loanStats?.totalCollected || 0)}
                             </p>
-                            <p className="text-purple-100 text-xs mt-1 flex items-center gap-1">
+                            <p className="text-blue-100 text-xs mt-1 flex items-center gap-1">
                                 <ArrowUpRight className="w-3 h-3" />
                                 Repayments received
                             </p>

@@ -8,11 +8,15 @@ import {
     Query,
     Body,
     UseGuards,
-    Request,
+    Req,
+    ParseUUIDPipe,
+    BadRequestException,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { NotificationType } from './entities/notification.entity';
+import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
+import { MarkMultipleReadDto, UpdatePreferenceDto } from './dto/notification.dto';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -21,12 +25,14 @@ export class NotificationController {
 
     @Get()
     async getNotifications(
-        @Request() req: any,
+        @Req() req: AuthenticatedRequest,
         @Query('unreadOnly') unreadOnly?: string,
         @Query('limit') limit?: string,
         @Query('offset') offset?: string,
         @Query('types') types?: string,
     ) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
         const options = {
             unreadOnly: unreadOnly === 'true',
             limit: limit ? parseInt(limit, 10) : 50,
@@ -34,71 +40,84 @@ export class NotificationController {
             types: types ? (types.split(',') as NotificationType[]) : undefined,
         };
 
-        return this.notificationService.getUserNotifications(req.user.sub, options);
+        return this.notificationService.getUserNotifications(userId, options);
     }
 
     @Get('unread-count')
-    async getUnreadCount(@Request() req: any) {
-        const count = await this.notificationService.getUnreadCount(req.user.sub);
+    async getUnreadCount(@Req() req: AuthenticatedRequest) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        const count = await this.notificationService.getUnreadCount(userId);
         return { count };
     }
 
     @Get('stats')
-    async getStats(@Request() req: any) {
-        return this.notificationService.getStats(req.user.sub);
+    async getStats(@Req() req: AuthenticatedRequest) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        return this.notificationService.getStats(userId);
     }
 
     @Patch(':id/read')
-    async markAsRead(@Request() req: any, @Param('id') id: string) {
-        return this.notificationService.markAsRead(id, req.user.sub);
+    async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        return this.notificationService.markAsRead(id, userId);
     }
 
     @Patch('read-all')
-    async markAllAsRead(@Request() req: any) {
-        const count = await this.notificationService.markAllAsRead(req.user.sub);
+    async markAllAsRead(@Req() req: AuthenticatedRequest) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        const count = await this.notificationService.markAllAsRead(userId);
         return { markedAsRead: count };
     }
 
     @Patch('read-multiple')
-    async markMultipleAsRead(@Request() req: any, @Body('ids') ids: string[]) {
-        const count = await this.notificationService.markMultipleAsRead(ids, req.user.sub);
+    async markMultipleAsRead(@Req() req: AuthenticatedRequest, @Body() dto: MarkMultipleReadDto) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        const count = await this.notificationService.markMultipleAsRead(dto.ids, userId);
         return { markedAsRead: count };
     }
 
     @Delete(':id')
-    async deleteNotification(@Request() req: any, @Param('id') id: string) {
-        await this.notificationService.delete(id, req.user.sub);
+    async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        await this.notificationService.delete(id, userId);
         return { deleted: true };
     }
 
     @Delete()
-    async deleteAll(@Request() req: any, @Query('readOnly') readOnly?: string) {
+    async deleteAll(@Req() req: AuthenticatedRequest, @Query('readOnly') readOnly?: string) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
         if (readOnly === 'true') {
-            const count = await this.notificationService.deleteRead(req.user.sub);
+            const count = await this.notificationService.deleteRead(userId);
             return { deleted: count };
         }
-        const count = await this.notificationService.deleteAll(req.user.sub);
+        const count = await this.notificationService.deleteAll(userId);
         return { deleted: count };
     }
 
     // =============== PREFERENCES ===============
 
     @Get('preferences')
-    async getPreferences(@Request() req: any) {
-        return this.notificationService.getPreferences(req.user.sub);
+    async getPreferences(@Req() req: AuthenticatedRequest) {
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        return this.notificationService.getPreferences(userId);
     }
 
     @Patch('preferences/:type')
     async updatePreference(
-        @Request() req: any,
+        @Req() req: AuthenticatedRequest,
         @Param('type') type: NotificationType,
-        @Body() body: {
-            in_app_enabled?: boolean;
-            email_enabled?: boolean;
-            push_enabled?: boolean;
-            sms_enabled?: boolean;
-        },
+        @Body() dto: UpdatePreferenceDto,
     ) {
-        return this.notificationService.updatePreference(req.user.sub, type, body);
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        return this.notificationService.updatePreference(userId, type, dto);
     }
 }

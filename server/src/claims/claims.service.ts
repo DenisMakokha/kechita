@@ -604,4 +604,180 @@ export class ClaimsService {
             })),
         };
     }
+
+    // ==================== ACTIVATE/DEACTIVATE CLAIM TYPE ====================
+
+    async activateClaimType(id: string): Promise<ClaimType> {
+        const claimType = await this.claimTypeRepo.findOne({ where: { id } });
+        if (!claimType) throw new NotFoundException('Claim type not found');
+        claimType.is_active = true;
+        return this.claimTypeRepo.save(claimType);
+    }
+
+    async deactivateClaimType(id: string): Promise<ClaimType> {
+        const claimType = await this.claimTypeRepo.findOne({ where: { id } });
+        if (!claimType) throw new NotFoundException('Claim type not found');
+        claimType.is_active = false;
+        return this.claimTypeRepo.save(claimType);
+    }
+
+    async deleteClaimType(id: string): Promise<{ message: string }> {
+        const claimType = await this.claimTypeRepo.findOne({ where: { id } });
+        if (!claimType) throw new NotFoundException('Claim type not found');
+
+        // Check if type is used in any claims
+        const usedCount = await this.claimItemRepo.count({
+            where: { claimType: { id } },
+        });
+
+        if (usedCount > 0) {
+            throw new BadRequestException(
+                `Cannot delete claim type with ${usedCount} existing claim item(s). Deactivate it instead.`
+            );
+        }
+
+        await this.claimTypeRepo.remove(claimType);
+        return { message: 'Claim type deleted successfully' };
+    }
+
+    // ==================== UPDATE DRAFT ====================
+
+    async updateDraft(
+        claimId: string,
+        staffId: string,
+        data: {
+            purpose?: string;
+            period_start?: string;
+            period_end?: string;
+            is_urgent?: boolean;
+            items?: {
+                claim_type_id: string;
+                description: string;
+                amount: number;
+                expense_date?: string;
+                quantity?: number;
+                unit_price?: number;
+                unit?: string;
+                receipt_number?: string;
+                vendor_name?: string;
+                document_id?: string;
+            }[];
+        },
+    ): Promise<Claim> {
+        const claim = await this.claimRepo.findOne({
+            where: { id: claimId },
+            relations: ['staff', 'items'],
+        });
+
+        if (!claim) throw new NotFoundException('Claim not found');
+        if (claim.staff.id !== staffId) throw new ForbiddenException('You can only update your own claims');
+        if (claim.status !== ClaimStatus.DRAFT) {
+            throw new BadRequestException('Only draft claims can be updated');
+        }
+
+        // Update claim fields
+        if (data.purpose !== undefined) claim.purpose = data.purpose;
+        if (data.period_start) claim.period_start = new Date(data.period_start);
+        if (data.period_end) claim.period_end = new Date(data.period_end);
+        if (data.is_urgent !== undefined) claim.is_urgent = data.is_urgent;
+
+        // Update items if provided
+        if (data.items) {
+            // Remove existing items
+            await this.claimItemRepo.delete({ claim: { id: claimId } });
+
+            // Add new items
+            let totalAmount = 0;
+            for (const itemData of data.items) {
+                const claimType = await this.claimTypeRepo.findOne({
+                    where: { id: itemData.claim_type_id },
+                });
+                if (!claimType) continue;
+
+                const item = this.claimItemRepo.create({
+                    claim,
+                    claimType,
+                    description: itemData.description,
+                    amount: itemData.amount,
+                    expense_date: itemData.expense_date ? new Date(itemData.expense_date) : undefined,
+                    quantity: itemData.quantity,
+                    unit_price: itemData.unit_price,
+                    unit: itemData.unit,
+                    receipt_number: itemData.receipt_number,
+                    vendor_name: itemData.vendor_name,
+                    document_id: itemData.document_id,
+                });
+                await this.claimItemRepo.save(item);
+                totalAmount += Number(itemData.amount);
+            }
+
+            claim.total_amount = totalAmount;
+            claim.has_attachments = data.items.some(i => i.document_id);
+        }
+
+        return this.claimRepo.save(claim);
+    }
+
+    // ==================== TEAM CLAIMS ====================
+
+    async getTeamClaims(managerId: string, status?: ClaimStatus): Promise<Claim[]> {
+        const qb = this.claimRepo.createQueryBuilder('claim')
+            .leftJoinAndSelect('claim.staff', 'staff')
+            .leftJoinAndSelect('claim.items', 'items')
+            .leftJoinAndSelect('items.claimType', 'claimType')
+            .leftJoin('staff.manager', 'manager')
+            .where('manager.id = :managerId', { managerId })
+            .orderBy('claim.created_at', 'DESC');
+
+        if (status) {
+            qb.andWhere('claim.status = :status', { status });
+        }
+
+        return qb.getMany();
+    }
+
+    async getPendingTeamClaims(managerId: string): Promise<Claim[]> {
+        return this.getTeamClaims(managerId, ClaimStatus.SUBMITTED);
+    }
+
+    // ==================== REJECT CLAIM ====================
+
+    async rejectClaim(claimId: string, rejectorStaffId: string, reason: string): Promise<Claim> {
+        const claim = await this.claimRepo.findOne({
+            where: { id: claimId },
+            relations: ['staff', 'items'],
+        });
+
+        if (!claim) throw new NotFoundException('Claim not found');
+        if (claim.status !== ClaimStatus.SUBMITTED && claim.status !== ClaimStatus.UNDER_REVIEW) {
+            throw new BadRequestException('Only submitted or under review claims can be rejected');
+        }
+
+        const rejector = await this.staffRepo.findOne({ where: { id: rejectorStaffId } });
+
+        claim.status = ClaimStatus.REJECTED;
+        claim.rejected_at = new Date();
+        claim.rejection_reason = reason;
+        if (rejector) claim.rejectedBy = rejector;
+
+        return this.claimRepo.save(claim);
+    }
+
+    // ==================== DELETE DRAFT ====================
+
+    async deleteDraft(claimId: string, staffId: string): Promise<{ message: string }> {
+        const claim = await this.claimRepo.findOne({
+            where: { id: claimId },
+            relations: ['staff'],
+        });
+
+        if (!claim) throw new NotFoundException('Claim not found');
+        if (claim.staff.id !== staffId) throw new ForbiddenException('You can only delete your own claims');
+        if (claim.status !== ClaimStatus.DRAFT) {
+            throw new BadRequestException('Only draft claims can be deleted');
+        }
+
+        await this.claimRepo.remove(claim);
+        return { message: 'Draft claim deleted successfully' };
+    }
 }

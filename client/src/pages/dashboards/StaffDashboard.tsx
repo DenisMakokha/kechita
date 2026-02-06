@@ -110,10 +110,8 @@ export const StaffDashboard: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.first_name}!
-                    </h1>
-                    <p className="text-slate-500">Here's what's happening with your requests.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">My Dashboard</h1>
+                    <p className="text-slate-500">Track your requests, balances, and notifications</p>
                 </div>
                 {upcomingHoliday && (
                     <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-[#00AEEF]/10 border border-[#00AEEF]/20 rounded-lg">

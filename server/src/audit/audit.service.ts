@@ -212,4 +212,22 @@ export class AuditService {
 
         return result.affected || 0;
     }
+
+    // ==================== EXPORT ====================
+
+    async exportLogs(filter: AuditLogFilter = {}): Promise<AuditLog[]> {
+        const { data } = await this.findAll({ ...filter, limit: 10000 });
+        return data;
+    }
+
+    async getLogById(id: string): Promise<AuditLog> {
+        const log = await this.auditLogRepo.findOne({
+            where: { id },
+            relations: ['user'],
+        });
+        if (!log) {
+            throw new Error('Audit log not found');
+        }
+        return log;
+    }
 }

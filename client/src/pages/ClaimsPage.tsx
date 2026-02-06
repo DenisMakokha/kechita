@@ -244,14 +244,14 @@ export const ClaimsPage: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <Receipt className="text-purple-500" size={28} />
+                        <Receipt className="text-[#0066B3]" size={28} />
                         Claims Management
                     </h1>
                     <p className="text-slate-500">Submit and track expense claims</p>
                 </div>
                 <button
                     onClick={() => { resetForm(); setShowSubmitModal(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-all shadow-lg hover:shadow-xl"
                 >
                     <Plus size={20} />
                     Submit Claim
@@ -260,7 +260,7 @@ export const ClaimsPage: React.FC = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl p-5 text-white">
+                <div className="bg-[#0066B3] rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-3">
                         <Wallet size={24} className="opacity-80" />
                         <TrendingUp size={20} className="opacity-60" />
@@ -268,7 +268,7 @@ export const ClaimsPage: React.FC = () => {
                     <p className="text-3xl font-bold">
                         {myStats?.total || 0}
                     </p>
-                    <p className="text-purple-100 text-sm">Total Claims</p>
+                    <p className="text-blue-100 text-sm">Total Claims</p>
                 </div>
                 <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-3">
@@ -312,13 +312,13 @@ export const ClaimsPage: React.FC = () => {
             {myStats?.byType && myStats.byType.length > 0 && (
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <BarChart3 size={20} className="text-purple-500" />
+                        <BarChart3 size={20} className="text-[#0066B3]" />
                         Claims by Type
                     </h3>
                     <div className="flex flex-wrap gap-3">
                         {myStats.byType.map((t: any) => (
                             <div key={t.type} className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-lg">
-                                <Receipt size={16} className="text-purple-500" />
+                                <Receipt size={16} className="text-[#0066B3]" />
                                 <div>
                                     <p className="font-medium text-slate-900">{t.type}</p>
                                     <p className="text-xs text-slate-500">
@@ -343,7 +343,7 @@ export const ClaimsPage: React.FC = () => {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key as any)}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.key
-                                ? 'bg-white text-purple-700 shadow-sm'
+                                ? 'bg-white text-[#0066B3] shadow-sm'
                                 : 'text-slate-600 hover:text-slate-900'
                                 }`}
                         >
@@ -360,7 +360,7 @@ export const ClaimsPage: React.FC = () => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search claims..."
-                            className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         />
                     </div>
 
@@ -369,7 +369,7 @@ export const ClaimsPage: React.FC = () => {
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         >
                             <option value="all">All Status</option>
                             <option value="draft">Draft</option>
@@ -403,7 +403,7 @@ export const ClaimsPage: React.FC = () => {
                             <tr>
                                 <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
-                                        <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
+                                        <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full" />
                                         <span>Loading claims...</span>
                                     </div>
                                 </td>
@@ -429,14 +429,14 @@ export const ClaimsPage: React.FC = () => {
                                             {claim.is_urgent && (
                                                 <AlertTriangle className="text-red-500" size={16} />
                                             )}
-                                            <span className="font-mono text-sm text-purple-600">
+                                            <span className="font-mono text-sm text-[#0066B3]">
                                                 {claim.claim_number}
                                             </span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                            <div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold">
                                                 {claim.staff?.first_name?.charAt(0)}
                                             </div>
                                             <div>
@@ -490,7 +490,7 @@ export const ClaimsPage: React.FC = () => {
             {showSubmitModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                             <h2 className="text-xl font-bold text-slate-900">Submit New Claim</h2>
                             <button onClick={() => setShowSubmitModal(false)} className="p-2 hover:bg-white rounded-lg">
                                 <X size={20} />
@@ -509,7 +509,7 @@ export const ClaimsPage: React.FC = () => {
                                         onChange={(e) => setFormData(p => ({ ...p, purpose: e.target.value }))}
                                         rows={2}
                                         placeholder="Brief description of the expense claim..."
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                     />
                                 </div>
 
@@ -522,7 +522,7 @@ export const ClaimsPage: React.FC = () => {
                                             type="date"
                                             value={formData.period_start}
                                             onChange={(e) => setFormData(p => ({ ...p, period_start: e.target.value }))}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                         />
                                     </div>
                                     <div>
@@ -533,7 +533,7 @@ export const ClaimsPage: React.FC = () => {
                                             type="date"
                                             value={formData.period_end}
                                             onChange={(e) => setFormData(p => ({ ...p, period_end: e.target.value }))}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                         />
                                     </div>
                                 </div>
@@ -544,7 +544,7 @@ export const ClaimsPage: React.FC = () => {
                                         id="is_urgent"
                                         checked={formData.is_urgent}
                                         onChange={(e) => setFormData(p => ({ ...p, is_urgent: e.target.checked }))}
-                                        className="w-4 h-4 text-purple-600 rounded"
+                                        className="w-4 h-4 text-[#0066B3] rounded"
                                     />
                                     <label htmlFor="is_urgent" className="text-sm text-slate-700">
                                         Mark as urgent
@@ -558,7 +558,7 @@ export const ClaimsPage: React.FC = () => {
                                     <h3 className="font-semibold text-slate-900">Claim Items</h3>
                                     <button
                                         onClick={addItem}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-[#0066B3] rounded-lg text-sm font-medium hover:bg-blue-200"
                                     >
                                         <Plus size={16} />
                                         Add Item
@@ -571,7 +571,7 @@ export const ClaimsPage: React.FC = () => {
                                         <p className="text-slate-500">No items added yet</p>
                                         <button
                                             onClick={addItem}
-                                            className="mt-2 text-purple-600 font-medium text-sm hover:underline"
+                                            className="mt-2 text-[#0066B3] font-medium text-sm hover:underline"
                                         >
                                             Add your first item
                                         </button>
@@ -659,9 +659,9 @@ export const ClaimsPage: React.FC = () => {
                             </div>
 
                             {/* Total */}
-                            <div className="bg-purple-50 rounded-xl p-4 flex items-center justify-between">
+                            <div className="bg-blue-50 rounded-xl p-4 flex items-center justify-between">
                                 <span className="font-semibold text-slate-900">Total Amount</span>
-                                <span className="text-2xl font-bold text-purple-700">
+                                <span className="text-2xl font-bold text-[#0066B3]">
                                     KES {calculateTotal().toLocaleString()}
                                 </span>
                             </div>
@@ -677,7 +677,7 @@ export const ClaimsPage: React.FC = () => {
                             <button
                                 onClick={() => submitClaimMutation.mutate(formData)}
                                 disabled={formData.items.length === 0 || submitClaimMutation.isPending}
-                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {submitClaimMutation.isPending ? (
                                     <>
@@ -704,7 +704,7 @@ export const ClaimsPage: React.FC = () => {
                                 ? 'bg-gradient-to-r from-emerald-50 to-green-50'
                                 : selectedClaim.status === 'rejected'
                                     ? 'bg-gradient-to-r from-red-50 to-rose-50'
-                                    : 'bg-gradient-to-r from-purple-50 to-pink-50'
+                                    : 'bg-gradient-to-r from-blue-50 to-slate-50'
                             }`}>
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">
@@ -791,7 +791,7 @@ export const ClaimsPage: React.FC = () => {
                                         <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-white rounded-lg">
-                                                    <Receipt size={16} className="text-purple-500" />
+                                                    <Receipt size={16} className="text-[#0066B3]" />
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-slate-900">{item.description}</p>

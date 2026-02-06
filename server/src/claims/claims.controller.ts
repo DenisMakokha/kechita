@@ -1,6 +1,6 @@
 import {
-    Controller, Get, Post, Patch, Body, Param, Query,
-    UseGuards, Request, BadRequestException
+    Controller, Get, Post, Patch, Delete, Body, Param, Query,
+    UseGuards, Req, BadRequestException, ParseUUIDPipe,
 } from '@nestjs/common';
 import { ClaimsService } from './claims.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -8,7 +8,15 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ClaimStatus } from './entities/claim.entity';
 import { ClaimItemStatus } from './entities/claim-item.entity';
-import { CreateClaimTypeDto, UpdateClaimTypeDto, SaveClaimDraftDto } from './dto/claims.dto';
+import {
+    CreateClaimTypeDto,
+    UpdateClaimTypeDto,
+    SaveClaimDraftDto,
+    SubmitClaimDto,
+    ReviewClaimItemsDto,
+    RecordPaymentDto,
+} from './dto/claims.dto';
+import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('claims')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,8 +31,10 @@ export class ClaimsController {
     }
 
     @Get('types/for-me')
-    getClaimTypesForMe(@Request() req: any) {
-        return this.claimsService.getClaimTypesForStaff(req.user.staff_id);
+    getClaimTypesForMe(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.getClaimTypesForStaff(staffId);
     }
 
     @Post('types')
@@ -35,58 +45,48 @@ export class ClaimsController {
 
     @Patch('types/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateClaimType(@Param('id') id: string, @Body() dto: UpdateClaimTypeDto) {
+    updateClaimType(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateClaimTypeDto) {
         return this.claimsService.updateClaimType(id, dto);
     }
 
     // ==================== MY CLAIMS ====================
 
     @Get('my')
-    getMyClaims(@Request() req: any, @Query('status') status?: ClaimStatus) {
-        return this.claimsService.findMyClaims(req.user.staff_id, status);
+    getMyClaims(@Req() req: AuthenticatedRequest, @Query('status') status?: ClaimStatus) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.findMyClaims(staffId, status);
     }
 
     @Post()
-    submitClaim(
-        @Request() req: any,
-        @Body() body: {
-            purpose?: string;
-            period_start?: string;
-            period_end?: string;
-            is_urgent?: boolean;
-            items: {
-                claim_type_id: string;
-                description: string;
-                amount: number;
-                expense_date?: string;
-                quantity?: number;
-                unit_price?: number;
-                unit?: string;
-                receipt_number?: string;
-                vendor_name?: string;
-                document_id?: string;
-            }[];
-        },
-    ) {
-        if (!body.items || body.items.length === 0) {
+    submitClaim(@Req() req: AuthenticatedRequest, @Body() dto: SubmitClaimDto) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!dto.items || dto.items.length === 0) {
             throw new BadRequestException('At least one claim item is required');
         }
-        return this.claimsService.submitClaim(req.user.staff_id, body);
+        return this.claimsService.submitClaim(staffId, dto);
     }
 
     @Post('draft')
-    saveDraft(@Request() req: any, @Body() dto: SaveClaimDraftDto) {
-        return this.claimsService.saveDraft(req.user.staff_id, dto);
+    saveDraft(@Req() req: AuthenticatedRequest, @Body() dto: SaveClaimDraftDto) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.saveDraft(staffId, dto);
     }
 
     @Patch(':id/submit')
-    submitDraft(@Param('id') id: string, @Request() req: any) {
-        return this.claimsService.submitDraft(id, req.user.staff_id);
+    submitDraft(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.submitDraft(id, staffId);
     }
 
     @Patch(':id/cancel')
-    cancelClaim(@Param('id') id: string, @Request() req: any) {
-        return this.claimsService.cancelClaim(id, req.user.staff_id);
+    cancelClaim(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.cancelClaim(id, staffId);
     }
 
     // ==================== ADMIN/FINANCE ====================
@@ -119,15 +119,17 @@ export class ClaimsController {
     }
 
     @Get('my/stats')
-    getMyStats(@Request() req: any, @Query('year') year?: string) {
+    getMyStats(@Req() req: AuthenticatedRequest, @Query('year') year?: string) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
         return this.claimsService.getClaimStats({
-            staffId: req.user.staff_id,
+            staffId,
             year: year ? parseInt(year) : undefined,
         });
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
+    findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.claimsService.findById(id);
     }
 
@@ -136,18 +138,13 @@ export class ClaimsController {
     @Patch(':id/review')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
     reviewItems(
-        @Param('id') id: string,
-        @Request() req: any,
-        @Body() body: {
-            reviews: {
-                item_id: string;
-                approved_amount: number;
-                status: ClaimItemStatus;
-                comment?: string;
-            }[];
-        },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body() dto: ReviewClaimItemsDto,
     ) {
-        return this.claimsService.reviewItems(id, req.user.staff_id, body.reviews);
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.reviewItems(id, staffId, dto.reviews as any);
     }
 
     // ==================== PAYMENT ====================
@@ -155,18 +152,93 @@ export class ClaimsController {
     @Patch(':id/payment')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     recordPayment(
-        @Param('id') id: string,
-        @Body() body: {
-            amount: number;
-            payment_reference: string;
-            payment_method: string;
-        },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: RecordPaymentDto,
     ) {
         return this.claimsService.recordPayment(
             id,
-            body.amount,
-            body.payment_reference,
-            body.payment_method,
+            dto.amount,
+            dto.payment_reference,
+            dto.payment_method,
         );
+    }
+
+    // ==================== CLAIM TYPE ACTIVATION ====================
+
+    @Patch('types/:id/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    activateClaimType(@Param('id', ParseUUIDPipe) id: string) {
+        return this.claimsService.activateClaimType(id);
+    }
+
+    @Patch('types/:id/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    deactivateClaimType(@Param('id', ParseUUIDPipe) id: string) {
+        return this.claimsService.deactivateClaimType(id);
+    }
+
+    @Delete('types/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteClaimType(@Param('id', ParseUUIDPipe) id: string) {
+        return this.claimsService.deleteClaimType(id);
+    }
+
+    // ==================== UPDATE/DELETE DRAFT ====================
+
+    @Patch('draft/:id')
+    updateDraft(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body() dto: SaveClaimDraftDto,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.updateDraft(id, staffId, dto);
+    }
+
+    @Delete('draft/:id')
+    deleteDraft(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.deleteDraft(id, staffId);
+    }
+
+    // ==================== TEAM CLAIMS ====================
+
+    @Get('team')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    getTeamClaims(
+        @Req() req: AuthenticatedRequest,
+        @Query('status') status?: ClaimStatus,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.getTeamClaims(staffId, status);
+    }
+
+    @Get('team/pending')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    getPendingTeamClaims(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.claimsService.getPendingTeamClaims(staffId);
+    }
+
+    // ==================== REJECT CLAIM ====================
+
+    @Patch(':id/reject')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    rejectClaim(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body('reason') reason: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!reason) throw new BadRequestException('Rejection reason is required');
+        return this.claimsService.rejectClaim(id, staffId, reason);
     }
 }

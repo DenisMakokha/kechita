@@ -961,4 +961,217 @@ export class LeaveService {
             await queryRunner.release();
         }
     }
+
+    // ==================== DEACTIVATE LEAVE TYPE ====================
+
+    async deactivateLeaveType(id: string): Promise<LeaveType> {
+        const leaveType = await this.leaveTypeRepo.findOne({ where: { id } });
+        if (!leaveType) throw new NotFoundException('Leave type not found');
+        leaveType.is_active = false;
+        return this.leaveTypeRepo.save(leaveType);
+    }
+
+    async activateLeaveType(id: string): Promise<LeaveType> {
+        const leaveType = await this.leaveTypeRepo.findOne({ where: { id } });
+        if (!leaveType) throw new NotFoundException('Leave type not found');
+        leaveType.is_active = true;
+        return this.leaveTypeRepo.save(leaveType);
+    }
+
+    // ==================== UPDATE PUBLIC HOLIDAY ====================
+
+    async updatePublicHoliday(id: string, data: { name?: string; date?: Date; is_recurring?: boolean }): Promise<PublicHoliday> {
+        const holiday = await this.holidayRepo.findOne({ where: { id } });
+        if (!holiday) throw new NotFoundException('Public holiday not found');
+        
+        if (data.name !== undefined) holiday.name = data.name;
+        if (data.date !== undefined) holiday.date = data.date;
+        if (data.is_recurring !== undefined) holiday.is_recurring = data.is_recurring;
+        
+        return this.holidayRepo.save(holiday);
+    }
+
+    // ==================== RECALL APPROVED LEAVE ====================
+
+    async recallLeave(requestId: string, staffId: string, reason: string): Promise<LeaveRequest> {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            const request = await queryRunner.manager.findOne(LeaveRequest, {
+                where: { id: requestId },
+                relations: ['staff', 'leaveType'],
+            });
+
+            if (!request) throw new NotFoundException('Leave request not found');
+            if (request.staff.id !== staffId) throw new ForbiddenException('You can only recall your own leave');
+            if (request.status !== LeaveRequestStatus.APPROVED) {
+                throw new BadRequestException('Only approved leave can be recalled');
+            }
+
+            // Check if leave has already started
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const startDate = new Date(request.start_date);
+            startDate.setHours(0, 0, 0, 0);
+
+            request.status = LeaveRequestStatus.RECALLED;
+            request.cancellation_reason = reason;
+            request.cancelled_at = new Date();
+
+            // Calculate days to restore
+            let daysToRestore = request.total_days;
+            if (startDate < today) {
+                // Leave already started, calculate remaining days
+                const endDate = new Date(request.end_date);
+                const remainingDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                daysToRestore = Math.max(0, remainingDays);
+            }
+
+            // Restore balance
+            const year = new Date(request.start_date).getFullYear();
+            const balance = await queryRunner.manager.findOne(LeaveBalance, {
+                where: { staff: { id: request.staff.id }, leaveType: { id: request.leaveType.id }, year },
+            });
+
+            if (balance && daysToRestore > 0) {
+                balance.used_days = Math.max(0, Number(balance.used_days) - daysToRestore);
+                await queryRunner.manager.save(balance);
+            }
+
+            await queryRunner.manager.save(request);
+            await queryRunner.commitTransaction();
+
+            return request;
+        } catch (err) {
+            await queryRunner.rollbackTransaction();
+            throw err;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    // ==================== TEAM LEAVE REQUESTS ====================
+
+    async getTeamRequests(managerId: string, status?: LeaveRequestStatus): Promise<LeaveRequest[]> {
+        const qb = this.leaveRequestRepo.createQueryBuilder('request')
+            .leftJoinAndSelect('request.staff', 'staff')
+            .leftJoinAndSelect('request.leaveType', 'leaveType')
+            .leftJoinAndSelect('request.reliever', 'reliever')
+            .leftJoinAndSelect('staff.manager', 'manager')
+            .where('manager.id = :managerId', { managerId })
+            .orderBy('request.requested_at', 'DESC');
+
+        if (status) {
+            qb.andWhere('request.status = :status', { status });
+        }
+
+        return qb.getMany();
+    }
+
+    async getPendingTeamRequests(managerId: string): Promise<LeaveRequest[]> {
+        return this.getTeamRequests(managerId, LeaveRequestStatus.PENDING);
+    }
+
+    // ==================== LEAVE ACCRUAL (for scheduled task) ====================
+
+    async processMonthlyAccrual(year?: number, month?: number): Promise<{ processed: number; errors: string[] }> {
+        const targetYear = year || new Date().getFullYear();
+        const targetMonth = month || new Date().getMonth() + 1;
+        
+        const accrualTypes = await this.leaveTypeRepo.find({
+            where: { is_accrued: true, is_active: true },
+        });
+
+        const activeStaff = await this.staffRepo.find({
+            where: { status: In(['active', 'probation']) },
+        });
+
+        let processed = 0;
+        const errors: string[] = [];
+
+        for (const staff of activeStaff) {
+            for (const leaveType of accrualTypes) {
+                try {
+                    let balance = await this.leaveBalanceRepo.findOne({
+                        where: { staff: { id: staff.id }, leaveType: { id: leaveType.id }, year: targetYear },
+                    });
+
+                    if (!balance) {
+                        balance = this.leaveBalanceRepo.create({
+                            staff,
+                            leaveType,
+                            year: targetYear,
+                            entitled_days: leaveType.max_days_per_year || 0,
+                        });
+                    }
+
+                    const accrualRate = Number(leaveType.monthly_accrual_rate) || 0;
+                    balance.accrued_days = Number(balance.accrued_days) + accrualRate;
+                    
+                    await this.leaveBalanceRepo.save(balance);
+                    processed++;
+                } catch (err) {
+                    errors.push(`Failed to accrue for staff ${staff.id}, type ${leaveType.code}: ${err.message}`);
+                }
+            }
+        }
+
+        this.logger.log(`Monthly accrual processed: ${processed} balances updated for ${targetYear}-${targetMonth}`);
+        return { processed, errors };
+    }
+
+    // ==================== YEAR-END CARRY FORWARD ====================
+
+    async processYearEndCarryForward(fromYear: number): Promise<{ processed: number; errors: string[] }> {
+        const toYear = fromYear + 1;
+        
+        const carryForwardTypes = await this.leaveTypeRepo.find({
+            where: { allow_carry_forward: true, is_active: true },
+        });
+
+        let processed = 0;
+        const errors: string[] = [];
+
+        for (const leaveType of carryForwardTypes) {
+            const balances = await this.leaveBalanceRepo.find({
+                where: { leaveType: { id: leaveType.id }, year: fromYear },
+                relations: ['staff', 'leaveType'],
+            });
+
+            for (const balance of balances) {
+                try {
+                    const availableBalance = balance.available_balance;
+                    if (availableBalance <= 0) continue;
+
+                    const maxCarryForward = leaveType.max_carry_forward_days || availableBalance;
+                    const carryForwardDays = Math.min(availableBalance, maxCarryForward);
+
+                    // Find or create next year's balance
+                    let nextYearBalance = await this.leaveBalanceRepo.findOne({
+                        where: { staff: { id: balance.staff.id }, leaveType: { id: leaveType.id }, year: toYear },
+                    });
+
+                    if (!nextYearBalance) {
+                        nextYearBalance = this.leaveBalanceRepo.create({
+                            staff: balance.staff,
+                            leaveType: balance.leaveType,
+                            year: toYear,
+                            entitled_days: leaveType.max_days_per_year || 0,
+                        });
+                    }
+
+                    nextYearBalance.carried_forward = carryForwardDays;
+                    await this.leaveBalanceRepo.save(nextYearBalance);
+                    processed++;
+                } catch (err) {
+                    errors.push(`Failed carry forward for staff ${balance.staff.id}: ${err.message}`);
+                }
+            }
+        }
+
+        this.logger.log(`Year-end carry forward processed: ${processed} balances from ${fromYear} to ${toYear}`);
+        return { processed, errors };
+    }
 }

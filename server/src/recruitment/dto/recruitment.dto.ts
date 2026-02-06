@@ -305,3 +305,117 @@ export class CreateOfferDto {
 
 // Note: UpdateBackgroundCheckDto is defined in background-check.service.ts
 // Use that interface directly instead of duplicating here
+
+export class UpdateApplicationStageDto {
+    @IsString()
+    @IsNotEmpty()
+    stage_code: string;
+
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
+
+export class StarApplicationDto {
+    @IsBoolean()
+    starred: boolean;
+}
+
+export class RateApplicationDto {
+    @IsNumber()
+    rating: number;
+}
+
+export class AssignApplicationDto {
+    @IsUUID()
+    staff_id: string;
+}
+
+export class AddCandidateNoteDto {
+    @IsString()
+    @IsNotEmpty()
+    content: string;
+}
+
+export class InterviewFeedbackDto {
+    @IsEnum(InterviewOutcome)
+    outcome: InterviewOutcome;
+
+    @IsOptional()
+    @IsNumber()
+    overall_rating?: number;
+
+    @IsOptional()
+    @IsString()
+    feedback?: string;
+
+    @IsOptional()
+    @IsString()
+    strengths?: string;
+
+    @IsOptional()
+    @IsString()
+    weaknesses?: string;
+
+    @IsOptional()
+    competency_scores?: Record<string, number>;
+}
+
+export class RescheduleInterviewDto {
+    @IsDateString()
+    scheduled_at: string;
+
+    @IsOptional()
+    @IsString()
+    reason?: string;
+}
+
+export class CancelInterviewDto {
+    @IsOptional()
+    @IsString()
+    reason?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    will_reschedule?: boolean;
+}
+
+export class ReviewBackgroundCheckDto {
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
+
+export class VerifyReferenceDto {
+    @IsBoolean()
+    verified: boolean;
+
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
+
+export class CreateSignatureRequestDto {
+    @IsOptional()
+    @IsNumber()
+    expires_in_days?: number;
+}
+
+export class SignOfferDto {
+    @IsEnum(['drawn', 'typed', 'uploaded'])
+    signature_type: 'drawn' | 'typed' | 'uploaded';
+
+    @IsOptional()
+    @IsString()
+    signature_data?: string;
+
+    @IsOptional()
+    @IsString()
+    typed_name?: string;
+}
+
+export class DeclineOfferDto {
+    @IsString()
+    @IsNotEmpty()
+    reason: string;
+}

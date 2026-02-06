@@ -75,7 +75,7 @@ export const OfferModal: React.FC<OfferModalProps> = ({ applicationId, candidate
                                 <input
                                     type="number"
                                     required
-                                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3] outline-none"
                                     value={formData.offered_salary}
                                     onChange={e => setFormData({ ...formData, offered_salary: e.target.value })}
                                 />
@@ -84,7 +84,7 @@ export const OfferModal: React.FC<OfferModalProps> = ({ applicationId, candidate
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
                             <select
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3] outline-none"
                                 value={formData.currency}
                                 onChange={e => setFormData({ ...formData, currency: e.target.value })}
                             >
@@ -101,7 +101,7 @@ export const OfferModal: React.FC<OfferModalProps> = ({ applicationId, candidate
                             <input
                                 type="date"
                                 required
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3] outline-none"
                                 value={formData.start_date}
                                 onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                             />
@@ -110,7 +110,7 @@ export const OfferModal: React.FC<OfferModalProps> = ({ applicationId, candidate
                             <label className="block text-sm font-medium text-slate-700 mb-1">Expiration Date</label>
                             <input
                                 type="date"
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3] outline-none"
                                 value={formData.expiration_date}
                                 onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
                             />
@@ -121,7 +121,7 @@ export const OfferModal: React.FC<OfferModalProps> = ({ applicationId, candidate
                         <label className="block text-sm font-medium text-slate-700 mb-1">Additional Terms / Notes</label>
                         <textarea
                             rows={3}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none resize-none"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3] outline-none resize-none"
                             placeholder="e.g. Relocation bonus, stock options..."
                             value={formData.additional_notes}
                             onChange={e => setFormData({ ...formData, additional_notes: e.target.value })}
@@ -139,7 +139,7 @@ export const OfferModal: React.FC<OfferModalProps> = ({ applicationId, candidate
                         <button
                             type="submit"
                             disabled={createOfferMutation.isPending}
-                            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-purple-500/20"
+                            className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-blue-500/20"
                         >
                             {createOfferMutation.isPending ? 'Generating...' : (
                                 <>

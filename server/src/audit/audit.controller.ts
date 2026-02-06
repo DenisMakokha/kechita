@@ -1,9 +1,11 @@
 import {
     Controller,
     Get,
+    Delete,
     Query,
     UseGuards,
     Param,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuditService, AuditLogFilter } from './audit.service';
 import { AuditAction } from './entities/audit-log.entity';
@@ -76,7 +78,7 @@ export class AuditController {
     @Get('user/:userId')
     @Roles('CEO', 'HR_MANAGER')
     async getUserActivity(
-        @Param('userId') userId: string,
+        @Param('userId', ParseUUIDPipe) userId: string,
         @Query('limit') limit?: string,
     ) {
         return this.auditService.findByUser(userId, limit ? parseInt(limit) : 50);
@@ -85,9 +87,41 @@ export class AuditController {
     @Get('user/:userId/logins')
     @Roles('CEO', 'HR_MANAGER')
     async getLoginHistory(
-        @Param('userId') userId: string,
+        @Param('userId', ParseUUIDPipe) userId: string,
         @Query('limit') limit?: string,
     ) {
         return this.auditService.getLoginHistory(userId, limit ? parseInt(limit) : 10);
+    }
+
+    @Get(':id')
+    @Roles('CEO', 'HR_MANAGER')
+    async getLogById(@Param('id', ParseUUIDPipe) id: string) {
+        return this.auditService.getLogById(id);
+    }
+
+    @Get('export/json')
+    @Roles('CEO', 'HR_MANAGER')
+    async exportLogs(
+        @Query('userId') userId?: string,
+        @Query('action') action?: AuditAction,
+        @Query('entityType') entityType?: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.auditService.exportLogs({
+            userId,
+            action,
+            entityType,
+            startDate: startDate ? new Date(startDate) : undefined,
+            endDate: endDate ? new Date(endDate) : undefined,
+        });
+    }
+
+    @Delete('cleanup')
+    @Roles('CEO')
+    async cleanupOldLogs(@Query('days') days?: string) {
+        const retentionDays = days ? parseInt(days) : 90;
+        const deleted = await this.auditService.cleanOldLogs(retentionDays);
+        return { deleted, message: `Deleted ${deleted} logs older than ${retentionDays} days` };
     }
 }

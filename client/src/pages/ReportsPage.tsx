@@ -12,12 +12,11 @@ import {
 } from 'recharts';
 
 const COLORS = {
-    primary: '#7C3AED',
+    primary: '#0066B3',
     secondary: '#3B82F6',
     success: '#22C55E',
     warning: '#F59E0B',
     danger: '#EF4444',
-    purple: '#A855F7',
     teal: '#14B8A6',
     pink: '#EC4899',
 };
@@ -182,7 +181,7 @@ export const ReportsPage: React.FC = () => {
                     <select
                         value={period}
                         onChange={(e) => setPeriod(e.target.value)}
-                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"
                     >
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
@@ -199,7 +198,7 @@ export const ReportsPage: React.FC = () => {
                     <div className="relative group">
                         <button
                             disabled={isExporting}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-all shadow-md disabled:opacity-50"
                         >
                             <Download size={18} />
                             Export
@@ -226,14 +225,14 @@ export const ReportsPage: React.FC = () => {
             </div>
 
             {/* Executive Summary */}
-            <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden">
+            <div className="bg-gradient-to-r from-[#0F172A] via-[#1E3A5F] to-[#0F172A] rounded-2xl p-6 text-white relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0aDR2MWgtNHYtMXptMC0yaDF2NGgtMXYtNHptMi0yaDF2MWgtMXYtMXptLTIgMGgxdjFoLTF2LTF6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50"></div>
                 <div className="relative z-10">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
                         <BarChart3 size={24} />
                         Executive Summary
                         {dashboardData && (
-                            <span className="ml-2 text-sm font-normal text-purple-200">
+                            <span className="ml-2 text-sm font-normal text-blue-200">
                                 ({new Date(dashboardData.period.start).toLocaleDateString()} - {new Date(dashboardData.period.end).toLocaleDateString()})
                             </span>
                         )}
@@ -256,7 +255,7 @@ export const ReportsPage: React.FC = () => {
                                 <p className="text-3xl font-bold">
                                     KES {((dashboardData?.totalDisbursed || 0) / 1000000).toFixed(1)}M
                                 </p>
-                                <p className="text-purple-200 text-sm mt-1">Total Disbursed (MTD)</p>
+                                <p className="text-blue-200 text-sm mt-1">Total Disbursed (MTD)</p>
                             </div>
 
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/10 hover:bg-white/15 transition-colors">
@@ -271,20 +270,20 @@ export const ReportsPage: React.FC = () => {
                                 <p className="text-3xl font-bold">
                                     KES {((dashboardData?.totalRecoveries || 0) / 1000000).toFixed(1)}M
                                 </p>
-                                <p className="text-purple-200 text-sm mt-1">Total Recoveries (MTD)</p>
+                                <p className="text-blue-200 text-sm mt-1">Total Recoveries (MTD)</p>
                             </div>
 
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/10 hover:bg-white/15 transition-colors">
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="p-2 bg-purple-500/20 rounded-lg">
-                                        <Users className="text-purple-400" size={24} />
+                                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                                        <Users className="text-blue-400" size={24} />
                                     </div>
                                     <span className="text-green-400 text-sm flex items-center font-medium">
                                         <TrendingUp size={14} className="mr-1" /> +15
                                     </span>
                                 </div>
                                 <p className="text-3xl font-bold">{dashboardData?.totalNewLoans || 0}</p>
-                                <p className="text-purple-200 text-sm mt-1">New Loans (MTD)</p>
+                                <p className="text-blue-200 text-sm mt-1">New Loans (MTD)</p>
                             </div>
 
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/10 hover:bg-white/15 transition-colors">
@@ -301,7 +300,7 @@ export const ReportsPage: React.FC = () => {
                                     </span>
                                 </div>
                                 <p className="text-3xl font-bold">{(dashboardData?.avgPAR || 0).toFixed(2)}%</p>
-                                <p className="text-purple-200 text-sm mt-1">Portfolio at Risk</p>
+                                <p className="text-blue-200 text-sm mt-1">Portfolio at Risk</p>
                             </div>
                         </div>
                     )}
@@ -313,7 +312,7 @@ export const ReportsPage: React.FC = () => {
                 {/* Monthly Trends Chart */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <TrendingUp className="text-purple-600" size={20} />
+                        <TrendingUp className="text-[#0066B3]" size={20} />
                         Monthly Trends
                     </h3>
                     <div className="h-80">
@@ -424,7 +423,7 @@ export const ReportsPage: React.FC = () => {
                 {/* Staff Distribution */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <Users className="text-purple-600" size={20} />
+                        <Users className="text-[#0066B3]" size={20} />
                         Staff Distribution
                     </h3>
                     <div className="h-64">
@@ -572,23 +571,23 @@ export const ReportsPage: React.FC = () => {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
-                    <h4 className="text-sm font-medium text-purple-100 mb-4">Staff Overview</h4>
+                <div className="bg-[#0066B3] rounded-xl shadow-lg p-6 text-white">
+                    <h4 className="text-sm font-medium text-blue-100 mb-4">Staff Overview</h4>
                     <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                            <span className="text-purple-100">Total Staff</span>
+                            <span className="text-blue-100">Total Staff</span>
                             <span className="font-bold text-xl">{dashboardData?.staffStats.total || 0}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-purple-100">Active</span>
+                            <span className="text-blue-100">Active</span>
                             <span className="font-semibold text-green-300">{dashboardData?.staffStats.active || 0}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-purple-100">On Leave</span>
+                            <span className="text-blue-100">On Leave</span>
                             <span className="font-semibold text-amber-300">{dashboardData?.staffStats.onLeave || 0}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-purple-100">Onboarding</span>
+                            <span className="text-blue-100">Onboarding</span>
                             <span className="font-semibold text-blue-300">{dashboardData?.staffStats.onboarding || 0}</span>
                         </div>
                     </div>

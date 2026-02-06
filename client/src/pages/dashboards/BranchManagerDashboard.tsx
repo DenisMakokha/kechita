@@ -99,13 +99,11 @@ export const BranchManagerDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Branch Dashboard</h1>
-                    <p className="text-slate-500">
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.first_name}! Manage your branch operations.
-                    </p>
+                    <p className="text-slate-500">Manage your team and daily operations</p>
                 </div>
                 <Link
                     to="/reports"
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+                    className="px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-colors font-medium flex items-center gap-2"
                 >
                     <FileText size={18} />
                     Submit Daily Report
@@ -142,7 +140,7 @@ export const BranchManagerDashboard: React.FC = () => {
                     value={leaveStats?.pendingRequests || 0}
                     subtitle="Pending from team"
                     icon={<FileText className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-purple-500 to-pink-600"
+                    color="bg-[#0066B3]"
                     link="/leave"
                 />
             </div>
@@ -213,7 +211,7 @@ export const BranchManagerDashboard: React.FC = () => {
                             </div>
                             <Link
                                 to="/reports"
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-colors font-medium"
                             >
                                 <FileText size={18} />
                                 Submit Report Now
@@ -298,7 +296,7 @@ export const BranchManagerDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
                         <h3 className="text-lg font-semibold text-slate-900">Pending Team Requests</h3>
-                        <Link to="/approvals" className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1">
+                        <Link to="/approvals" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium flex items-center gap-1">
                             View all <ChevronRight size={16} />
                         </Link>
                     </div>
@@ -316,7 +314,7 @@ export const BranchManagerDashboard: React.FC = () => {
                                         ) : approval.targetType === 'claim' ? (
                                             <DollarSign className="text-emerald-500" size={18} />
                                         ) : (
-                                            <FileText className="text-purple-500" size={18} />
+                                            <FileText className="text-[#0066B3]" size={18} />
                                         )}
                                     </div>
                                     <div>

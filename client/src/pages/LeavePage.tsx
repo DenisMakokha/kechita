@@ -155,7 +155,7 @@ export const LeavePage: React.FC = () => {
             case 'rejected': return 'bg-red-100 text-red-700';
             case 'pending': return 'bg-amber-100 text-amber-700';
             case 'cancelled': return 'bg-slate-100 text-slate-700';
-            case 'recalled': return 'bg-purple-100 text-purple-700';
+            case 'recalled': return 'bg-blue-100 text-[#0066B3]';
             default: return 'bg-slate-100 text-slate-700';
         }
     };
@@ -177,7 +177,7 @@ export const LeavePage: React.FC = () => {
                 </div>
                 <button
                     onClick={() => setShowRequestModal(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg shadow-purple-500/25"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-xl font-medium hover:bg-[#005299] transition-all shadow-lg shadow-blue-500/25"
                 >
                     <Plus size={20} />
                     Request Leave
@@ -227,7 +227,7 @@ export const LeavePage: React.FC = () => {
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl">
+                        <div className="p-3 bg-[#0066B3] rounded-xl">
                             <Users className="text-white" size={24} />
                         </div>
                         <div>
@@ -288,13 +288,13 @@ export const LeavePage: React.FC = () => {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key as any)}
                             className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === tab.key
-                                    ? 'text-purple-600'
+                                    ? 'text-[#0066B3]'
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                         >
                             {tab.label}
                             {activeTab === tab.key && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 rounded-full" />
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
                             )}
                         </button>
                     ))}
@@ -385,7 +385,7 @@ export const LeavePage: React.FC = () => {
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                             >
                                 <option value="all">All Status</option>
                                 <option value="pending">Pending</option>
@@ -415,7 +415,7 @@ export const LeavePage: React.FC = () => {
                                     <tr key={leave.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                                <div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold">
                                                     {leave.staff?.first_name?.charAt(0)}
                                                 </div>
                                                 <span className="font-medium text-slate-900">
@@ -553,7 +553,7 @@ const LeaveCalendarView: React.FC<{
             {/* Calendar */}
             <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 overflow-hidden">
                 {/* Calendar Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={prevMonth}
@@ -608,7 +608,7 @@ const LeaveCalendarView: React.FC<{
                                     <div className="flex items-center justify-between mb-1">
                                         <span
                                             className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium ${day.isToday
-                                                    ? 'bg-purple-600 text-white'
+                                                    ? 'bg-[#0066B3] text-white'
                                                     : day.isWeekend
                                                         ? 'text-red-500'
                                                         : 'text-slate-700'
@@ -661,7 +661,7 @@ const LeaveCalendarView: React.FC<{
                         <div className="space-y-3">
                             {staffOnLeave.map((staff: any) => (
                                 <div key={staff.id} className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                    <div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold">
                                         {staff.first_name?.charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -707,7 +707,7 @@ const LeaveCalendarView: React.FC<{
                     <h4 className="font-semibold text-slate-900 mb-3">Legend</h4>
                     <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded bg-purple-600"></span>
+                            <span className="w-3 h-3 rounded bg-[#0066B3]"></span>
                             <span className="text-slate-600">Today</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -828,7 +828,7 @@ const LeaveDetailModal: React.FC<{
                         <div className="bg-slate-50 rounded-xl p-4">
                             <p className="text-sm text-slate-500 mb-2">Reliever</p>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                                <div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">
                                     {leave.reliever.full_name?.charAt(0)}
                                 </div>
                                 <span className="font-medium text-slate-900">{leave.reliever.full_name}</span>
@@ -871,8 +871,8 @@ const ApprovalTimeline: React.FC<{ instance: any }> = ({ instance }) => {
             <div className="space-y-6">
                 {/* Request Created */}
                 <div className="relative flex gap-4">
-                    <div className="relative z-10 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                        <CalendarIcon className="text-purple-600" size={18} />
+                    <div className="relative z-10 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <CalendarIcon className="text-[#0066B3]" size={18} />
                     </div>
                     <div className="flex-1 pb-4">
                         <p className="font-medium text-slate-900">Request Created</p>
@@ -1038,7 +1038,7 @@ const LeaveRequestModal: React.FC<{
                         <select
                             value={formData.leave_type_id}
                             onChange={(e) => setFormData({ ...formData, leave_type_id: e.target.value })}
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                             required
                         >
                             <option value="">Select leave type</option>
@@ -1057,7 +1057,7 @@ const LeaveRequestModal: React.FC<{
                                 type="date"
                                 value={formData.start_date}
                                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                 required
                             />
                         </div>
@@ -1068,7 +1068,7 @@ const LeaveRequestModal: React.FC<{
                                 value={formData.end_date}
                                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                                 min={formData.start_date}
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                 required
                             />
                         </div>
@@ -1080,7 +1080,7 @@ const LeaveRequestModal: React.FC<{
                                 type="checkbox"
                                 checked={formData.is_half_day}
                                 onChange={(e) => setFormData({ ...formData, is_half_day: e.target.checked })}
-                                className="w-4 h-4 text-purple-600 rounded"
+                                className="w-4 h-4 text-[#0066B3] rounded"
                             />
                             <span className="text-sm text-slate-700">Half Day</span>
                         </label>
@@ -1089,7 +1089,7 @@ const LeaveRequestModal: React.FC<{
                                 type="checkbox"
                                 checked={formData.is_emergency}
                                 onChange={(e) => setFormData({ ...formData, is_emergency: e.target.checked })}
-                                className="w-4 h-4 text-purple-600 rounded"
+                                className="w-4 h-4 text-[#0066B3] rounded"
                             />
                             <span className="text-sm text-slate-700">Emergency</span>
                         </label>
@@ -1108,7 +1108,7 @@ const LeaveRequestModal: React.FC<{
                                         className="hidden"
                                     />
                                     <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${formData.half_day_period === 'morning'
-                                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                            ? 'border-[#0066B3] bg-blue-50 text-[#0066B3]'
                                             : 'border-slate-200 hover:border-slate-300'
                                         }`}>
                                         <Sunrise size={18} />
@@ -1124,7 +1124,7 @@ const LeaveRequestModal: React.FC<{
                                         className="hidden"
                                     />
                                     <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${formData.half_day_period === 'afternoon'
-                                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                            ? 'border-[#0066B3] bg-blue-50 text-[#0066B3]'
                                             : 'border-slate-200 hover:border-slate-300'
                                         }`}>
                                         <Moon size={18} />
@@ -1141,7 +1141,7 @@ const LeaveRequestModal: React.FC<{
                             value={formData.reason}
                             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                             rows={3}
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none"
                             placeholder="Briefly describe the reason for your leave..."
                         />
                     </div>
@@ -1152,15 +1152,15 @@ const LeaveRequestModal: React.FC<{
                             type="tel"
                             value={formData.contact_phone}
                             onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                             placeholder="+254..."
                         />
                     </div>
 
-                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
+                    <div className="bg-gradient-to-r from-blue-50 to-slate-50 p-4 rounded-xl border border-blue-100">
                         <div className="flex justify-between items-center">
                             <span className="text-slate-600">Total Working Days:</span>
-                            <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                            <span className="text-3xl font-bold text-[#0066B3]">
                                 {calculateDays()}
                             </span>
                         </div>
@@ -1177,7 +1177,7 @@ const LeaveRequestModal: React.FC<{
                         <button
                             type="submit"
                             disabled={submitMutation.isPending}
-                            className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 transition-all shadow-lg shadow-purple-500/25"
+                            className="flex-1 px-4 py-3 bg-[#0066B3] text-white rounded-xl font-medium hover:bg-[#005299] disabled:opacity-50 transition-all shadow-lg shadow-blue-500/25"
                         >
                             {submitMutation.isPending ? 'Submitting...' : 'Submit Request'}
                         </button>

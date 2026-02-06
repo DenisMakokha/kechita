@@ -8,6 +8,8 @@ import { DocumentController } from './document.controller';
 import { OnboardingController } from './onboarding.controller';
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
+import { DocumentExpiryScheduler } from './services/document-expiry.scheduler';
+import { NotificationModule } from '../notifications/notification.module';
 
 // Staff Entities
 import { Staff } from './entities/staff.entity';
@@ -58,9 +60,10 @@ import { Position } from '../org/entities/position.entity';
     MulterModule.register({
       storage: memoryStorage(),
     }),
+    NotificationModule,
   ],
   controllers: [StaffController, DocumentController, OnboardingController],
-  providers: [StaffService, DocumentService, OnboardingService],
-  exports: [StaffService, DocumentService, OnboardingService],
+  providers: [StaffService, DocumentService, OnboardingService, DocumentExpiryScheduler],
+  exports: [StaffService, DocumentService, OnboardingService, DocumentExpiryScheduler],
 })
 export class StaffModule { }

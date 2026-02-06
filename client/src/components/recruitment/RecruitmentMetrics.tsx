@@ -15,7 +15,7 @@ export const RecruitmentMetrics: React.FC = () => {
 
     const cards = [
         { label: 'Total Applications', value: stats.totalApplications, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Active Jobs', value: stats.activeJobs, icon: Briefcase, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { label: 'Active Jobs', value: stats.activeJobs, icon: Briefcase, color: 'text-[#0066B3]', bg: 'bg-blue-50' },
         { label: 'Time to Hire (Avg)', value: `${stats.avgTimeToHire} Days`, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
         { label: 'Hired Candidates', value: stats.hiredCount, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
     ];
@@ -87,8 +87,8 @@ export const RecruitmentMetrics: React.FC = () => {
                                 <p className="text-sm text-slate-600">New Applications (This Week)</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
-                            <div className="p-2 bg-white rounded-lg shadow-sm"><TrendingUp className="text-purple-500" size={24} /></div>
+                        <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                            <div className="p-2 bg-white rounded-lg shadow-sm"><TrendingUp className="text-[#0066B3]" size={24} /></div>
                             <div>
                                 <p className="text-lg font-bold text-slate-900">+{Math.round((stats.newThisWeek / (stats.totalApplications || 1)) * 100)}%</p>
                                 <p className="text-sm text-slate-600">Growth in applicant pool</p>

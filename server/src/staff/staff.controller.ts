@@ -1,7 +1,7 @@
 import {
     Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
     UseGuards, UseInterceptors, UploadedFile, Req, Res, BadRequestException,
-    ParseFilePipeBuilder, HttpStatus,
+    ParseFilePipeBuilder, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StaffService } from './staff.service';
@@ -68,44 +68,44 @@ export class StaffController {
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
+    findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.findOne(id);
     }
 
     @Get(':id/direct-reports')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
-    getDirectReports(@Param('id') id: string) {
+    getDirectReports(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.getDirectReports(id);
     }
 
     @Get(':id/team-hierarchy')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
-    getTeamHierarchy(@Param('id') id: string) {
+    getTeamHierarchy(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.getTeamHierarchy(id);
     }
 
     @Put(':id')
     @Roles('CEO', 'HR_MANAGER')
-    update(@Param('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: AuthenticatedRequest) {
+    update(@Param('id', ParseUUIDPipe) id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: AuthenticatedRequest) {
         return this.staffService.update(id, updateStaffDto, req.user.id);
     }
 
     @Patch(':id/activate')
     @Roles('CEO', 'HR_MANAGER')
-    activate(@Param('id') id: string) {
+    activate(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.activateStaff(id);
     }
 
     @Patch(':id/deactivate')
     @Roles('CEO', 'HR_MANAGER')
-    deactivate(@Param('id') id: string, @Body('reason') reason?: string) {
+    deactivate(@Param('id', ParseUUIDPipe) id: string, @Body('reason') reason?: string) {
         return this.staffService.deactivateStaff(id, reason);
     }
 
     @Patch(':id/terminate')
     @Roles('CEO', 'HR_MANAGER')
     terminate(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason: string,
         @Body('terminationDate') terminationDate?: string,
     ) {
@@ -119,7 +119,7 @@ export class StaffController {
     @Patch(':id/probation')
     @Roles('CEO', 'HR_MANAGER')
     updateProbation(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body('status') status: ProbationStatus,
         @Body('notes') notes?: string,
         @Body('extendedUntil') extendedUntil?: string,
@@ -155,20 +155,20 @@ export class StaffController {
     // ==================== STAFF DOCUMENTS ====================
 
     @Get(':staffId/documents')
-    getStaffDocuments(@Param('staffId') staffId: string) {
+    getStaffDocuments(@Param('staffId', ParseUUIDPipe) staffId: string) {
         return this.documentService.getStaffDocuments(staffId);
     }
 
     @Get(':staffId/documents/compliance')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
-    getDocumentCompliance(@Param('staffId') staffId: string) {
+    getDocumentCompliance(@Param('staffId', ParseUUIDPipe) staffId: string) {
         return this.documentService.getStaffDocumentCompliance(staffId);
     }
 
     @Post(':staffId/documents')
     @UseInterceptors(FileInterceptor('file'))
     async uploadDocument(
-        @Param('staffId') staffId: string,
+        @Param('staffId', ParseUUIDPipe) staffId: string,
         @UploadedFile(
             new ParseFilePipeBuilder()
                 .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 }) // 10MB
@@ -207,7 +207,7 @@ export class StaffController {
     @Patch('documents/:docId/verify')
     @Roles('CEO', 'HR_MANAGER')
     verifyDocument(
-        @Param('docId') docId: string,
+        @Param('docId', ParseUUIDPipe) docId: string,
         @Req() req: AuthenticatedRequest,
         @Body('notes') notes?: string,
     ) {
@@ -217,7 +217,7 @@ export class StaffController {
     @Patch('documents/:docId/reject')
     @Roles('CEO', 'HR_MANAGER')
     rejectDocument(
-        @Param('docId') docId: string,
+        @Param('docId', ParseUUIDPipe) docId: string,
         @Body('reason') reason: string,
         @Req() req: AuthenticatedRequest,
     ) {
@@ -226,13 +226,13 @@ export class StaffController {
 
     @Delete('documents/:docId')
     @Roles('CEO', 'HR_MANAGER')
-    deleteDocument(@Param('docId') docId: string) {
+    deleteDocument(@Param('docId', ParseUUIDPipe) docId: string) {
         return this.documentService.deleteStaffDocument(docId);
     }
 
     @Get('documents/file/:documentId')
     async downloadDocument(
-        @Param('documentId') documentId: string,
+        @Param('documentId', ParseUUIDPipe) documentId: string,
         @Res() res: any,
     ) {
         const { buffer, document } = await this.documentService.getDocumentFile(documentId);
@@ -265,7 +265,7 @@ export class StaffController {
 
     @Get('onboarding/templates/:id')
     @Roles('CEO', 'HR_MANAGER')
-    getOnboardingTemplate(@Param('id') id: string) {
+    getOnboardingTemplate(@Param('id', ParseUUIDPipe) id: string) {
         return this.onboardingService.getTemplate(id);
     }
 
@@ -277,31 +277,31 @@ export class StaffController {
 
     @Put('onboarding/templates/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateOnboardingTemplate(@Param('id') id: string, @Body() data: Partial<CreateTemplateDto>) {
+    updateOnboardingTemplate(@Param('id', ParseUUIDPipe) id: string, @Body() data: Partial<CreateTemplateDto>) {
         return this.onboardingService.updateTemplate(id, data);
     }
 
     @Delete('onboarding/templates/:id')
     @Roles('CEO', 'HR_MANAGER')
-    deleteOnboardingTemplate(@Param('id') id: string) {
+    deleteOnboardingTemplate(@Param('id', ParseUUIDPipe) id: string) {
         return this.onboardingService.deleteTemplate(id);
     }
 
     @Post('onboarding/templates/:id/tasks')
     @Roles('CEO', 'HR_MANAGER')
-    addTaskToTemplate(@Param('id') templateId: string, @Body() data: CreateTaskDto) {
+    addTaskToTemplate(@Param('id', ParseUUIDPipe) templateId: string, @Body() data: CreateTaskDto) {
         return this.onboardingService.addTaskToTemplate(templateId, data);
     }
 
     @Put('onboarding/tasks/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateOnboardingTask(@Param('id') taskId: string, @Body() data: Partial<CreateTaskDto>) {
+    updateOnboardingTask(@Param('id', ParseUUIDPipe) taskId: string, @Body() data: Partial<CreateTaskDto>) {
         return this.onboardingService.updateTask(taskId, data);
     }
 
     @Delete('onboarding/tasks/:id')
     @Roles('CEO', 'HR_MANAGER')
-    deleteOnboardingTask(@Param('id') taskId: string) {
+    deleteOnboardingTask(@Param('id', ParseUUIDPipe) taskId: string) {
         return this.onboardingService.deleteTask(taskId);
     }
 
@@ -326,14 +326,14 @@ export class StaffController {
     }
 
     @Get(':staffId/onboarding')
-    getStaffOnboarding(@Param('staffId') staffId: string) {
+    getStaffOnboarding(@Param('staffId', ParseUUIDPipe) staffId: string) {
         return this.onboardingService.getStaffInstance(staffId);
     }
 
     @Post(':staffId/onboarding')
     @Roles('CEO', 'HR_MANAGER')
     createStaffOnboarding(
-        @Param('staffId') staffId: string,
+        @Param('staffId', ParseUUIDPipe) staffId: string,
         @Req() req: AuthenticatedRequest,
         @Body('templateId') templateId?: string,
     ) {
@@ -342,7 +342,7 @@ export class StaffController {
 
     @Patch('onboarding/tasks/:taskStatusId/complete')
     completeOnboardingTask(
-        @Param('taskStatusId') taskStatusId: string,
+        @Param('taskStatusId', ParseUUIDPipe) taskStatusId: string,
         @Req() req: AuthenticatedRequest,
         @Body('notes') notes?: string,
         @Body('documentId') documentId?: string,
@@ -353,10 +353,165 @@ export class StaffController {
     @Patch('onboarding/tasks/:taskStatusId/skip')
     @Roles('CEO', 'HR_MANAGER')
     skipOnboardingTask(
-        @Param('taskStatusId') taskStatusId: string,
+        @Param('taskStatusId', ParseUUIDPipe) taskStatusId: string,
         @Body('reason') reason: string,
         @Req() req: AuthenticatedRequest,
     ) {
         return this.onboardingService.skipTask(taskStatusId, reason, req.user.id);
+    }
+
+    // ==================== EMPLOYMENT HISTORY ====================
+
+    @Get(':staffId/employment-history')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getEmploymentHistory(@Param('staffId', ParseUUIDPipe) staffId: string) {
+        return this.staffService.getEmploymentHistory(staffId);
+    }
+
+    @Post(':staffId/employment-history')
+    @Roles('CEO', 'HR_MANAGER')
+    addEmploymentHistory(
+        @Param('staffId', ParseUUIDPipe) staffId: string,
+        @Body() data: {
+            position_id?: string;
+            region_id?: string;
+            branch_id?: string;
+            employment_type?: string;
+            start_date: string;
+            end_date?: string;
+            change_reason?: string;
+        },
+    ) {
+        return this.staffService.addEmploymentHistory(staffId, {
+            ...data,
+            start_date: new Date(data.start_date),
+            end_date: data.end_date ? new Date(data.end_date) : undefined,
+        });
+    }
+
+    // ==================== TRANSFER ====================
+
+    @Post(':id/transfer')
+    @Roles('CEO', 'HR_MANAGER')
+    transferStaff(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: {
+            region_id?: string;
+            branch_id?: string;
+            position_id?: string;
+            manager_id?: string;
+            effective_date?: string;
+            reason?: string;
+        },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.staffService.transferStaff(
+            id,
+            {
+                ...data,
+                effective_date: data.effective_date ? new Date(data.effective_date) : undefined,
+            },
+            req.user.id,
+        );
+    }
+
+    // ==================== PHOTO UPLOAD ====================
+
+    @Post(':id/photo')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    @UseInterceptors(FileInterceptor('photo'))
+    async uploadPhoto(
+        @Param('id', ParseUUIDPipe) id: string,
+        @UploadedFile(
+            new ParseFilePipeBuilder()
+                .addFileTypeValidator({ fileType: /(jpg|jpeg|png|gif)$/ })
+                .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 }) // 5MB
+                .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+        )
+        file: Express.Multer.File,
+    ) {
+        // Store photo via document service and get URL
+        const doc = await this.documentService.uploadFile(
+            {
+                fieldname: file.fieldname,
+                originalname: file.originalname,
+                encoding: file.encoding || 'utf-8',
+                mimetype: file.mimetype,
+                size: file.size,
+                buffer: file.buffer,
+            },
+            id,
+        );
+        return this.staffService.updatePhoto(id, `/documents/${doc.id}/preview`);
+    }
+
+    // ==================== SELF-SERVICE (MY PROFILE) ====================
+
+    @Get('me/profile')
+    async getMyProfile(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.staffService.findOne(staffId);
+    }
+
+    @Patch('me/profile')
+    async updateMyProfile(
+        @Req() req: AuthenticatedRequest,
+        @Body() data: {
+            phone?: string;
+            alternate_phone?: string;
+            personal_email?: string;
+            address?: string;
+            city?: string;
+            postal_code?: string;
+            emergency_contact_name?: string;
+            emergency_contact_phone?: string;
+            emergency_contact_relationship?: string;
+            bank_name?: string;
+            bank_branch?: string;
+            bank_account_number?: string;
+            bank_account_name?: string;
+        },
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.staffService.updateMyProfile(staffId, data);
+    }
+
+    @Get('me/documents')
+    async getMyDocuments(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.documentService.getStaffDocuments(staffId);
+    }
+
+    @Get('me/employment-history')
+    async getMyEmploymentHistory(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.staffService.getEmploymentHistory(staffId);
+    }
+
+    // ==================== RESIGNATION ====================
+
+    @Post('me/resign')
+    async submitResignation(
+        @Req() req: AuthenticatedRequest,
+        @Body() data: {
+            reason: string;
+            last_working_date: string;
+            notice_period_days?: number;
+        },
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!data.reason) throw new BadRequestException('Resignation reason is required');
+        if (!data.last_working_date) throw new BadRequestException('Last working date is required');
+        
+        return this.staffService.submitResignation(staffId, {
+            reason: data.reason,
+            last_working_date: new Date(data.last_working_date),
+            notice_period_days: data.notice_period_days,
+        });
     }
 }

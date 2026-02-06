@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { OrgService } from './org.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -15,14 +15,29 @@ import {
 export class OrgController {
     constructor(private readonly orgService: OrgService) { }
 
-    // Regions
+    // ==================== STATS ====================
+
+    @Get('stats')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    getOrgStats() {
+        return this.orgService.getOrgStats();
+    }
+
+    @Get('stats/regions')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    getRegionStats() {
+        return this.orgService.getRegionStats();
+    }
+
+    // ==================== REGIONS ====================
+
     @Get('regions')
-    getRegions() {
-        return this.orgService.getRegions();
+    getRegions(@Query('include_inactive') includeInactive?: string) {
+        return this.orgService.getRegions(includeInactive === 'true');
     }
 
     @Get('regions/:id')
-    getRegion(@Param('id') id: string) {
+    getRegion(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.getRegion(id);
     }
 
@@ -34,24 +49,28 @@ export class OrgController {
 
     @Put('regions/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateRegion(@Param('id') id: string, @Body() dto: UpdateRegionDto) {
+    updateRegion(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateRegionDto) {
         return this.orgService.updateRegion(id, dto);
     }
 
     @Delete('regions/:id')
     @Roles('CEO')
-    deleteRegion(@Param('id') id: string) {
+    deleteRegion(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.deleteRegion(id);
     }
 
-    // Branches
+    // ==================== BRANCHES ====================
+
     @Get('branches')
-    getBranches(@Query('region_id') regionId?: string) {
-        return this.orgService.getBranches(regionId);
+    getBranches(
+        @Query('region_id') regionId?: string,
+        @Query('include_inactive') includeInactive?: string,
+    ) {
+        return this.orgService.getBranches(regionId, includeInactive === 'true');
     }
 
     @Get('branches/:id')
-    getBranch(@Param('id') id: string) {
+    getBranch(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.getBranch(id);
     }
 
@@ -63,24 +82,25 @@ export class OrgController {
 
     @Put('branches/:id')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
-    updateBranch(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
+    updateBranch(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateBranchDto) {
         return this.orgService.updateBranch(id, dto);
     }
 
     @Delete('branches/:id')
     @Roles('CEO', 'HR_MANAGER')
-    deleteBranch(@Param('id') id: string) {
+    deleteBranch(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.deleteBranch(id);
     }
 
-    // Departments
+    // ==================== DEPARTMENTS ====================
+
     @Get('departments')
-    getDepartments() {
-        return this.orgService.getDepartments();
+    getDepartments(@Query('include_inactive') includeInactive?: string) {
+        return this.orgService.getDepartments(includeInactive === 'true');
     }
 
     @Get('departments/:id')
-    getDepartment(@Param('id') id: string) {
+    getDepartment(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.getDepartment(id);
     }
 
@@ -92,24 +112,25 @@ export class OrgController {
 
     @Put('departments/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateDepartment(@Param('id') id: string, @Body() dto: UpdateDepartmentDto) {
+    updateDepartment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDepartmentDto) {
         return this.orgService.updateDepartment(id, dto);
     }
 
     @Delete('departments/:id')
     @Roles('CEO')
-    deleteDepartment(@Param('id') id: string) {
+    deleteDepartment(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.deleteDepartment(id);
     }
 
-    // Positions
+    // ==================== POSITIONS ====================
+
     @Get('positions')
-    getPositions() {
-        return this.orgService.getPositions();
+    getPositions(@Query('include_inactive') includeInactive?: string) {
+        return this.orgService.getPositions(includeInactive === 'true');
     }
 
     @Get('positions/:id')
-    getPosition(@Param('id') id: string) {
+    getPosition(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.getPosition(id);
     }
 
@@ -121,13 +142,101 @@ export class OrgController {
 
     @Put('positions/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updatePosition(@Param('id') id: string, @Body() dto: UpdatePositionDto) {
+    updatePosition(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePositionDto) {
         return this.orgService.updatePosition(id, dto);
     }
 
     @Delete('positions/:id')
     @Roles('CEO')
-    deletePosition(@Param('id') id: string) {
+    deletePosition(@Param('id', ParseUUIDPipe) id: string) {
         return this.orgService.deletePosition(id);
+    }
+
+    // ==================== ACTIVATE/DEACTIVATE ====================
+
+    @Post('regions/:id/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    activateRegion(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.activateRegion(id);
+    }
+
+    @Post('regions/:id/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    deactivateRegion(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.deactivateRegion(id);
+    }
+
+    @Post('branches/:id/activate')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    activateBranch(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.activateBranch(id);
+    }
+
+    @Post('branches/:id/deactivate')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    deactivateBranch(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.deactivateBranch(id);
+    }
+
+    @Post('departments/:id/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    activateDepartment(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.activateDepartment(id);
+    }
+
+    @Post('departments/:id/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    deactivateDepartment(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.deactivateDepartment(id);
+    }
+
+    @Post('positions/:id/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    activatePosition(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.activatePosition(id);
+    }
+
+    @Post('positions/:id/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    deactivatePosition(@Param('id', ParseUUIDPipe) id: string) {
+        return this.orgService.deactivatePosition(id);
+    }
+
+    // ==================== ORG CHART ====================
+
+    @Get('chart')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    getOrgChart() {
+        return this.orgService.getOrgChart();
+    }
+
+    // ==================== MANAGER ASSIGNMENT ====================
+
+    @Post('regions/:id/manager')
+    @Roles('CEO', 'HR_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    assignRegionManager(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('manager_id', ParseUUIDPipe) managerId: string,
+    ) {
+        return this.orgService.assignRegionManager(id, managerId);
+    }
+
+    @Post('branches/:id/manager')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    @HttpCode(HttpStatus.OK)
+    assignBranchManager(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('manager_id', ParseUUIDPipe) managerId: string,
+    ) {
+        return this.orgService.assignBranchManager(id, managerId);
     }
 }

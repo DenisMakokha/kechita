@@ -87,9 +87,9 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                        <div className="w-14 h-14 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-xl font-bold shadow-md">
                             {application.candidate?.first_name?.charAt(0)}
                         </div>
                         <div>
@@ -134,14 +134,14 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                 <div className="px-6 py-3 border-b border-slate-200 flex gap-4 bg-white">
                     <button
                         onClick={() => setActiveTab('overview')}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-blue-50 text-[#0066B3]' : 'text-slate-600 hover:bg-slate-50'
                             }`}
                     >
                         <User size={18} /> Overview
                     </button>
                     <button
                         onClick={() => setActiveTab('notes')}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notes' ? 'bg-blue-50 text-[#0066B3]' : 'text-slate-600 hover:bg-slate-50'
                             }`}
                     >
                         <MessageSquare size={18} /> Notes & Activity
@@ -157,7 +157,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                         <form onSubmit={handleAddTag} className="relative">
                             <Tag size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
-                                className="pl-7 pr-2 py-1 bg-slate-50 border border-slate-200 rounded-full text-xs w-32 focus:w-48 transition-all focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                                className="pl-7 pr-2 py-1 bg-slate-50 border border-slate-200 rounded-full text-xs w-32 focus:w-48 transition-all focus:ring-2 focus:ring-blue-200 focus:border-[#0066B3] outline-none"
                                 placeholder="Add tag..."
                                 value={newTag}
                                 onChange={e => setNewTag(e.target.value)}
@@ -175,7 +175,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                            <FileText className="text-purple-500" /> Resume / CV
+                                            <FileText className="text-[#0066B3]" /> Resume / CV
                                         </h3>
                                         {application.candidate?.resume_url && (
                                             <a
@@ -289,7 +289,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                                         onChange={(e) => setNewNote(e.target.value)}
                                         placeholder="Type your note here... (e.g. 'Good culture fit', 'Needs follow up')"
                                         rows={2}
-                                        className="flex-1 px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                        className="flex-1 px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0066B3] focus:border-transparent resize-none"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey) {
                                                 e.preventDefault();
@@ -300,7 +300,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                                     <button
                                         onClick={() => { if (newNote.trim()) addNoteMutation.mutate(newNote); }}
                                         disabled={!newNote.trim() || addNoteMutation.isPending}
-                                        className="px-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center transition-colors"
+                                        className="px-4 bg-[#0066B3] text-white rounded-xl hover:bg-[#005299] disabled:opacity-50 flex items-center justify-center transition-colors"
                                     >
                                         <Send size={20} />
                                     </button>

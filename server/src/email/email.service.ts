@@ -998,5 +998,70 @@ export class EmailService {
             html,
         });
     }
-}
 
+    // ==================== PASSWORD RESET EMAIL ====================
+
+    async sendPasswordResetEmail(data: {
+        email: string;
+        name: string;
+        resetUrl: string;
+        expiresInMinutes: number;
+    }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; }
+        .btn { display: inline-block; background: #7c3aed; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; }
+        .warning { background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; font-size: 14px; }
+        .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 12px; }
+        .code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Password Reset</h1>
+        </div>
+        <div class="content">
+            <p>Dear ${data.name},</p>
+            <p>We received a request to reset your password for your Kechita Staff Portal account.</p>
+            
+            <p>Click the button below to reset your password:</p>
+            
+            <div style="text-align: center;">
+                <a href="${data.resetUrl}" class="btn">Reset Password</a>
+            </div>
+            
+            <div class="warning">
+                <strong>⏰ Important:</strong> This link will expire in ${data.expiresInMinutes} minutes. If you don't reset your password within this time, you'll need to request a new link.
+            </div>
+            
+            <p>If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+            
+            <p style="margin-top: 30px; font-size: 13px; color: #64748b;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <span class="code" style="word-break: break-all;">${data.resetUrl}</span>
+            </p>
+            
+            <p>Best regards,<br>Kechita Microfinance</p>
+        </div>
+        <div class="footer">
+            <p>This is an automated security message. Please do not reply to this email.</p>
+            <p>If you didn't request this, please contact support immediately.</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        return this.sendEmail({
+            to: data.email,
+            subject: '🔐 Password Reset Request - Kechita Staff Portal',
+            html,
+        });
+    }
+}

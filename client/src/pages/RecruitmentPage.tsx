@@ -252,7 +252,7 @@ export const RecruitmentPage: React.FC = () => {
                         placeholder="Search jobs..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                     />
                 </div>
             </div>
@@ -322,7 +322,7 @@ export const RecruitmentPage: React.FC = () => {
                                     )}
                                     <button
                                         onClick={() => { setSelectedJob(job.id); setActiveTab('pipeline'); }}
-                                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+                                        className="px-3 py-1 bg-[#0066B3] text-white text-sm rounded-lg hover:bg-[#005299]"
                                     >
                                         View Pipeline
                                     </button>
@@ -338,7 +338,7 @@ export const RecruitmentPage: React.FC = () => {
                         <p className="text-slate-500">No job posts yet</p>
                         <button
                             onClick={() => setShowJobModal(true)}
-                            className="mt-3 text-purple-600 font-medium hover:underline"
+                            className="mt-3 text-[#0066B3] font-medium hover:underline"
                         >
                             Create your first job post
                         </button>
@@ -356,7 +356,7 @@ export const RecruitmentPage: React.FC = () => {
                     <button
                         onClick={() => setSelectedJob(null)}
                         className={`flex-shrink-0 px-4 py-2 rounded-lg border-2 transition-all ${selectedJob === null
-                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                            ? 'border-[#0066B3] bg-blue-50 text-[#0066B3]'
                             : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                             }`}
                     >
@@ -368,7 +368,7 @@ export const RecruitmentPage: React.FC = () => {
                             key={job.id}
                             onClick={() => setSelectedJob(job.id)}
                             className={`flex-shrink-0 px-4 py-2 rounded-lg border-2 transition-all min-w-[160px] ${selectedJob === job.id
-                                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                ? 'border-[#0066B3] bg-blue-50 text-[#0066B3]'
                                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                                 }`}
                         >
@@ -401,7 +401,7 @@ export const RecruitmentPage: React.FC = () => {
                                     >
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                                <div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold">
                                                     {app.candidate?.first_name?.charAt(0)}
                                                 </div>
                                                 <div>
@@ -480,14 +480,14 @@ export const RecruitmentPage: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <Users className="text-purple-500" />
+                        <Users className="text-[#0066B3]" />
                         Recruitment & ATS
                     </h1>
                     <p className="text-slate-500">Applicant Tracking System</p>
                 </div>
                 <button
                     onClick={() => setShowJobModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-all shadow-lg"
                 >
                     <Plus size={20} />
                     Post New Job
@@ -503,8 +503,8 @@ export const RecruitmentPage: React.FC = () => {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all ${activeTab === tab.key
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-purple-200 hover:text-purple-600'
+                                ? 'bg-[#0066B3] text-white shadow-lg'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-[#0066B3]'
                                 }`}
                         >
                             <Icon size={18} />
@@ -530,7 +530,7 @@ export const RecruitmentPage: React.FC = () => {
                                     placeholder="Search by name, email, skills..."
                                     value={candidateSearch}
                                     onChange={(e) => setCandidateSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                                 />
                             </div>
                             <div className="flex items-center gap-2">
@@ -538,7 +538,7 @@ export const RecruitmentPage: React.FC = () => {
                                 <select
                                     value={candidateStatusFilter}
                                     onChange={(e) => setCandidateStatusFilter(e.target.value)}
-                                    className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                                 >
                                     <option value="all">All Status</option>
                                     <option value="active">Active</option>
@@ -563,11 +563,11 @@ export const RecruitmentPage: React.FC = () => {
                             >
                                 {/* Header */}
                                 <div className="flex items-start gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                                    <div className="w-12 h-12 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
                                         {candidate.first_name?.charAt(0)}{candidate.last_name?.charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
+                                        <h3 className="font-semibold text-slate-900 truncate group-hover:text-[#0066B3] transition-colors">
                                             {candidate.first_name} {candidate.last_name}
                                         </h3>
                                         <p className="text-sm text-slate-500 truncate">{candidate.current_title || 'No title'}</p>
@@ -645,7 +645,7 @@ export const RecruitmentPage: React.FC = () => {
                                 {candidate.tags && candidate.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5 mb-4">
                                         {candidate.tags.slice(0, 3).map((tag) => (
-                                            <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 text-xs rounded border border-purple-100">
+                                            <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-[#0066B3] text-xs rounded border border-blue-100">
                                                 <Tag size={10} />
                                                 {tag}
                                             </span>
@@ -789,7 +789,7 @@ export const RecruitmentPage: React.FC = () => {
             {showJobModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                             <h2 className="text-xl font-bold text-slate-900">Create Job Post</h2>
                             <button onClick={() => setShowJobModal(false)} className="p-2 hover:bg-white rounded-lg">
                                 <X size={20} />
@@ -885,7 +885,7 @@ export const RecruitmentPage: React.FC = () => {
                                         type="checkbox"
                                         checked={jobFormData.is_urgent || false}
                                         onChange={(e) => setJobFormData({ ...jobFormData, is_urgent: e.target.checked })}
-                                        className="w-4 h-4 text-purple-600 rounded"
+                                        className="w-4 h-4 text-[#0066B3] rounded"
                                     />
                                     <span className="text-sm text-slate-700">Urgent Hiring</span>
                                 </label>
@@ -894,7 +894,7 @@ export const RecruitmentPage: React.FC = () => {
                                         type="checkbox"
                                         checked={jobFormData.is_remote || false}
                                         onChange={(e) => setJobFormData({ ...jobFormData, is_remote: e.target.checked })}
-                                        className="w-4 h-4 text-purple-600 rounded"
+                                        className="w-4 h-4 text-[#0066B3] rounded"
                                     />
                                     <span className="text-sm text-slate-700">Remote Position</span>
                                 </label>
@@ -911,7 +911,7 @@ export const RecruitmentPage: React.FC = () => {
                             <button
                                 onClick={() => createJobMutation.mutate(jobFormData)}
                                 disabled={!jobFormData.title || createJobMutation.isPending}
-                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                                className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
                             >
                                 Create Job Post
                             </button>
@@ -953,9 +953,9 @@ export const RecruitmentPage: React.FC = () => {
             {showCandidateModal && selectedCandidate && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-lg font-bold">
+                                <div className="w-12 h-12 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-lg font-bold">
                                     {selectedCandidate.first_name?.charAt(0)}{selectedCandidate.last_name?.charAt(0)}
                                 </div>
                                 <div>
@@ -1087,7 +1087,7 @@ export const RecruitmentPage: React.FC = () => {
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
                                         {selectedCandidate.tags.map((tag) => (
-                                            <span key={tag} className="px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 text-sm rounded-lg">
+                                            <span key={tag} className="px-3 py-1 bg-blue-50 border border-blue-200 text-[#0066B3] text-sm rounded-lg">
                                                 {tag}
                                             </span>
                                         ))}

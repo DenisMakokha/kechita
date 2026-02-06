@@ -74,7 +74,7 @@ export const ApprovalHistoryPage: React.FC = () => {
         switch (type) {
             case 'leave': return <Calendar className="text-blue-500" size={size} />;
             case 'claim': return <DollarSign className="text-emerald-500" size={size} />;
-            case 'staff_loan': return <Briefcase className="text-purple-500" size={size} />;
+            case 'staff_loan': return <Briefcase className="text-[#0066B3]" size={size} />;
             default: return <FileText className="text-slate-500" size={size} />;
         }
     };
@@ -140,7 +140,7 @@ export const ApprovalHistoryPage: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <History className="text-purple-500" size={28} />
+                        <History className="text-[#0066B3]" size={28} />
                         Approval History
                     </h1>
                     <p className="text-slate-500 mt-1">Track and review all your submitted requests</p>
@@ -158,7 +158,7 @@ export const ApprovalHistoryPage: React.FC = () => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search by reference or details..."
-                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         />
                     </div>
 
@@ -168,7 +168,7 @@ export const ApprovalHistoryPage: React.FC = () => {
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         >
                             <option value="all">All Status</option>
                             <option value="approved">Approved</option>
@@ -184,7 +184,7 @@ export const ApprovalHistoryPage: React.FC = () => {
                         <select
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value)}
-                            className="pl-4 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="pl-4 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         >
                             <option value="all">All Types</option>
                             <option value="leave">Leave</option>
@@ -200,14 +200,14 @@ export const ApprovalHistoryPage: React.FC = () => {
                             type="date"
                             value={dateRange.start}
                             onChange={(e) => setDateRange(d => ({ ...d, start: e.target.value }))}
-                            className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         />
                         <ArrowRight size={16} className="text-slate-400" />
                         <input
                             type="date"
                             value={dateRange.end}
                             onChange={(e) => setDateRange(d => ({ ...d, end: e.target.value }))}
-                            className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         />
                     </div>
                 </div>
@@ -219,7 +219,7 @@ export const ApprovalHistoryPage: React.FC = () => {
                 <div className="lg:col-span-2 space-y-4">
                     {isLoading ? (
                         <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
-                            <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
+                            <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full mx-auto mb-4" />
                             <p className="text-slate-500">Loading history...</p>
                         </div>
                     ) : Object.keys(groupedHistory).length === 0 ? (
@@ -235,8 +235,8 @@ export const ApprovalHistoryPage: React.FC = () => {
                             <div key={date}>
                                 {/* Date Header */}
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                                        <Calendar className="text-purple-600" size={18} />
+                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <Calendar className="text-[#0066B3]" size={18} />
                                     </div>
                                     <div>
                                         <p className="font-semibold text-slate-900">
@@ -258,14 +258,14 @@ export const ApprovalHistoryPage: React.FC = () => {
                                             key={item.id}
                                             onClick={() => setSelectedItem(item)}
                                             className={`bg-white rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${selectedItem?.id === item.id
-                                                    ? 'border-purple-500 ring-2 ring-purple-100'
+                                                    ? 'border-[#0066B3] ring-2 ring-blue-100'
                                                     : 'border-slate-200 hover:border-slate-300'
                                                 }`}
                                         >
                                             <div className="flex items-start gap-4">
                                                 <div className={`p-2.5 rounded-xl ${item.target_type === 'leave' ? 'bg-blue-100' :
                                                         item.target_type === 'claim' ? 'bg-emerald-100' :
-                                                            'bg-purple-100'
+                                                            'bg-blue-100'
                                                     }`}>
                                                     {getTypeIcon(item.target_type, 22)}
                                                 </div>
@@ -320,7 +320,7 @@ export const ApprovalHistoryPage: React.FC = () => {
                     {selectedItem ? (
                         <div className="bg-white rounded-xl border border-slate-200 sticky top-6">
                             {/* Header */}
-                            <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-xl">
+                            <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50 rounded-t-xl">
                                 <h3 className="font-semibold text-slate-900">Request Details</h3>
                                 <button
                                     onClick={() => setSelectedItem(null)}
@@ -351,7 +351,7 @@ export const ApprovalHistoryPage: React.FC = () => {
                                     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                         <div className={`p-2 rounded-lg ${selectedItem.target_type === 'leave' ? 'bg-blue-100' :
                                                 selectedItem.target_type === 'claim' ? 'bg-emerald-100' :
-                                                    'bg-purple-100'
+                                                    'bg-blue-100'
                                             }`}>
                                             {getTypeIcon(selectedItem.target_type, 18)}
                                         </div>

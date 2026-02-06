@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import {
     CheckCircle, XCircle, Clock, Calendar, DollarSign, Briefcase,
-    AlertCircle, ChevronRight, MessageSquare, User, Building2,
-    TrendingUp, AlertTriangle, Filter, History, Eye, X,
-    FileText, ArrowRight, RotateCcw, Users, Zap
+    AlertCircle, MessageSquare, User,
+    AlertTriangle, History, Eye, X,
+    FileText, Zap, RotateCcw
 } from 'lucide-react';
 
 interface PendingApproval {
@@ -81,6 +81,13 @@ export const ApprovalsPage: React.FC = () => {
         enabled: !!selectedApproval,
     });
 
+    const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 3000);
+    };
+
     // Mutations
     const approveMutation = useMutation({
         mutationFn: async ({ id, comment }: { id: string; comment?: string }) => {
@@ -91,6 +98,10 @@ export const ApprovalsPage: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['approval-stats'] });
             queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
             setActionModal(null);
+            showToast('Request approved successfully!');
+        },
+        onError: () => {
+            showToast('Failed to approve request', 'error');
         },
     });
 
@@ -103,6 +114,10 @@ export const ApprovalsPage: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['approval-stats'] });
             queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
             setActionModal(null);
+            showToast('Request rejected');
+        },
+        onError: () => {
+            showToast('Failed to reject request', 'error');
         },
     });
 
@@ -110,7 +125,7 @@ export const ApprovalsPage: React.FC = () => {
         switch (type) {
             case 'leave': return <Calendar className="text-blue-500" size={size} />;
             case 'claim': return <DollarSign className="text-green-500" size={size} />;
-            case 'staff_loan': return <Briefcase className="text-purple-500" size={size} />;
+            case 'staff_loan': return <Briefcase className="text-orange-500" size={size} />;
             default: return <AlertCircle className="text-slate-500" size={size} />;
         }
     };
@@ -128,7 +143,7 @@ export const ApprovalsPage: React.FC = () => {
         switch (type) {
             case 'leave': return 'from-blue-400 to-blue-600';
             case 'claim': return 'from-emerald-400 to-green-600';
-            case 'staff_loan': return 'from-purple-400 to-purple-600';
+            case 'staff_loan': return 'from-orange-400 to-orange-600';
             default: return 'from-slate-400 to-slate-600';
         }
     };
@@ -137,7 +152,7 @@ export const ApprovalsPage: React.FC = () => {
         switch (type) {
             case 'leave': return 'bg-blue-100';
             case 'claim': return 'bg-emerald-100';
-            case 'staff_loan': return 'bg-purple-100';
+            case 'staff_loan': return 'bg-orange-100';
             default: return 'bg-slate-100';
         }
     };
@@ -159,6 +174,22 @@ export const ApprovalsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* Toast Notification */}
+            {toastMessage && (
+                <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+                    <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${
+                        toastMessage.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
+                    }`}>
+                        {toastMessage.type === 'success' ? (
+                            <CheckCircle size={18} className="text-emerald-400" />
+                        ) : (
+                            <AlertCircle size={18} className="text-white" />
+                        )}
+                        <span className="font-medium">{toastMessage.text}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -169,7 +200,7 @@ export const ApprovalsPage: React.FC = () => {
                     <select
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value)}
-                        className="px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                     >
                         <option value="all">All Types</option>
                         <option value="leave">Leave</option>
@@ -216,7 +247,7 @@ export const ApprovalsPage: React.FC = () => {
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl">
+                        <div className="p-3 bg-[#0066B3] rounded-xl">
                             <Zap className="text-white" size={24} />
                         </div>
                         <div>
@@ -232,7 +263,7 @@ export const ApprovalsPage: React.FC = () => {
                 {[
                     { type: 'leave', label: 'Leave Requests', icon: Calendar, color: 'blue' },
                     { type: 'claim', label: 'Expense Claims', icon: DollarSign, color: 'emerald' },
-                    { type: 'staff_loan', label: 'Loan Applications', icon: Briefcase, color: 'purple' },
+                    { type: 'staff_loan', label: 'Loan Applications', icon: Briefcase, color: 'orange' },
                 ].map(({ type, label, icon: Icon, color }) => {
                     const count = pendingApprovals?.filter(a => a.targetType === type).length || 0;
                     const urgent = pendingApprovals?.filter(a => a.targetType === type && a.isUrgent).length || 0;
@@ -247,11 +278,11 @@ export const ApprovalsPage: React.FC = () => {
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2.5 rounded-xl ${color === 'blue' ? 'bg-blue-100' :
                                             color === 'emerald' ? 'bg-emerald-100' :
-                                                'bg-purple-100'
+                                                'bg-orange-100'
                                         }`}>
                                         <Icon className={`${color === 'blue' ? 'text-blue-600' :
                                                 color === 'emerald' ? 'text-emerald-600' :
-                                                    'text-purple-600'
+                                                    'text-orange-600'
                                             }`} size={22} />
                                     </div>
                                     <div>
@@ -276,7 +307,7 @@ export const ApprovalsPage: React.FC = () => {
                 <nav className="flex gap-8">
                     <button
                         onClick={() => setActiveTab('pending')}
-                        className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'pending' ? 'text-purple-600' : 'text-slate-500 hover:text-slate-700'
+                        className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'pending' ? 'text-[#0066B3]' : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <span className="flex items-center gap-2">
@@ -289,12 +320,12 @@ export const ApprovalsPage: React.FC = () => {
                             </span>
                         )}
                         {activeTab === 'pending' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 rounded-full" />
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
                         )}
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'history' ? 'text-purple-600' : 'text-slate-500 hover:text-slate-700'
+                        className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'history' ? 'text-[#0066B3]' : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <span className="flex items-center gap-2">
@@ -302,7 +333,7 @@ export const ApprovalsPage: React.FC = () => {
                             My Submissions
                         </span>
                         {activeTab === 'history' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 rounded-full" />
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
                         )}
                     </button>
                 </nav>
@@ -316,7 +347,7 @@ export const ApprovalsPage: React.FC = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isLoading ? (
                                 <div className="px-6 py-16 text-center text-slate-500">
-                                    <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
+                                    <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full mx-auto mb-4" />
                                     Loading approvals...
                                 </div>
                             ) : filteredApprovals.length === 0 ? (
@@ -332,7 +363,7 @@ export const ApprovalsPage: React.FC = () => {
                                     {filteredApprovals.map((approval) => (
                                         <div
                                             key={approval.instance.id}
-                                            className={`p-5 hover:bg-slate-50 transition-colors cursor-pointer ${selectedApproval === approval.instance.id ? 'bg-purple-50 border-l-4 border-l-purple-500' : ''
+                                            className={`p-5 hover:bg-slate-50 transition-colors cursor-pointer ${selectedApproval === approval.instance.id ? 'bg-blue-50 border-l-4 border-l-[#0066B3]' : ''
                                                 }`}
                                             onClick={() => setSelectedApproval(approval.instance.id)}
                                         >
@@ -352,7 +383,7 @@ export const ApprovalsPage: React.FC = () => {
                                                                     Urgent
                                                                 </span>
                                                             )}
-                                                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                                                            <span className="px-2 py-0.5 bg-blue-100 text-[#0066B3] text-xs font-medium rounded-full">
                                                                 Step {approval.instance.current_step_order}
                                                             </span>
                                                         </div>
@@ -500,7 +531,7 @@ const ApprovalDetailSidebar: React.FC<{
     if (isLoading) {
         return (
             <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
-                <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
+                <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full mx-auto mb-4" />
                 <p className="text-slate-500">Loading details...</p>
             </div>
         );
@@ -527,7 +558,7 @@ const ApprovalDetailSidebar: React.FC<{
     return (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                 <h4 className="font-semibold text-slate-900">Approval Details</h4>
                 <button onClick={onClose} className="p-1.5 hover:bg-white rounded-lg transition-colors">
                     <X size={18} />
@@ -607,7 +638,7 @@ const ApprovalTimelineCompact: React.FC<{ instance: any }> = ({ instance }) => {
             <div className="space-y-4">
                 {/* Request Created */}
                 <div className="relative flex gap-3">
-                    <div className="relative z-10 w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
+                    <div className="relative z-10 w-6 h-6 rounded-full bg-[#0066B3] flex items-center justify-center">
                         <FileText className="text-white" size={12} />
                     </div>
                     <div className="flex-1 pt-0.5">
@@ -735,11 +766,11 @@ const ApprovalActionModal: React.FC<{
                         <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${approval.targetType === 'leave' ? 'bg-blue-100' :
                                     approval.targetType === 'claim' ? 'bg-emerald-100' :
-                                        'bg-purple-100'
+                                        'bg-orange-100'
                                 }`}>
                                 {approval.targetType === 'leave' ? <Calendar className="text-blue-600" size={20} /> :
                                     approval.targetType === 'claim' ? <DollarSign className="text-emerald-600" size={20} /> :
-                                        <Briefcase className="text-purple-600" size={20} />}
+                                        <Briefcase className="text-orange-600" size={20} />}
                             </div>
                             <div>
                                 <p className="font-semibold text-slate-900">
@@ -763,7 +794,7 @@ const ApprovalActionModal: React.FC<{
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                             rows={4}
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none"
                             placeholder={action === 'reject'
                                 ? 'Please provide a reason for rejection...'
                                 : 'Optional comment (e.g., conditions, notes)...'}

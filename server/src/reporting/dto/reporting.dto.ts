@@ -66,6 +66,12 @@ export class SubmitDailyReportDto {
     notes?: string;
 }
 
+export class ApproveReportDto {
+    @IsString()
+    @IsOptional()
+    comment?: string;
+}
+
 export class SubmitKPIReportDto {
     @IsUUID()
     @IsNotEmpty()

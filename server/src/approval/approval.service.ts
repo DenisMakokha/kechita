@@ -486,6 +486,159 @@ export class ApprovalService {
         };
     }
 
+    // ==================== ACTIVATE/DEACTIVATE FLOW ====================
+
+    async activateFlow(id: string): Promise<ApprovalFlow> {
+        const flow = await this.getFlow(id);
+        flow.is_active = true;
+        return this.flowRepo.save(flow);
+    }
+
+    async deactivateFlow(id: string): Promise<ApprovalFlow> {
+        const flow = await this.getFlow(id);
+        flow.is_active = false;
+        return this.flowRepo.save(flow);
+    }
+
+    // ==================== UPDATE/REORDER STEPS ====================
+
+    async updateStep(stepId: string, data: Partial<ApprovalFlowStep>): Promise<ApprovalFlowStep> {
+        const step = await this.stepRepo.findOne({ where: { id: stepId } });
+        if (!step) throw new NotFoundException('Approval step not found');
+        
+        Object.assign(step, data);
+        return this.stepRepo.save(step);
+    }
+
+    async reorderSteps(flowId: string, stepOrders: { stepId: string; order: number }[]): Promise<ApprovalFlow> {
+        const flow = await this.getFlow(flowId);
+        
+        for (const { stepId, order } of stepOrders) {
+            await this.stepRepo.update(stepId, { step_order: order });
+        }
+
+        return this.getFlow(flowId);
+    }
+
+    // ==================== DELEGATE APPROVAL ====================
+
+    async delegateApproval(
+        instanceId: string,
+        delegatorStaffId: string,
+        delegateToStaffId: string,
+        reason: string,
+        ipAddress?: string,
+    ): Promise<ApprovalInstance> {
+        const instance = await this.instanceRepo.findOne({
+            where: { id: instanceId },
+            relations: ['flow', 'flow.steps', 'requester', 'currentApprover'],
+        });
+
+        if (!instance) throw new NotFoundException('Approval instance not found');
+        if (instance.status !== ApprovalInstanceStatus.PENDING) {
+            throw new BadRequestException('Only pending approvals can be delegated');
+        }
+
+        const delegator = await this.staffRepo.findOne({
+            where: { id: delegatorStaffId },
+            relations: ['user', 'user.roles'],
+        });
+        if (!delegator) throw new NotFoundException('Delegator not found');
+
+        const delegateTo = await this.staffRepo.findOne({
+            where: { id: delegateToStaffId },
+            relations: ['user', 'user.roles'],
+        });
+        if (!delegateTo) throw new NotFoundException('Delegate target not found');
+
+        // Record delegation action
+        const action = this.actionRepo.create({
+            instance,
+            step_order: instance.current_step_order,
+            approver: delegator,
+            action: ApprovalActionType.DELEGATED,
+            comment: reason,
+            delegatedTo: delegateTo,
+            delegation_reason: reason,
+            ip_address: ipAddress,
+        });
+        await this.actionRepo.save(action);
+
+        // Update current approver
+        instance.currentApprover = delegateTo;
+        return this.instanceRepo.save(instance);
+    }
+
+    // ==================== RETURN FOR MORE INFO ====================
+
+    async returnForMoreInfo(
+        instanceId: string,
+        approverStaffId: string,
+        comment: string,
+        ipAddress?: string,
+    ): Promise<ApprovalInstance> {
+        const instance = await this.instanceRepo.findOne({
+            where: { id: instanceId },
+            relations: ['flow', 'flow.steps', 'requester'],
+        });
+
+        if (!instance) throw new NotFoundException('Approval instance not found');
+        if (instance.status !== ApprovalInstanceStatus.PENDING) {
+            throw new BadRequestException('Only pending approvals can be returned');
+        }
+
+        const approver = await this.staffRepo.findOne({
+            where: { id: approverStaffId },
+            relations: ['user', 'user.roles'],
+        });
+        if (!approver) throw new NotFoundException('Approver not found');
+
+        // Record return action
+        const action = this.actionRepo.create({
+            instance,
+            step_order: instance.current_step_order,
+            approver,
+            action: ApprovalActionType.RETURNED,
+            comment,
+            ip_address: ipAddress,
+        });
+        await this.actionRepo.save(action);
+
+        // Emit event for the target module to handle
+        this.eventEmitter.emit('approval.returned', {
+            targetType: instance.target_type,
+            targetId: instance.target_id,
+            comment,
+            returnedById: approverStaffId,
+        });
+
+        return instance;
+    }
+
+    // ==================== DELETE FLOW ====================
+
+    async deleteFlow(id: string): Promise<{ message: string }> {
+        const flow = await this.flowRepo.findOne({
+            where: { id },
+            relations: ['steps'],
+        });
+        if (!flow) throw new NotFoundException('Approval flow not found');
+
+        // Check if flow has active instances
+        const activeInstances = await this.instanceRepo.count({
+            where: { flow: { id }, status: ApprovalInstanceStatus.PENDING },
+        });
+
+        if (activeInstances > 0) {
+            throw new BadRequestException(
+                `Cannot delete flow with ${activeInstances} active approval(s). Deactivate it instead.`
+            );
+        }
+
+        await this.flowRepo.remove(flow);
+        return { message: 'Approval flow deleted successfully' };
+    }
+
     // ==================== HELPERS ====================
 
     private async validateApprover(

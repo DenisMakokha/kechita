@@ -4,15 +4,23 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { UserService } from './user.service';
+import { RoleService } from './role.service';
 import { AuthController } from './auth.controller';
+import { UserController } from './user.controller';
+import { RoleController } from './role.controller';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtStrategy } from './jwt.strategy';
 import { Staff } from '../staff/entities/staff.entity';
+import { EmailModule } from '../email/email.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User, Role, Staff]),
+        TypeOrmModule.forFeature([User, Role, Staff, PasswordResetToken, RefreshToken]),
+        EmailModule,
         PassportModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
@@ -29,8 +37,8 @@ import { Staff } from '../staff/entities/staff.entity';
             inject: [ConfigService],
         }),
     ],
-    controllers: [AuthController],
-    providers: [AuthService, JwtStrategy],
-    exports: [AuthService],
+    controllers: [AuthController, UserController, RoleController],
+    providers: [AuthService, UserService, RoleService, JwtStrategy],
+    exports: [AuthService, UserService, RoleService],
 })
 export class AuthModule { }

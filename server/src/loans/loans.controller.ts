@@ -1,12 +1,20 @@
 import {
     Controller, Get, Post, Patch, Body, Param, Query,
-    UseGuards, Request, BadRequestException
+    UseGuards, Req, BadRequestException, ParseUUIDPipe,
 } from '@nestjs/common';
 import { LoansService } from './loans.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { LoanType, LoanStatus } from './entities/staff-loan.entity';
+import {
+    ApplyLoanDto,
+    DisburseLoanDto,
+    RecordPaymentDto,
+    RecordPayrollDeductionDto,
+    ProcessPayrollDto,
+} from './dto/loans.dto';
+import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('loans')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -16,45 +24,34 @@ export class LoansController {
     // ==================== MY LOANS ====================
 
     @Get('my')
-    getMyLoans(@Request() req: any, @Query('status') status?: LoanStatus) {
-        return this.loansService.findMyLoans(req.user.staff_id, status);
+    getMyLoans(@Req() req: AuthenticatedRequest, @Query('status') status?: LoanStatus) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.findMyLoans(staffId, status);
     }
 
     @Get('my/stats')
-    getMyLoanStats(@Request() req: any, @Query('year') year?: string) {
+    getMyLoanStats(@Req() req: AuthenticatedRequest, @Query('year') year?: string) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
         return this.loansService.getLoanStats({
-            staffId: req.user.staff_id,
+            staffId,
             year: year ? parseInt(year) : undefined,
         });
     }
 
     @Post('apply')
-    applyForLoan(
-        @Request() req: any,
-        @Body() body: {
-            loan_type: LoanType;
-            principal: number;
-            term_months: number;
-            interest_rate?: number;
-            purpose?: string;
-            is_urgent?: boolean;
-            deduct_from_salary?: boolean;
-            max_salary_deduction_percent?: number;
-            guarantor_id?: string;
-        },
-    ) {
-        if (!body.principal || body.principal <= 0) {
-            throw new BadRequestException('Principal amount must be positive');
-        }
-        if (!body.term_months || body.term_months <= 0) {
-            throw new BadRequestException('Term months must be positive');
-        }
-        return this.loansService.applyForLoan(req.user.staff_id, body);
+    applyForLoan(@Req() req: AuthenticatedRequest, @Body() dto: ApplyLoanDto) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.applyForLoan(staffId, dto);
     }
 
     @Patch(':id/cancel')
-    cancelLoan(@Param('id') id: string, @Request() req: any) {
-        return this.loansService.cancelLoan(id, req.user.staff_id);
+    cancelLoan(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.cancelLoan(id, staffId);
     }
 
     // ==================== ADMIN/HR/ACCOUNTANT ====================
@@ -114,26 +111,17 @@ export class LoansController {
 
     @Post('payroll/process')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
-    processPayrollDeductions(
-        @Body('month') month: string,
-        @Body('payroll_reference') payrollReference: string,
-    ) {
-        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-            throw new BadRequestException('Month must be in YYYY-MM format');
-        }
-        if (!payrollReference) {
-            throw new BadRequestException('payroll_reference is required');
-        }
-        return this.loansService.processPayrollDeductions(month, payrollReference);
+    processPayrollDeductions(@Body() dto: ProcessPayrollDto) {
+        return this.loansService.processPayrollDeductions(dto.month, dto.payroll_reference);
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
+    findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.loansService.findById(id);
     }
 
     @Get(':id/schedule')
-    getRepaymentSchedule(@Param('id') id: string) {
+    getRepaymentSchedule(@Param('id', ParseUUIDPipe) id: string) {
         return this.loansService.findById(id).then(loan => loan.repayments);
     }
 
@@ -142,20 +130,18 @@ export class LoansController {
     @Patch(':id/disburse')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     disburseLoan(
-        @Param('id') id: string,
-        @Request() req: any,
-        @Body() body: {
-            disbursement_reference: string;
-            disbursement_method: string;
-            first_repayment_date?: string;
-        },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body() dto: DisburseLoanDto,
     ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
         return this.loansService.disburseLoan(
             id,
-            req.user.staff_id,
-            body.disbursement_reference,
-            body.disbursement_method,
-            body.first_repayment_date ? new Date(body.first_repayment_date) : undefined,
+            staffId,
+            dto.disbursement_reference,
+            dto.disbursement_method,
+            dto.first_repayment_date ? new Date(dto.first_repayment_date) : undefined,
         );
     }
 
@@ -164,36 +150,23 @@ export class LoansController {
     @Patch(':id/payment')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     recordPayment(
-        @Param('id') id: string,
-        @Body() body: {
-            repayment_id?: string;
-            amount: number;
-            payment_reference: string;
-            payment_method: string;
-            notes?: string;
-        },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: RecordPaymentDto,
     ) {
-        if (!body.amount || body.amount <= 0) {
-            throw new BadRequestException('Payment amount must be positive');
-        }
-        return this.loansService.recordRepayment(id, body);
+        return this.loansService.recordRepayment(id, dto);
     }
 
     @Patch(':id/payroll-deduction')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     recordPayrollDeduction(
-        @Param('id') id: string,
-        @Body() body: {
-            amount: number;
-            payroll_month: string;
-            payroll_reference: string;
-        },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: RecordPayrollDeductionDto,
     ) {
         return this.loansService.recordPayrollDeduction(
             id,
-            body.amount,
-            body.payroll_month,
-            body.payroll_reference,
+            dto.amount,
+            dto.payroll_month,
+            dto.payroll_reference,
         );
     }
 
@@ -201,15 +174,93 @@ export class LoansController {
 
     @Post(':id/regenerate-schedule')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
-    regenerateSchedule(@Param('id') id: string) {
+    regenerateSchedule(@Param('id', ParseUUIDPipe) id: string) {
         return this.loansService.generateRepaymentSchedule(id);
     }
 
     @Get('my/payroll-deductions')
-    getMyPayrollDeductions(@Request() req: any, @Query('year') year?: string) {
+    getMyPayrollDeductions(@Req() req: AuthenticatedRequest, @Query('year') year?: string) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
         return this.loansService.getStaffPayrollDeductions(
-            req.user.staff_id,
+            staffId,
             year ? parseInt(year) : undefined
         );
+    }
+
+    // ==================== REJECT LOAN ====================
+
+    @Patch(':id/reject')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    rejectLoan(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body('reason') reason: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!reason) throw new BadRequestException('Rejection reason is required');
+        return this.loansService.rejectLoan(id, staffId, reason);
+    }
+
+    // ==================== WRITE-OFF / DEFAULT ====================
+
+    @Patch(':id/write-off')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    writeOffLoan(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('reason') reason: string,
+    ) {
+        if (!reason) throw new BadRequestException('Write-off reason is required');
+        return this.loansService.writeOffLoan(id, reason);
+    }
+
+    @Patch(':id/mark-defaulted')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    markAsDefaulted(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('reason') reason?: string,
+    ) {
+        return this.loansService.markAsDefaulted(id, reason);
+    }
+
+    // ==================== TEAM LOANS ====================
+
+    @Get('team')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    getTeamLoans(
+        @Req() req: AuthenticatedRequest,
+        @Query('status') status?: LoanStatus,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.getTeamLoans(staffId, status);
+    }
+
+    @Get('team/pending')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    getPendingTeamLoans(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.getPendingTeamLoans(staffId);
+    }
+
+    // ==================== GUARANTOR ====================
+
+    @Get('my/as-guarantor')
+    getLoansAsGuarantor(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.getLoansAsGuarantor(staffId);
+    }
+
+    @Patch(':id/guarantor-consent')
+    recordGuarantorConsent(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.recordGuarantorConsent(id, staffId);
     }
 }

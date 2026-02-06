@@ -531,4 +531,168 @@ export class StaffService {
     private generateTempPassword(): string {
         return generateTempPasswordSecure(10);
     }
+
+    // ==================== EMPLOYMENT HISTORY ====================
+
+    async getEmploymentHistory(staffId: string): Promise<EmploymentHistory[]> {
+        return this.employmentHistoryRepo.find({
+            where: { staff: { id: staffId } },
+            relations: ['position', 'region', 'branch'],
+            order: { start_date: 'DESC' },
+        });
+    }
+
+    async addEmploymentHistory(
+        staffId: string,
+        data: {
+            position_id?: string;
+            region_id?: string;
+            branch_id?: string;
+            employment_type?: string;
+            start_date: Date;
+            end_date?: Date;
+            change_reason?: string;
+        },
+    ): Promise<EmploymentHistory> {
+        const staff = await this.findOne(staffId);
+        
+        const history = this.employmentHistoryRepo.create({
+            staff,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            employment_type: data.employment_type || 'full-time',
+            change_reason: data.change_reason,
+        });
+
+        if (data.position_id) {
+            const position = await this.positionRepo.findOne({ where: { id: data.position_id } });
+            if (position) history.position = position;
+        }
+        if (data.region_id) {
+            const region = await this.regionRepo.findOne({ where: { id: data.region_id } });
+            if (region) history.region = region;
+        }
+        if (data.branch_id) {
+            const branch = await this.branchRepo.findOne({ where: { id: data.branch_id } });
+            if (branch) history.branch = branch;
+        }
+
+        return this.employmentHistoryRepo.save(history);
+    }
+
+    // ==================== TRANSFER ====================
+
+    async transferStaff(
+        staffId: string,
+        data: {
+            region_id?: string;
+            branch_id?: string;
+            position_id?: string;
+            manager_id?: string;
+            effective_date?: Date;
+            reason?: string;
+        },
+        transferredBy?: string,
+    ): Promise<Staff> {
+        const staff = await this.findOne(staffId);
+        const effectiveDate = data.effective_date || new Date();
+
+        // Record current position in history before transfer
+        await this.addEmploymentHistory(staffId, {
+            position_id: staff.position?.id,
+            region_id: staff.region?.id,
+            branch_id: staff.branch?.id,
+            start_date: staff.hire_date || staff.created_at,
+            end_date: effectiveDate,
+            change_reason: data.reason || 'Transfer',
+        });
+
+        // Update staff with new assignment
+        if (data.region_id) {
+            const region = await this.regionRepo.findOne({ where: { id: data.region_id } });
+            if (region) staff.region = region;
+        }
+        if (data.branch_id) {
+            const branch = await this.branchRepo.findOne({ where: { id: data.branch_id } });
+            if (branch) staff.branch = branch;
+        }
+        if (data.position_id) {
+            const position = await this.positionRepo.findOne({ where: { id: data.position_id } });
+            if (position) staff.position = position;
+        }
+        if (data.manager_id) {
+            const manager = await this.staffRepo.findOne({ where: { id: data.manager_id } });
+            if (manager) staff.manager = manager;
+        }
+
+        staff.updated_by = transferredBy;
+        return this.staffRepo.save(staff);
+    }
+
+    // ==================== PHOTO UPLOAD ====================
+
+    async updatePhoto(staffId: string, photoUrl: string): Promise<Staff> {
+        const staff = await this.findOne(staffId);
+        staff.photo_url = photoUrl;
+        return this.staffRepo.save(staff);
+    }
+
+    // ==================== SELF-SERVICE PROFILE UPDATE ====================
+
+    async updateMyProfile(
+        staffId: string,
+        data: {
+            phone?: string;
+            alternate_phone?: string;
+            personal_email?: string;
+            address?: string;
+            city?: string;
+            postal_code?: string;
+            emergency_contact_name?: string;
+            emergency_contact_phone?: string;
+            emergency_contact_relationship?: string;
+            bank_name?: string;
+            bank_branch?: string;
+            bank_account_number?: string;
+            bank_account_name?: string;
+        },
+    ): Promise<Staff> {
+        const staff = await this.findOne(staffId);
+        
+        // Only allow updating personal/contact fields
+        if (data.phone !== undefined) staff.phone = data.phone;
+        if (data.alternate_phone !== undefined) staff.alternate_phone = data.alternate_phone;
+        if (data.personal_email !== undefined) staff.personal_email = data.personal_email;
+        if (data.address !== undefined) staff.address = data.address;
+        if (data.city !== undefined) staff.city = data.city;
+        if (data.postal_code !== undefined) staff.postal_code = data.postal_code;
+        if (data.emergency_contact_name !== undefined) staff.emergency_contact_name = data.emergency_contact_name;
+        if (data.emergency_contact_phone !== undefined) staff.emergency_contact_phone = data.emergency_contact_phone;
+        if (data.emergency_contact_relationship !== undefined) staff.emergency_contact_relationship = data.emergency_contact_relationship;
+        if (data.bank_name !== undefined) staff.bank_name = data.bank_name;
+        if (data.bank_branch !== undefined) staff.bank_branch = data.bank_branch;
+        if (data.bank_account_number !== undefined) staff.bank_account_number = data.bank_account_number;
+        if (data.bank_account_name !== undefined) staff.bank_account_name = data.bank_account_name;
+
+        return this.staffRepo.save(staff);
+    }
+
+    // ==================== RESIGNATION ====================
+
+    async submitResignation(
+        staffId: string,
+        data: {
+            reason: string;
+            last_working_date: Date;
+            notice_period_days?: number;
+        },
+    ): Promise<Staff> {
+        const staff = await this.findOne(staffId);
+        
+        staff.status = StaffStatus.RESIGNED;
+        staff.termination_reason = data.reason;
+        staff.termination_date = data.last_working_date;
+
+        return this.staffRepo.save(staff);
+    }
 }

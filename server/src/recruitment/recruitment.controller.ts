@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request, UseInterceptors, UploadedFile, Ip, Headers } from '@nestjs/common';
+import {
+    Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
+    UseGuards, Req, UseInterceptors, UploadedFile, Ip, Headers, BadRequestException, ParseUUIDPipe,
+} from '@nestjs/common';
 import { RecruitmentService } from './recruitment.service';
 import { BackgroundCheckService, InitiateBackgroundCheckDto, CreateReferenceCheckDto, SubmitReferenceResponseDto } from './background-check.service';
 import { SignatureService } from './signature.service';
@@ -12,13 +15,16 @@ import { uuid } from '../common/id-utils';
 import { JobStatus } from './entities/job-post.entity';
 import { ApplicationStatus } from './entities/application.entity';
 import { CandidateStatus } from './entities/candidate.entity';
-import { InterviewOutcome } from './entities/interview.entity';
 import {
     CreateJobPostDto, UpdateJobPostDto, ApplyToJobDto, UpdateCandidateDto,
     ScheduleInterviewDto, CreatePipelineStageDto, UpdatePipelineStageDto,
-    CreateOfferDto,
+    CreateOfferDto, UpdateApplicationStageDto, StarApplicationDto, RateApplicationDto,
+    AssignApplicationDto, AddCandidateNoteDto, InterviewFeedbackDto, RescheduleInterviewDto,
+    CancelInterviewDto, ReviewBackgroundCheckDto, VerifyReferenceDto, CreateSignatureRequestDto,
+    SignOfferDto, DeclineOfferDto,
 } from './dto/recruitment.dto';
 import { UpdateBackgroundCheckDto } from './background-check.service';
+import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('recruitment')
 export class RecruitmentController {
@@ -92,8 +98,9 @@ export class RecruitmentController {
     @Post('jobs')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    createJobPost(@Body() dto: CreateJobPostDto, @Request() req: any) {
-        return this.recruitmentService.createJobPost(dto, req.user?.staff_id);
+    createJobPost(@Body() dto: CreateJobPostDto, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        return this.recruitmentService.createJobPost(dto, staffId);
     }
 
     @Put('jobs/:id')
@@ -154,31 +161,31 @@ export class RecruitmentController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
     updateApplicationStage(
-        @Param('id') id: string,
-        @Body() body: { stage_code: string; notes?: string },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: UpdateApplicationStageDto,
     ) {
-        return this.recruitmentService.updateApplicationStage(id, body.stage_code, body.notes);
+        return this.recruitmentService.updateApplicationStage(id, dto.stage_code, dto.notes);
     }
 
     @Patch('applications/:id/star')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
-    starApplication(@Param('id') id: string, @Body() body: { starred: boolean }) {
-        return this.recruitmentService.starApplication(id, body.starred);
+    starApplication(@Param('id', ParseUUIDPipe) id: string, @Body() dto: StarApplicationDto) {
+        return this.recruitmentService.starApplication(id, dto.starred);
     }
 
     @Patch('applications/:id/rate')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    rateApplication(@Param('id') id: string, @Body() body: { rating: number }) {
-        return this.recruitmentService.rateApplication(id, body.rating);
+    rateApplication(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RateApplicationDto) {
+        return this.recruitmentService.rateApplication(id, dto.rating);
     }
 
     @Patch('applications/:id/assign')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    assignApplication(@Param('id') id: string, @Body() body: { staff_id: string }) {
-        return this.recruitmentService.assignApplication(id, body.staff_id);
+    assignApplication(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AssignApplicationDto) {
+        return this.recruitmentService.assignApplication(id, dto.staff_id);
     }
 
     @Get('applications-stats')
@@ -225,11 +232,13 @@ export class RecruitmentController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
     addCandidateNote(
-        @Param('id') id: string,
-        @Body() body: { content: string },
-        @Request() req: any
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: AddCandidateNoteDto,
+        @Req() req: AuthenticatedRequest,
     ) {
-        return this.recruitmentService.addCandidateNote(id, req.user?.staff_id, body.content);
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.recruitmentService.addCandidateNote(id, staffId, dto.content);
     }
 
     @Get('candidates/:id/notes')
@@ -254,8 +263,9 @@ export class RecruitmentController {
     @Get('interviews/upcoming')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
-    getUpcomingInterviews(@Request() req: any) {
-        return this.recruitmentService.getUpcomingInterviews(req.user?.staff_id);
+    getUpcomingInterviews(@Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        return this.recruitmentService.getUpcomingInterviews(staffId);
     }
 
     @Get('interviews/:id')
@@ -268,45 +278,39 @@ export class RecruitmentController {
     @Post('interviews')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    scheduleInterview(@Body() dto: ScheduleInterviewDto, @Request() req: any) {
-        return this.recruitmentService.scheduleInterview(dto, req.user?.staff_id);
+    scheduleInterview(@Body() dto: ScheduleInterviewDto, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        return this.recruitmentService.scheduleInterview(dto, staffId);
     }
 
     @Patch('interviews/:id/feedback')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
     submitInterviewFeedback(
-        @Param('id') id: string,
-        @Body() body: {
-            outcome: InterviewOutcome;
-            overall_rating?: number;
-            feedback?: string;
-            strengths?: string;
-            weaknesses?: string;
-            competency_scores?: Record<string, number>;
-        },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: InterviewFeedbackDto,
     ) {
-        return this.recruitmentService.updateInterviewFeedback(id, body);
+        return this.recruitmentService.updateInterviewFeedback(id, dto);
     }
 
     @Patch('interviews/:id/reschedule')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
     rescheduleInterview(
-        @Param('id') id: string,
-        @Body() body: { scheduled_at: string; reason?: string },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: RescheduleInterviewDto,
     ) {
-        return this.recruitmentService.rescheduleInterview(id, body.scheduled_at, body.reason);
+        return this.recruitmentService.rescheduleInterview(id, dto.scheduled_at, dto.reason);
     }
 
     @Patch('interviews/:id/cancel')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
     cancelInterview(
-        @Param('id') id: string,
-        @Body() body: { reason?: string; will_reschedule?: boolean },
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: CancelInterviewDto,
     ) {
-        return this.recruitmentService.cancelInterview(id, body.reason, body.will_reschedule);
+        return this.recruitmentService.cancelInterview(id, dto.reason, dto.will_reschedule);
     }
 
     @Post('interviews/send-reminders')
@@ -353,7 +357,7 @@ export class RecruitmentController {
     @Post('applications/:id/offer')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    createOffer(@Param('id') id: string, @Body() dto: CreateOfferDto, @Request() req: any) {
+    createOffer(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateOfferDto, @Req() req: AuthenticatedRequest) {
         return this.recruitmentService.createOffer(id, dto, req.user?.id);
     }
 
@@ -362,8 +366,10 @@ export class RecruitmentController {
     @Post('background-checks')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    initiateBackgroundCheck(@Body() body: InitiateBackgroundCheckDto, @Request() req: any) {
-        return this.backgroundCheckService.initiateBackgroundCheck(body, req.user?.staff_id);
+    initiateBackgroundCheck(@Body() dto: InitiateBackgroundCheckDto, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.backgroundCheckService.initiateBackgroundCheck(dto, staffId);
     }
 
     @Get('background-checks/pending')
@@ -397,8 +403,14 @@ export class RecruitmentController {
     @Patch('background-checks/:id/review')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    reviewBackgroundCheck(@Param('id') id: string, @Body() body: { notes?: string }, @Request() req: any) {
-        return this.backgroundCheckService.reviewBackgroundCheck(id, req.user?.staff_id, body.notes);
+    reviewBackgroundCheck(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: ReviewBackgroundCheckDto,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.backgroundCheckService.reviewBackgroundCheck(id, staffId, dto.notes);
     }
 
     // ==================== REFERENCE CHECKS ====================
@@ -427,8 +439,10 @@ export class RecruitmentController {
     @Patch('reference-checks/:id/contact')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
-    recordReferenceContact(@Param('id') id: string, @Request() req: any) {
-        return this.backgroundCheckService.recordContactAttempt(id, req.user?.staff_id);
+    recordReferenceContact(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.backgroundCheckService.recordContactAttempt(id, staffId);
     }
 
     @Patch('reference-checks/:id/response')
@@ -441,8 +455,8 @@ export class RecruitmentController {
     @Patch('reference-checks/:id/verify')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    verifyReference(@Param('id') id: string, @Body() body: { verified: boolean; notes?: string }) {
-        return this.backgroundCheckService.verifyReference(id, body.verified, body.notes);
+    verifyReference(@Param('id', ParseUUIDPipe) id: string, @Body() dto: VerifyReferenceDto) {
+        return this.backgroundCheckService.verifyReference(id, dto.verified, dto.notes);
     }
 
     // ==================== ELECTRONIC SIGNATURES ====================
@@ -450,8 +464,8 @@ export class RecruitmentController {
     @Post('offers/:id/signature-request')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER')
-    createSignatureRequest(@Param('id') offerId: string, @Body() body: { expires_in_days?: number }) {
-        return this.signatureService.createSignatureRequest(offerId, body.expires_in_days);
+    createSignatureRequest(@Param('id', ParseUUIDPipe) offerId: string, @Body() dto: CreateSignatureRequestDto) {
+        return this.signatureService.createSignatureRequest(offerId, dto.expires_in_days);
     }
 
     // Public endpoint for candidates to view and sign offers
@@ -463,20 +477,20 @@ export class RecruitmentController {
     @Post('sign/:token')
     signOffer(
         @Param('token') token: string,
-        @Body() body: { signature_type: 'drawn' | 'typed' | 'uploaded'; signature_data?: string; typed_name?: string },
+        @Body() dto: SignOfferDto,
         @Ip() ip: string,
         @Headers('user-agent') userAgent: string,
     ) {
-        return this.signatureService.signOffer(token, body, { ip_address: ip, user_agent: userAgent });
+        return this.signatureService.signOffer(token, dto, { ip_address: ip, user_agent: userAgent });
     }
 
     @Post('sign/:token/decline')
     declineOffer(
         @Param('token') token: string,
-        @Body() body: { reason: string },
+        @Body() dto: DeclineOfferDto,
         @Ip() ip: string,
     ) {
-        return this.signatureService.declineOffer(token, body.reason, { ip_address: ip });
+        return this.signatureService.declineOffer(token, dto.reason, { ip_address: ip });
     }
 
     @Get('offers/:id/signatures')
@@ -484,6 +498,78 @@ export class RecruitmentController {
     @Roles('CEO', 'HR_MANAGER')
     getOfferSignatures(@Param('id') offerId: string) {
         return this.signatureService.getSignaturesForOffer(offerId);
+    }
+
+    // ==================== REJECT APPLICATION ====================
+
+    @Patch('applications/:id/reject')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    rejectApplication(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('reason') reason?: string,
+    ) {
+        return this.recruitmentService.rejectApplication(id, reason);
+    }
+
+    @Post('applications/bulk-reject')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    bulkRejectApplications(
+        @Body() dto: { applicationIds: string[]; reason?: string },
+    ) {
+        if (!dto.applicationIds || dto.applicationIds.length === 0) {
+            throw new BadRequestException('Application IDs are required');
+        }
+        return this.recruitmentService.bulkRejectApplications(dto.applicationIds, dto.reason);
+    }
+
+    // ==================== WITHDRAW APPLICATION (Public) ====================
+
+    @Post('applications/:id/withdraw')
+    withdrawApplication(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('email') email: string,
+    ) {
+        if (!email) throw new BadRequestException('Email is required to verify identity');
+        return this.recruitmentService.withdrawApplication(id, email);
+    }
+
+    // ==================== DELETE JOB POST ====================
+
+    @Delete('jobs/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    deleteJobPost(@Param('id', ParseUUIDPipe) id: string) {
+        return this.recruitmentService.deleteJobPost(id);
+    }
+
+    // ==================== DELETE PIPELINE STAGE ====================
+
+    @Delete('stages/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    deletePipelineStage(@Param('id', ParseUUIDPipe) id: string) {
+        return this.recruitmentService.deletePipelineStage(id);
+    }
+
+    // ==================== BLACKLIST CANDIDATE ====================
+
+    @Patch('candidates/:id/blacklist')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    blacklistCandidate(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('reason') reason?: string,
+    ) {
+        return this.recruitmentService.blacklistCandidate(id, reason);
+    }
+
+    @Patch('candidates/:id/unblacklist')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    unblacklistCandidate(@Param('id', ParseUUIDPipe) id: string) {
+        return this.recruitmentService.unblacklistCandidate(id);
     }
 }
 

@@ -12,6 +12,10 @@ export class CreateRegionDto {
     @IsString()
     @IsOptional()
     description?: string;
+
+    @IsUUID()
+    @IsOptional()
+    manager_id?: string;
 }
 
 export class UpdateRegionDto {
@@ -26,6 +30,10 @@ export class UpdateRegionDto {
     @IsString()
     @IsOptional()
     description?: string;
+
+    @IsUUID()
+    @IsOptional()
+    manager_id?: string;
 
     @IsBoolean()
     @IsOptional()
@@ -68,6 +76,10 @@ export class CreateBranchDto {
     @IsNumber()
     @IsOptional()
     target_clients?: number;
+
+    @IsUUID()
+    @IsOptional()
+    manager_id?: string;
 }
 
 export class UpdateBranchDto {
@@ -106,6 +118,10 @@ export class UpdateBranchDto {
     @IsNumber()
     @IsOptional()
     target_clients?: number;
+
+    @IsUUID()
+    @IsOptional()
+    manager_id?: string;
 
     @IsBoolean()
     @IsOptional()

@@ -252,14 +252,14 @@ export const SettingsPage: React.FC = () => {
                                 key={tab.key}
                                 onClick={() => setOrgSubTab(tab.key)}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${orgSubTab === tab.key
-                                    ? 'bg-purple-100 text-purple-700'
+                                    ? 'bg-blue-100 text-[#0066B3]'
                                     : 'text-slate-600 hover:bg-slate-100'
                                     }`}
                             >
                                 <Icon size={16} />
                                 {tab.label}
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${orgSubTab === tab.key
-                                    ? 'bg-purple-200 text-purple-800'
+                                    ? 'bg-blue-200 text-[#0066B3]'
                                     : 'bg-slate-200 text-slate-600'
                                     }`}>
                                     {tab.count}
@@ -331,7 +331,7 @@ export const SettingsPage: React.FC = () => {
                         <p className="text-slate-500 mb-4">No claim types configured yet</p>
                         <button
                             onClick={() => openModal('claim-type')}
-                            className="text-purple-600 font-medium hover:underline"
+                            className="text-[#0066B3] font-medium hover:underline"
                         >
                             Add your first claim type
                         </button>
@@ -440,7 +440,7 @@ export const SettingsPage: React.FC = () => {
                                             <span>Carry Forward: {type.max_carry_forward_days || '∞'} days</span>
                                         )}
                                         {type.applicable_gender && (
-                                            <span className="text-purple-600">{type.applicable_gender} only</span>
+                                            <span className="text-[#0066B3]">{type.applicable_gender} only</span>
                                         )}
                                     </div>
                                 </div>
@@ -534,7 +534,7 @@ export const SettingsPage: React.FC = () => {
                         <p className="text-slate-500 mb-4">No public holidays configured</p>
                         <button
                             onClick={() => openModal('holiday')}
-                            className="text-purple-600 font-medium hover:underline"
+                            className="text-[#0066B3] font-medium hover:underline"
                         >
                             Add a public holiday
                         </button>
@@ -544,7 +544,7 @@ export const SettingsPage: React.FC = () => {
                         {holidays?.map((holiday) => (
                             <div
                                 key={holiday.id}
-                                className="p-4 bg-white border border-slate-200 rounded-xl hover:border-purple-200 transition-colors"
+                                className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-200 transition-colors"
                             >
                                 <div className="flex items-start justify-between">
                                     <div>
@@ -620,8 +620,8 @@ export const SettingsPage: React.FC = () => {
                 {/* Staff Loan Settings */}
                 <div className="p-6 bg-white border border-slate-200 rounded-xl">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                            <PiggyBank size={20} className="text-purple-600" />
+                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <PiggyBank size={20} className="text-[#0066B3]" />
                         </div>
                         <h3 className="font-semibold text-slate-900">Staff Loan</h3>
                     </div>
@@ -666,23 +666,23 @@ export const SettingsPage: React.FC = () => {
                     <h3 className="font-semibold text-slate-900 mb-4">General Policies</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 text-purple-600 rounded" />
+                            <input type="checkbox" defaultChecked className="w-4 h-4 text-[#0066B3] rounded" />
                             <span className="text-sm text-slate-700">Require guarantor for loans &gt; KES 100,000</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 text-purple-600 rounded" />
+                            <input type="checkbox" defaultChecked className="w-4 h-4 text-[#0066B3] rounded" />
                             <span className="text-sm text-slate-700">Only confirmed staff can apply</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 text-purple-600 rounded" />
+                            <input type="checkbox" defaultChecked className="w-4 h-4 text-[#0066B3] rounded" />
                             <span className="text-sm text-slate-700">Auto-deduct from payroll</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" className="w-4 h-4 text-purple-600 rounded" />
+                            <input type="checkbox" className="w-4 h-4 text-[#0066B3] rounded" />
                             <span className="text-sm text-slate-700">Allow multiple active loans</span>
                         </label>
                     </div>
-                    <button className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">
+                    <button className="mt-4 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]">
                         Save Settings
                     </button>
                 </div>
@@ -718,7 +718,7 @@ export const SettingsPage: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <Settings className="text-purple-500" size={28} />
+                        <Settings className="text-[#0066B3]" size={28} />
                         System Settings
                     </h1>
                     <p className="text-slate-500">Configure system-wide settings and policies</p>
@@ -726,7 +726,7 @@ export const SettingsPage: React.FC = () => {
                 {showAddButton && (
                     <button
                         onClick={() => openModal(activeTab)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-all shadow-lg"
                     >
                         <Plus size={20} />
                         {getAddButtonLabel()}
@@ -743,8 +743,8 @@ export const SettingsPage: React.FC = () => {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all ${activeTab === tab.key
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-purple-200 hover:text-purple-600'
+                                ? 'bg-[#0066B3] text-white shadow-lg'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-[#0066B3]'
                                 }`}
                         >
                             <Icon size={18} />
@@ -763,7 +763,7 @@ export const SettingsPage: React.FC = () => {
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                             <h2 className="text-xl font-bold text-slate-900">{getModalTitle()}</h2>
                             <button onClick={() => { setShowModal(false); setEditItem(null); setFormData({}); }} className="p-2 hover:bg-white rounded-lg">
                                 <X size={20} />
@@ -841,7 +841,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.requires_receipt || false}
                                                 onChange={(e) => setFormData({ ...formData, requires_receipt: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Requires Receipt</span>
                                         </label>
@@ -850,7 +850,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.requires_approval !== false}
                                                 onChange={(e) => setFormData({ ...formData, requires_approval: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Requires Approval</span>
                                         </label>
@@ -859,7 +859,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.is_taxable || false}
                                                 onChange={(e) => setFormData({ ...formData, is_taxable: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Taxable</span>
                                         </label>
@@ -868,7 +868,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.is_active !== false}
                                                 onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Active</span>
                                         </label>
@@ -947,7 +947,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.is_paid !== false}
                                                 onChange={(e) => setFormData({ ...formData, is_paid: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Paid Leave</span>
                                         </label>
@@ -956,7 +956,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.allow_carry_forward || false}
                                                 onChange={(e) => setFormData({ ...formData, allow_carry_forward: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Allow Carry Forward</span>
                                         </label>
@@ -965,7 +965,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.requires_attachment || false}
                                                 onChange={(e) => setFormData({ ...formData, requires_attachment: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Requires Attachment</span>
                                         </label>
@@ -974,7 +974,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.requires_confirmation || false}
                                                 onChange={(e) => setFormData({ ...formData, requires_confirmation: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Confirmed Staff Only</span>
                                         </label>
@@ -983,7 +983,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.allow_negative || false}
                                                 onChange={(e) => setFormData({ ...formData, allow_negative: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Allow Negative Balance</span>
                                         </label>
@@ -992,7 +992,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.is_active !== false}
                                                 onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Active</span>
                                         </label>
@@ -1027,7 +1027,7 @@ export const SettingsPage: React.FC = () => {
                                                 type="checkbox"
                                                 checked={formData.is_recurring || false}
                                                 onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
-                                                className="w-4 h-4 text-purple-600 rounded"
+                                                className="w-4 h-4 text-[#0066B3] rounded"
                                             />
                                             <span className="text-sm text-slate-700">Recurring annually</span>
                                         </label>
@@ -1046,7 +1046,7 @@ export const SettingsPage: React.FC = () => {
                             <button
                                 onClick={handleSave}
                                 disabled={createClaimTypeMutation.isPending || updateClaimTypeMutation.isPending || createHolidayMutation.isPending || createLeaveTypeMutation.isPending || updateLeaveTypeMutation.isPending}
-                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 flex items-center gap-2"
+                                className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 flex items-center gap-2"
                             >
                                 <Save size={18} />
                                 Save

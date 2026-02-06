@@ -365,4 +365,30 @@ export class CommunicationsService {
 
         return result.affected || 0;
     }
+
+    // ==================== DELETE & UNARCHIVE ====================
+
+    async deleteAnnouncement(id: string): Promise<{ message: string }> {
+        const announcement = await this.announcementRepo.findOne({ where: { id } });
+        if (!announcement) throw new NotFoundException('Announcement not found');
+
+        if (announcement.status === AnnouncementStatus.PUBLISHED) {
+            throw new BadRequestException('Cannot delete a published announcement. Archive it first.');
+        }
+
+        await this.announcementRepo.remove(announcement);
+        return { message: 'Announcement deleted successfully' };
+    }
+
+    async unarchiveAnnouncement(id: string): Promise<Announcement> {
+        const announcement = await this.announcementRepo.findOne({ where: { id } });
+        if (!announcement) throw new NotFoundException('Announcement not found');
+
+        if (announcement.status !== AnnouncementStatus.ARCHIVED) {
+            throw new BadRequestException('Only archived announcements can be unarchived');
+        }
+
+        announcement.status = AnnouncementStatus.DRAFT;
+        return this.announcementRepo.save(announcement);
+    }
 }

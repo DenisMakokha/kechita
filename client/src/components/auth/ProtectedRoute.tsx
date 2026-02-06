@@ -109,7 +109,7 @@ export const UnauthorizedPage: React.FC = () => {
     const { user } = useAuthStore();
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Lock className="text-red-600" size={32} />
@@ -126,7 +126,7 @@ export const UnauthorizedPage: React.FC = () => {
                             {user.roles?.map((role) => (
                                 <span
                                     key={role.code}
-                                    className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium"
+                                    className="px-2 py-0.5 bg-blue-100 text-[#0066B3] rounded text-xs font-medium"
                                 >
                                     {role.code.replace(/_/g, ' ')}
                                 </span>
@@ -143,7 +143,7 @@ export const UnauthorizedPage: React.FC = () => {
                     </a>
                     <a
                         href="/login"
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                        className="px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-colors font-medium"
                     >
                         Switch Account
                     </a>

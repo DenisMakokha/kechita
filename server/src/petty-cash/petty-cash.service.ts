@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual } from 'typeorm';
 import { PettyCashFloat, FloatTier, FLOAT_TIER_LIMITS } from './entities/petty-cash-float.entity';
@@ -583,5 +583,115 @@ export class PettyCashService {
             total_expenses_this_month: Number(monthlyExpenses?.total || 0),
             variance_alerts: varianceAlerts,
         };
+    }
+
+    // ==================== REJECT REPLENISHMENT ====================
+
+    async rejectReplenishment(replenishmentId: string, reason: string): Promise<PettyCashReplenishment> {
+        const replenishment = await this.replenishmentRepo.findOne({
+            where: { id: replenishmentId },
+            relations: ['float'],
+        });
+
+        if (!replenishment) throw new NotFoundException('Replenishment request not found');
+        if (replenishment.status !== ReplenishmentStatus.REQUESTED) {
+            throw new BadRequestException('Only requested replenishments can be rejected');
+        }
+
+        replenishment.status = ReplenishmentStatus.REJECTED;
+        replenishment.approval_comment = `Rejected: ${reason}`;
+
+        return this.replenishmentRepo.save(replenishment);
+    }
+
+    // ==================== CANCEL TRANSACTION ====================
+
+    async cancelTransaction(transactionId: string, reason: string): Promise<PettyCashTransaction> {
+        const transaction = await this.transactionRepo.findOne({
+            where: { id: transactionId },
+            relations: ['float'],
+        });
+
+        if (!transaction) throw new NotFoundException('Transaction not found');
+        if (transaction.status === TransactionStatus.CANCELLED) {
+            throw new BadRequestException('Transaction is already cancelled');
+        }
+
+        // Reverse the balance effect if transaction was approved
+        if (transaction.status === TransactionStatus.APPROVED) {
+            const pettyCashFloat = transaction.float;
+            if (transaction.type === TransactionType.EXPENSE) {
+                // Restore balance for cancelled expense
+                pettyCashFloat.current_balance = Number(pettyCashFloat.current_balance) + Number(transaction.amount);
+            } else if (transaction.type === TransactionType.REPLENISHMENT) {
+                // Reduce balance for cancelled replenishment
+                pettyCashFloat.current_balance = Number(pettyCashFloat.current_balance) - Number(transaction.amount);
+            }
+            await this.floatRepo.save(pettyCashFloat);
+        }
+
+        transaction.status = TransactionStatus.CANCELLED;
+        transaction.notes = transaction.notes 
+            ? `${transaction.notes}\nCancelled: ${reason}` 
+            : `Cancelled: ${reason}`;
+
+        return this.transactionRepo.save(transaction);
+    }
+
+    // ==================== DEACTIVATE/ACTIVATE FLOAT ====================
+
+    async deactivateFloat(floatId: string): Promise<PettyCashFloat> {
+        const pettyCashFloat = await this.floatRepo.findOne({ where: { id: floatId } });
+        if (!pettyCashFloat) throw new NotFoundException('Float not found');
+
+        // Check for pending transactions
+        const pendingCount = await this.transactionRepo.count({
+            where: { float: { id: floatId }, status: TransactionStatus.PENDING },
+        });
+
+        if (pendingCount > 0) {
+            throw new BadRequestException(`Cannot deactivate float with ${pendingCount} pending transaction(s)`);
+        }
+
+        pettyCashFloat.is_active = false;
+        return this.floatRepo.save(pettyCashFloat);
+    }
+
+    async activateFloat(floatId: string): Promise<PettyCashFloat> {
+        const pettyCashFloat = await this.floatRepo.findOne({ where: { id: floatId } });
+        if (!pettyCashFloat) throw new NotFoundException('Float not found');
+
+        pettyCashFloat.is_active = true;
+        return this.floatRepo.save(pettyCashFloat);
+    }
+
+    // ==================== RECONCILIATION HISTORY ====================
+
+    async getReconciliationHistory(floatId: string): Promise<PettyCashReconciliation[]> {
+        return this.reconciliationRepo.find({
+            where: { float: { id: floatId } },
+            relations: ['countedBy', 'verifiedBy'],
+            order: { reconciliation_date: 'DESC' },
+        });
+    }
+
+    // ==================== DELETE PENDING TRANSACTION ====================
+
+    async deletePendingTransaction(transactionId: string, staffId: string): Promise<{ message: string }> {
+        const transaction = await this.transactionRepo.findOne({
+            where: { id: transactionId },
+            relations: ['createdBy'],
+        });
+
+        if (!transaction) throw new NotFoundException('Transaction not found');
+        if (transaction.status !== TransactionStatus.PENDING) {
+            throw new BadRequestException('Only pending transactions can be deleted');
+        }
+        if (transaction.createdBy?.id !== staffId) {
+            throw new ForbiddenException('You can only delete your own pending transactions');
+        }
+
+        await this.transactionRepo.remove(transaction);
+        return { message: 'Transaction deleted successfully' };
     }
 }

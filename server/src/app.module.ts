@@ -25,6 +25,8 @@ import { CommunicationsModule } from './communications/communications.module';
 // Auth Entities
 import { User } from './auth/entities/user.entity';
 import { Role } from './auth/entities/role.entity';
+import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
+import { RefreshToken } from './auth/entities/refresh-token.entity';
 // Org Entities
 import { Region } from './org/entities/region.entity';
 import { Branch } from './org/entities/branch.entity';
@@ -109,7 +111,7 @@ const shouldSynchronize = (() => {
       database: process.env.DB_DATABASE,
       entities: [
         // Auth
-        User, Role,
+        User, Role, PasswordResetToken, RefreshToken,
         // Org
         Region, Branch, Department, Position,
         // Staff

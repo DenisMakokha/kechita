@@ -16,6 +16,23 @@ export class User {
     @Column({ default: true })
     is_active: boolean;
 
+    // Account lockout fields
+    @Column({ default: 0 })
+    failed_login_attempts: number;
+
+    @Column({ type: 'timestamp', nullable: true })
+    locked_until: Date;
+
+    @Column({ type: 'timestamp', nullable: true })
+    last_login_at: Date;
+
+    // 2FA fields
+    @Column({ default: false })
+    two_factor_enabled: boolean;
+
+    @Column({ nullable: true, select: false })
+    two_factor_secret: string;
+
     @CreateDateColumn()
     created_at: Date;
 

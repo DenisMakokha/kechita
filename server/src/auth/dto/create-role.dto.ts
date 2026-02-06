@@ -1,0 +1,30 @@
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
+
+export class CreateRoleDto {
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(50)
+    code: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(100)
+    name: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(500)
+    description?: string;
+}
+
+export class UpdateRoleDto {
+    @IsString()
+    @IsOptional()
+    @MaxLength(100)
+    name?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(500)
+    description?: string;
+}

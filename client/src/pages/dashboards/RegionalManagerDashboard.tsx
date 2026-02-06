@@ -114,12 +114,10 @@ export const RegionalManagerDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Regional Dashboard</h1>
-                    <p className="text-slate-500">
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.first_name}! Here's your regional overview.
-                    </p>
+                    <p className="text-slate-500">Monitor branch performance and team activity</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium flex items-center gap-1">
+                    <span className="px-3 py-1 bg-blue-100 text-[#0066B3] rounded-full text-sm font-medium flex items-center gap-1">
                         <MapPin size={14} />
                         Central Region
                     </span>
@@ -127,33 +125,33 @@ export const RegionalManagerDashboard: React.FC = () => {
             </div>
 
             {/* Regional Summary */}
-            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-6 text-white">
+            <div className="bg-gradient-to-r from-[#0F172A] via-[#1E3A5F] to-[#0F172A] rounded-2xl p-6 text-white">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <BarChart3 size={24} />
                         Regional Performance
                     </h2>
-                    <span className="text-sm text-purple-200">
+                    <span className="text-sm text-blue-200">
                         {branches.length} Branches
                     </span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-purple-200 text-sm">Total Staff</p>
+                        <p className="text-blue-200 text-sm">Total Staff</p>
                         <p className="text-2xl font-bold mt-1">{totalStaff}</p>
                     </div>
                     <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-purple-200 text-sm">On Leave Today</p>
+                        <p className="text-blue-200 text-sm">On Leave Today</p>
                         <p className="text-2xl font-bold mt-1">{totalOnLeave}</p>
                     </div>
                     <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-purple-200 text-sm">Collections (MTD)</p>
+                        <p className="text-blue-200 text-sm">Collections (MTD)</p>
                         <p className="text-2xl font-bold mt-1">
                             KES {(totalCollections / 1000000).toFixed(1)}M
                         </p>
                     </div>
                     <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-purple-200 text-sm">Average PAR</p>
+                        <p className="text-blue-200 text-sm">Average PAR</p>
                         <p className={`text-2xl font-bold mt-1 ${avgPar > 5 ? 'text-red-300' : 'text-emerald-300'}`}>
                             {avgPar.toFixed(1)}%
                         </p>
@@ -184,7 +182,7 @@ export const RegionalManagerDashboard: React.FC = () => {
                     value={staffOnLeave?.length || 0}
                     subtitle="Staff away today"
                     icon={<Users className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-purple-500 to-pink-600"
+                    color="bg-[#0066B3]"
                 />
                 <StatCard
                     title="Reports Submitted"
@@ -202,7 +200,7 @@ export const RegionalManagerDashboard: React.FC = () => {
                 <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
                         <h3 className="text-lg font-semibold text-slate-900">Branch Performance</h3>
-                        <Link to="/reports" className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1">
+                        <Link to="/reports" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium flex items-center gap-1">
                             View details <ChevronRight size={16} />
                         </Link>
                     </div>
@@ -211,8 +209,8 @@ export const RegionalManagerDashboard: React.FC = () => {
                             <div key={branch.id} className="p-4 hover:bg-slate-50">
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                                            <MapPin className="text-purple-600" size={20} />
+                                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                            <MapPin className="text-[#0066B3]" size={20} />
                                         </div>
                                         <div>
                                             <p className="font-medium text-slate-900">{branch.name}</p>
@@ -236,7 +234,7 @@ export const RegionalManagerDashboard: React.FC = () => {
                                 </div>
                                 <div className="w-full bg-slate-100 rounded-full h-2">
                                     <div
-                                        className={`h-2 rounded-full ${branch.par > 5 ? 'bg-red-500' : 'bg-gradient-to-r from-purple-500 to-pink-500'}`}
+                                        className={`h-2 rounded-full ${branch.par > 5 ? 'bg-red-500' : 'bg-[#0066B3]'}`}
                                         style={{ width: `${Math.min((branch.collections / 3000000) * 100, 100)}%` }}
                                     />
                                 </div>
@@ -281,8 +279,8 @@ export const RegionalManagerDashboard: React.FC = () => {
                                 to="/reports"
                                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
                             >
-                                <div className="p-2 bg-purple-100 rounded-lg">
-                                    <FileText className="text-purple-600" size={18} />
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <FileText className="text-[#0066B3]" size={18} />
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-medium text-slate-900">Daily Reports</p>
@@ -323,23 +321,23 @@ export const RegionalManagerDashboard: React.FC = () => {
                     </div>
 
                     {/* Staff Overview */}
-                    <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-5 text-white">
+                    <div className="bg-[#0066B3] rounded-xl p-5 text-white">
                         <h3 className="font-semibold mb-4">Team Status</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-purple-200 text-xs">Present</p>
+                                <p className="text-blue-200 text-xs">Present</p>
                                 <p className="text-2xl font-bold">{totalStaff - totalOnLeave}</p>
                             </div>
                             <div>
-                                <p className="text-purple-200 text-xs">On Leave</p>
+                                <p className="text-blue-200 text-xs">On Leave</p>
                                 <p className="text-2xl font-bold">{totalOnLeave}</p>
                             </div>
                             <div>
-                                <p className="text-purple-200 text-xs">Branches</p>
+                                <p className="text-blue-200 text-xs">Branches</p>
                                 <p className="text-2xl font-bold">{branches.length}</p>
                             </div>
                             <div>
-                                <p className="text-purple-200 text-xs">Coverage</p>
+                                <p className="text-blue-200 text-xs">Coverage</p>
                                 <p className="text-2xl font-bold">{Math.round((1 - totalOnLeave / totalStaff) * 100)}%</p>
                             </div>
                         </div>

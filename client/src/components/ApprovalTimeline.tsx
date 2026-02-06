@@ -100,13 +100,13 @@ const FullTimeline: React.FC<{ instance: ApprovalInstanceData; showHeader: boole
 
             <div className="relative">
                 {/* Timeline Track */}
-                <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-purple-200 via-slate-200 to-slate-100" />
+                <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 via-slate-200 to-slate-100" />
 
                 <div className="space-y-0">
                     {/* Request Created */}
                     <TimelineStep
                         icon={<FileText size={16} />}
-                        iconBg="bg-purple-500"
+                        iconBg="bg-[#0066B3]"
                         title="Request Submitted"
                         subtitle={instance.requester?.full_name || 'Staff'}
                         timestamp={instance.created_at}
@@ -170,7 +170,7 @@ const CompactTimeline: React.FC<{ instance: ApprovalInstanceData; showHeader: bo
             <div className="flex items-center gap-1 flex-wrap">
                 {/* Start */}
                 <div className="flex items-center gap-1">
-                    <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-[#0066B3] flex items-center justify-center">
                         <FileText className="text-white" size={12} />
                     </div>
                 </div>
@@ -247,7 +247,7 @@ const MinimalTimeline: React.FC<{ instance: ApprovalInstanceData }> = ({ instanc
                 <div
                     className={`h-full transition-all ${instance.status === 'approved' ? 'bg-emerald-500' :
                             instance.status === 'rejected' ? 'bg-red-500' :
-                                'bg-purple-500'
+                                'bg-[#0066B3]'
                         }`}
                     style={{ width: instance.status === 'approved' || instance.status === 'rejected' ? '100%' : `${progress}%` }}
                 />

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, Like, ILike, Between, MoreThan } from 'typeorm';
 import { JobPost, JobStatus, EmploymentType, ExperienceLevel } from './entities/job-post.entity';
@@ -1025,5 +1025,147 @@ export class RecruitmentService {
             stream.on('finish', () => resolve(fileName));
             stream.on('error', reject);
         });
+    }
+
+    // ==================== REJECT APPLICATION ====================
+
+    async rejectApplication(applicationId: string, reason?: string): Promise<Application> {
+        const application = await this.applicationRepo.findOne({
+            where: { id: applicationId },
+            relations: ['candidate'],
+        });
+
+        if (!application) throw new NotFoundException('Application not found');
+
+        application.status = ApplicationStatus.REJECTED;
+        if (reason) application.rejection_reason = reason;
+        application.rejected_at = new Date();
+
+        // Update candidate status if no other active applications
+        const otherActiveApps = await this.applicationRepo.count({
+            where: {
+                candidate: { id: application.candidate.id },
+                status: In([ApplicationStatus.ACTIVE, ApplicationStatus.SHORTLISTED, ApplicationStatus.IN_REVIEW]),
+            },
+        });
+
+        if (otherActiveApps === 0) {
+            await this.candidateRepo.update(application.candidate.id, { status: CandidateStatus.REJECTED });
+        }
+
+        return this.applicationRepo.save(application);
+    }
+
+    // ==================== WITHDRAW APPLICATION ====================
+
+    async withdrawApplication(applicationId: string, candidateEmail: string): Promise<Application> {
+        const application = await this.applicationRepo.findOne({
+            where: { id: applicationId },
+            relations: ['candidate'],
+        });
+
+        if (!application) throw new NotFoundException('Application not found');
+        if (application.candidate.email !== candidateEmail) {
+            throw new ForbiddenException('You can only withdraw your own application');
+        }
+        if (application.status === ApplicationStatus.REJECTED || application.status === ApplicationStatus.WITHDRAWN) {
+            throw new BadRequestException('Application is already closed');
+        }
+
+        application.status = ApplicationStatus.WITHDRAWN;
+
+        return this.applicationRepo.save(application);
+    }
+
+    // ==================== DELETE JOB POST ====================
+
+    async deleteJobPost(jobId: string): Promise<{ message: string }> {
+        const job = await this.jobPostRepo.findOne({
+            where: { id: jobId },
+        });
+
+        if (!job) throw new NotFoundException('Job post not found');
+
+        // Check if job has applications
+        const applicationCount = await this.applicationRepo.count({
+            where: { jobPost: { id: jobId } },
+        });
+
+        if (applicationCount > 0) {
+            throw new BadRequestException(
+                `Cannot delete job post with ${applicationCount} application(s). Close it instead.`
+            );
+        }
+
+        await this.jobPostRepo.remove(job);
+        return { message: 'Job post deleted successfully' };
+    }
+
+    // ==================== DELETE PIPELINE STAGE ====================
+
+    async deletePipelineStage(stageId: string): Promise<{ message: string }> {
+        const stage = await this.stageRepo.findOne({
+            where: { id: stageId },
+        });
+
+        if (!stage) throw new NotFoundException('Pipeline stage not found');
+
+        // Check if stage is in use by applications
+        const usageCount = await this.applicationRepo.count({
+            where: { stage: { id: stageId } },
+        });
+
+        if (usageCount > 0) {
+            throw new BadRequestException(
+                `Cannot delete stage with ${usageCount} application(s). Move applications first.`
+            );
+        }
+
+        await this.stageRepo.remove(stage);
+        return { message: 'Pipeline stage deleted successfully' };
+    }
+
+    // ==================== BLACKLIST CANDIDATE ====================
+
+    async blacklistCandidate(candidateId: string, reason?: string): Promise<Candidate> {
+        const candidate = await this.candidateRepo.findOne({
+            where: { id: candidateId },
+        });
+
+        if (!candidate) throw new NotFoundException('Candidate not found');
+
+        candidate.status = CandidateStatus.BLACKLISTED;
+        if (reason) candidate.internal_notes = candidate.internal_notes 
+            ? `${candidate.internal_notes}\nBlacklisted: ${reason}` 
+            : `Blacklisted: ${reason}`;
+        return this.candidateRepo.save(candidate);
+    }
+
+    async unblacklistCandidate(candidateId: string): Promise<Candidate> {
+        const candidate = await this.candidateRepo.findOne({
+            where: { id: candidateId },
+        });
+
+        if (!candidate) throw new NotFoundException('Candidate not found');
+
+        candidate.status = CandidateStatus.ACTIVE;
+        return this.candidateRepo.save(candidate);
+    }
+
+    // ==================== BULK REJECT APPLICATIONS ====================
+
+    async bulkRejectApplications(applicationIds: string[], reason?: string): Promise<{ rejected: number }> {
+        let rejected = 0;
+
+        for (const id of applicationIds) {
+            try {
+                await this.rejectApplication(id, reason);
+                rejected++;
+            } catch (err) {
+                // Skip failed rejections
+            }
+        }
+
+        return { rejected };
     }
 }

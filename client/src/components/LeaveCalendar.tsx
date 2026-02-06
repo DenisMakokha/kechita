@@ -178,7 +178,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
             {/* Calendar Main */}
             <div className={`${showSidebar ? 'lg:col-span-3' : 'lg:col-span-4'} bg-white rounded-xl border border-slate-200 overflow-hidden`}>
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={prevMonth}
@@ -205,7 +205,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                 <select
                                     value={leaveTypeFilter}
                                     onChange={(e) => setLeaveTypeFilter(e.target.value)}
-                                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"
                                 >
                                     <option value="all">All Leave Types</option>
                                     {leaveTypes.map(t => (
@@ -244,7 +244,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                             key={idx}
                             onClick={() => handleDateClick(day)}
                             className={`min-h-[90px] border-b border-r border-slate-100 p-1.5 cursor-pointer transition-colors ${!day.date ? 'bg-slate-50 cursor-default' :
-                                    day.isSelected ? 'bg-purple-50 ring-2 ring-inset ring-purple-500' :
+                                    day.isSelected ? 'bg-blue-50 ring-2 ring-inset ring-[#0066B3]' :
                                         day.isWeekend ? 'bg-red-50/30 hover:bg-red-50' :
                                             day.holiday ? 'bg-amber-50 hover:bg-amber-100' :
                                                 'bg-white hover:bg-slate-50'
@@ -255,9 +255,9 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                     <div className="flex items-center justify-between mb-1">
                                         <span
                                             className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium transition-colors ${day.isToday
-                                                    ? 'bg-purple-600 text-white shadow-sm'
+                                                    ? 'bg-[#0066B3] text-white shadow-sm'
                                                     : day.isSelected
-                                                        ? 'bg-purple-100 text-purple-700'
+                                                        ? 'bg-blue-100 text-[#0066B3]'
                                                         : day.isWeekend
                                                             ? 'text-red-500'
                                                             : 'text-slate-700'
@@ -318,7 +318,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                     <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
                         <div className="flex items-center gap-6 text-sm">
                             <div className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded bg-purple-600" />
+                                <span className="w-3 h-3 rounded bg-[#0066B3]" />
                                 <span className="text-slate-600">Today</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -348,7 +348,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                         <div className="bg-white rounded-xl border border-slate-200 p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-                                    <CalendarIcon size={18} className="text-purple-500" />
+                                    <CalendarIcon size={18} className="text-[#0066B3]" />
                                     {selectedDate.toLocaleDateString('en-GB', {
                                         weekday: 'long',
                                         day: 'numeric',

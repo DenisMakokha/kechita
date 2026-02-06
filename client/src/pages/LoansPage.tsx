@@ -107,6 +107,13 @@ export const LoansPage: React.FC = () => {
         enabled: !!selectedLoan?.id,
     });
 
+    // Toast state
+    const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 3000);
+    };
+
     // Mutations
     const applyLoanMutation = useMutation({
         mutationFn: async (data: typeof formData) => {
@@ -119,6 +126,10 @@ export const LoansPage: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['my-loan-stats'] });
             setShowApplyModal(false);
             resetForm();
+            showToast('Loan application submitted successfully!');
+        },
+        onError: () => {
+            showToast('Failed to submit loan application', 'error');
         },
     });
 
@@ -131,6 +142,10 @@ export const LoansPage: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['my-loans'] });
             queryClient.invalidateQueries({ queryKey: ['all-loans'] });
             setShowDetailModal(false);
+            showToast('Loan application cancelled');
+        },
+        onError: () => {
+            showToast('Failed to cancel loan', 'error');
         },
     });
 
@@ -202,7 +217,7 @@ export const LoansPage: React.FC = () => {
         switch (type) {
             case 'salary_advance': return 'bg-cyan-100 text-cyan-700';
             case 'emergency_loan': return 'bg-red-100 text-red-700';
-            default: return 'bg-purple-100 text-purple-700';
+            default: return 'bg-blue-100 text-[#0066B3]';
         }
     };
 
@@ -228,18 +243,34 @@ export const LoansPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* Toast Notification */}
+            {toastMessage && (
+                <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+                    <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${
+                        toastMessage.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
+                    }`}>
+                        {toastMessage.type === 'success' ? (
+                            <CheckCircle size={18} className="text-emerald-400" />
+                        ) : (
+                            <AlertTriangle size={18} className="text-white" />
+                        )}
+                        <span className="font-medium">{toastMessage.text}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <PiggyBank className="text-purple-500" size={28} />
+                        <PiggyBank className="text-[#0066B3]" size={28} />
                         Staff Loans
                     </h1>
                     <p className="text-slate-500">Manage staff loans and salary advances</p>
                 </div>
                 <button
                     onClick={() => { resetForm(); setShowApplyModal(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-all shadow-lg hover:shadow-xl"
                 >
                     <Plus size={20} />
                     Apply for Loan
@@ -248,13 +279,13 @@ export const LoansPage: React.FC = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl p-5 text-white">
+                <div className="bg-[#0066B3] rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-3">
                         <Wallet size={24} className="opacity-80" />
                         <BarChart3 size={20} className="opacity-60" />
                     </div>
                     <p className="text-3xl font-bold">{myStats?.total || 0}</p>
-                    <p className="text-purple-100 text-sm">Total Applications</p>
+                    <p className="text-blue-100 text-sm">Total Applications</p>
                 </div>
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-3">
@@ -294,13 +325,13 @@ export const LoansPage: React.FC = () => {
             {myStats?.byType && myStats.byType.length > 0 && (
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <BarChart3 size={20} className="text-purple-500" />
+                        <BarChart3 size={20} className="text-[#0066B3]" />
                         Loans by Type
                     </h3>
                     <div className="flex flex-wrap gap-3">
                         {myStats.byType.map((t: any) => (
                             <div key={t.type} className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-lg">
-                                <Briefcase size={16} className="text-purple-500" />
+                                <Briefcase size={16} className="text-[#0066B3]" />
                                 <div>
                                     <p className="font-medium text-slate-900">{getLoanTypeLabel(t.type)}</p>
                                     <p className="text-xs text-slate-500">
@@ -326,7 +357,7 @@ export const LoansPage: React.FC = () => {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key as any)}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === tab.key
-                                ? 'bg-white text-purple-700 shadow-sm'
+                                ? 'bg-white text-[#0066B3] shadow-sm'
                                 : 'text-slate-600 hover:text-slate-900'
                                 }`}
                         >
@@ -348,7 +379,7 @@ export const LoansPage: React.FC = () => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search loans..."
-                            className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         />
                     </div>
 
@@ -356,7 +387,7 @@ export const LoansPage: React.FC = () => {
                         <select
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value)}
-                            className="px-4 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="px-4 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         >
                             <option value="all">All Types</option>
                             <option value="staff_loan">Staff Loan</option>
@@ -371,7 +402,7 @@ export const LoansPage: React.FC = () => {
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                         >
                             <option value="all">All Status</option>
                             <option value="pending">Pending</option>
@@ -407,7 +438,7 @@ export const LoansPage: React.FC = () => {
                             <tr>
                                 <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
-                                        <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
+                                        <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full" />
                                         <span>Loading loans...</span>
                                     </div>
                                 </td>
@@ -433,14 +464,14 @@ export const LoansPage: React.FC = () => {
                                             {loan.is_urgent && (
                                                 <AlertTriangle className="text-red-500" size={16} />
                                             )}
-                                            <span className="font-mono text-sm text-purple-600">
+                                            <span className="font-mono text-sm text-[#0066B3]">
                                                 {loan.loan_number}
                                             </span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                            <div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold">
                                                 {loan.staff?.first_name?.charAt(0)}
                                             </div>
                                             <div>
@@ -501,7 +532,7 @@ export const LoansPage: React.FC = () => {
             {showApplyModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                             <h2 className="text-xl font-bold text-slate-900">Apply for Loan</h2>
                             <button onClick={() => setShowApplyModal(false)} className="p-2 hover:bg-white rounded-lg">
                                 <X size={20} />
@@ -529,11 +560,11 @@ export const LoansPage: React.FC = () => {
                                         type="button"
                                         onClick={() => setFormData(p => ({ ...p, loan_type: 'staff_loan', interest_rate: 12, term_months: 12 }))}
                                         className={`p-4 rounded-xl border-2 transition-all ${formData.loan_type === 'staff_loan'
-                                            ? 'border-purple-500 bg-purple-50'
+                                            ? 'border-[#0066B3] bg-blue-50'
                                             : 'border-slate-200 hover:border-slate-300'
                                             }`}
                                     >
-                                        <Briefcase className={formData.loan_type === 'staff_loan' ? 'text-purple-600' : 'text-slate-400'} size={24} />
+                                        <Briefcase className={formData.loan_type === 'staff_loan' ? 'text-[#0066B3]' : 'text-slate-400'} size={24} />
                                         <p className="font-semibold text-slate-900 mt-2">Staff Loan</p>
                                         <p className="text-xs text-slate-500">Up to 12 months term</p>
                                     </button>
@@ -551,7 +582,7 @@ export const LoansPage: React.FC = () => {
                                         value={formData.principal || ''}
                                         onChange={(e) => setFormData(p => ({ ...p, principal: parseFloat(e.target.value) || 0 }))}
                                         placeholder="0"
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                     />
                                 </div>
                                 <div>
@@ -564,7 +595,7 @@ export const LoansPage: React.FC = () => {
                                         onChange={(e) => setFormData(p => ({ ...p, term_months: parseInt(e.target.value) || 1 }))}
                                         min={1}
                                         max={24}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                     />
                                 </div>
                                 <div>
@@ -576,7 +607,7 @@ export const LoansPage: React.FC = () => {
                                         value={formData.interest_rate}
                                         onChange={(e) => setFormData(p => ({ ...p, interest_rate: parseFloat(e.target.value) || 0 }))}
                                         min={0}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                         disabled={formData.loan_type === 'salary_advance'}
                                     />
                                 </div>
@@ -590,7 +621,7 @@ export const LoansPage: React.FC = () => {
                                         onChange={(e) => setFormData(p => ({ ...p, max_salary_deduction_percent: parseInt(e.target.value) || 33 }))}
                                         min={10}
                                         max={50}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                     />
                                 </div>
                             </div>
@@ -605,7 +636,7 @@ export const LoansPage: React.FC = () => {
                                     onChange={(e) => setFormData(p => ({ ...p, purpose: e.target.value }))}
                                     rows={3}
                                     placeholder="Brief description of why you need this loan..."
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                 />
                             </div>
 
@@ -617,7 +648,7 @@ export const LoansPage: React.FC = () => {
                                         id="deduct_salary"
                                         checked={formData.deduct_from_salary}
                                         onChange={(e) => setFormData(p => ({ ...p, deduct_from_salary: e.target.checked }))}
-                                        className="w-4 h-4 text-purple-600 rounded"
+                                        className="w-4 h-4 text-[#0066B3] rounded"
                                     />
                                     <label htmlFor="deduct_salary" className="text-sm text-slate-700">
                                         Deduct repayments from salary
@@ -629,7 +660,7 @@ export const LoansPage: React.FC = () => {
                                         id="is_urgent"
                                         checked={formData.is_urgent}
                                         onChange={(e) => setFormData(p => ({ ...p, is_urgent: e.target.checked }))}
-                                        className="w-4 h-4 text-purple-600 rounded"
+                                        className="w-4 h-4 text-[#0066B3] rounded"
                                     />
                                     <label htmlFor="is_urgent" className="text-sm text-slate-700">
                                         Mark as urgent
@@ -638,9 +669,9 @@ export const LoansPage: React.FC = () => {
                             </div>
 
                             {/* Loan Summary */}
-                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-100">
+                            <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl p-5 border border-blue-100">
                                 <div className="flex items-center gap-2 mb-4">
-                                    <Calculator className="text-purple-600" size={20} />
+                                    <Calculator className="text-[#0066B3]" size={20} />
                                     <h4 className="font-semibold text-slate-900">Loan Summary</h4>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -652,7 +683,7 @@ export const LoansPage: React.FC = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm text-slate-500">Monthly Payment</p>
-                                        <p className="text-xl font-bold text-purple-600">
+                                        <p className="text-xl font-bold text-[#0066B3]">
                                             KES {calculateMonthlyPayment().toLocaleString()}
                                         </p>
                                     </div>
@@ -682,7 +713,7 @@ export const LoansPage: React.FC = () => {
                             <button
                                 onClick={() => applyLoanMutation.mutate(formData)}
                                 disabled={formData.principal <= 0 || applyLoanMutation.isPending}
-                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {applyLoanMutation.isPending ? (
                                     <>
@@ -711,7 +742,7 @@ export const LoansPage: React.FC = () => {
                                     ? 'bg-gradient-to-r from-red-50 to-rose-50'
                                     : selectedLoan.status === 'active' || selectedLoan.status === 'disbursed'
                                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50'
-                                        : 'bg-gradient-to-r from-purple-50 to-pink-50'
+                                        : 'bg-gradient-to-r from-blue-50 to-slate-50'
                             }`}>
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">
@@ -781,7 +812,7 @@ export const LoansPage: React.FC = () => {
                                     </div>
 
                                     {/* Financial Summary */}
-                                    <div className="bg-purple-50 rounded-xl p-5 border border-purple-100">
+                                    <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
                                         <h4 className="font-semibold text-slate-900 mb-4">Financial Summary</h4>
                                         <div className="grid grid-cols-4 gap-4">
                                             <div>
@@ -804,7 +835,7 @@ export const LoansPage: React.FC = () => {
                                             </div>
                                             <div>
                                                 <p className="text-sm text-slate-500">Monthly EMI</p>
-                                                <p className="text-lg font-bold text-purple-600">
+                                                <p className="text-lg font-bold text-[#0066B3]">
                                                     KES {Number(selectedLoan.monthly_installment || 0).toLocaleString()}
                                                 </p>
                                             </div>
@@ -885,7 +916,7 @@ export const LoansPage: React.FC = () => {
                                     {/* Staff Info */}
                                     <div className="p-4 bg-slate-50 rounded-lg">
                                         <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-lg font-bold">
+                                            <div className="w-12 h-12 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-lg font-bold">
                                                 {selectedLoan.staff?.first_name?.charAt(0)}
                                             </div>
                                             <div>

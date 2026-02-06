@@ -126,3 +126,61 @@ export class SaveClaimDraftDto {
     @IsOptional()
     items?: ClaimItemDto[];
 }
+
+export class SubmitClaimDto {
+    @IsString()
+    @IsOptional()
+    purpose?: string;
+
+    @IsString()
+    @IsOptional()
+    period_start?: string;
+
+    @IsString()
+    @IsOptional()
+    period_end?: string;
+
+    @IsBoolean()
+    @IsOptional()
+    is_urgent?: boolean;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ClaimItemDto)
+    items: ClaimItemDto[];
+}
+
+export class ClaimItemReviewDto {
+    @IsUUID()
+    item_id: string;
+
+    @IsNumber()
+    approved_amount: number;
+
+    @IsString()
+    status: string;
+
+    @IsString()
+    @IsOptional()
+    comment?: string;
+}
+
+export class ReviewClaimItemsDto {
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ClaimItemReviewDto)
+    reviews: ClaimItemReviewDto[];
+}
+
+export class RecordPaymentDto {
+    @IsNumber()
+    amount: number;
+
+    @IsString()
+    @IsNotEmpty()
+    payment_reference: string;
+
+    @IsString()
+    @IsNotEmpty()
+    payment_method: string;
+}

@@ -1,8 +1,7 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
-import { useAuthStore } from '../../store/auth.store';
 import {
     TrendingUp,
     TrendingDown,
@@ -18,6 +17,11 @@ import {
     ArrowDownRight,
     AlertCircle,
     MapPin,
+    RefreshCw,
+    Download,
+    Briefcase,
+    FileText,
+    Wallet,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -56,15 +60,19 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
 };
 
 export const CEODashboard: React.FC = () => {
-    const { user } = useAuthStore();
+    const queryClient = useQueryClient();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Fetch CEO dashboard data
-    const { data: dashboard, isLoading } = useQuery({
+    const { data: dashboard, isLoading, error, refetch } = useQuery({
         queryKey: ['ceo-dashboard'],
         queryFn: async () => {
             const response = await api.get('/reporting/dashboard/ceo');
             return response.data;
         },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
     });
 
     // Fetch pending approvals
@@ -72,15 +80,6 @@ export const CEODashboard: React.FC = () => {
         queryKey: ['pending-approvals'],
         queryFn: async () => {
             const response = await api.get('/approvals/pending');
-            return response.data;
-        },
-    });
-
-    // Fetch loan stats
-    const { data: loanStats } = useQuery({
-        queryKey: ['loan-stats'],
-        queryFn: async () => {
-            const response = await api.get('/loans/stats');
             return response.data;
         },
     });
@@ -94,38 +93,154 @@ export const CEODashboard: React.FC = () => {
         },
     });
 
+    // Refresh all dashboard data
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([
+                refetch(),
+                queryClient.invalidateQueries({ queryKey: ['pending-approvals'] }),
+                queryClient.invalidateQueries({ queryKey: ['recruitment-stats'] }),
+            ]);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    // Export dashboard to Excel
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const response = await api.get('/reporting/export/excel?type=summary', {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `executive-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (err) {
+            console.error('Export failed:', err);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Export dashboard to PDF
+    const handleExportPdf = async () => {
+        setIsExporting(true);
+        try {
+            const response = await api.get('/reporting/export/pdf?type=summary', {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `executive-report-${new Date().toISOString().split('T')[0]}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (err) {
+            console.error('Export failed:', err);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Loading state
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0066B3]"></div>
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0066B3] mx-auto"></div>
+                    <p className="mt-4 text-slate-500">Loading dashboard data...</p>
+                </div>
             </div>
         );
     }
 
+    // Error state
+    if (error) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
+                    <p className="text-lg font-medium text-slate-900">Failed to load dashboard</p>
+                    <p className="text-sm text-slate-500 mt-1">Please try again later</p>
+                    <button
+                        onClick={() => refetch()}
+                        className="mt-4 px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005599] transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Extract data from dashboard response
     const regions = dashboard?.regionPerformance || [];
     const riskAlerts = dashboard?.riskAlerts || [];
+    const trends = dashboard?.trends || { disbursedChange: 0, recoveriesChange: 0, newLoansChange: 0, parChange: 0 };
+    const staffStats = dashboard?.staffStats || { total: 0, active: 0, onLeave: 0, onboarding: 0, probation: 0 };
+    const leaveStats = dashboard?.leaveStats || { total: 0, approved: 0, pending: 0, rejected: 0, totalDays: 0 };
+    const claimsStats = dashboard?.claimsStats || { total: 0, submitted: 0, approved: 0, rejected: 0, totalAmount: 0, approvedAmount: 0, pendingCount: 0 };
+    const loanStats = dashboard?.loanStats || { total: 0, pending: 0, active: 0, completed: 0, totalDisbursed: 0, totalOutstanding: 0 };
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">
                         Executive Dashboard
                     </h1>
                     <p className="text-slate-500">
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.first_name || 'CEO'}
+                        Company-wide performance and insights
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-slate-500 hidden md:block">
                         {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+                        Refresh
+                    </button>
+                    <div className="relative group">
+                        <button
+                            disabled={isExporting}
+                            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-[#0066B3] rounded-lg hover:bg-[#005599] transition-colors disabled:opacity-50"
+                        >
+                            <Download size={16} />
+                            Export
+                        </button>
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                            <button
+                                onClick={handleExportExcel}
+                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-t-lg"
+                            >
+                                Export to Excel
+                            </button>
+                            <button
+                                onClick={handleExportPdf}
+                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-b-lg"
+                            >
+                                Export to PDF
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Executive Summary Bar */}
-            <div className="bg-gradient-to-r from-[#003366] to-[#002244] rounded-2xl p-6 text-white">
+            <div className="bg-gradient-to-br from-[#0066B3] via-[#0088E0] to-[#00AEEF] rounded-2xl p-6 text-white shadow-xl shadow-blue-500/20">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <BarChart3 size={24} />
@@ -136,45 +251,45 @@ export const CEODashboard: React.FC = () => {
                     </span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-slate-300 text-sm">Total Disbursed</p>
-                        <p className="text-2xl font-bold mt-1">
+                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
+                        <p className="text-white text-sm font-medium">Total Disbursed</p>
+                        <p className="text-2xl font-bold mt-1 text-white">
                             KES {((dashboard?.totalDisbursed || 0) / 1000000).toFixed(1)}M
                         </p>
-                        <div className="flex items-center gap-1 mt-2 text-emerald-400 text-xs">
-                            <TrendingUp size={12} />
-                            <span>+12% from last month</span>
+                        <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trends.disbursedChange >= 0 ? 'text-emerald-200' : 'text-red-200'}`}>
+                            {trends.disbursedChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                            <span>{trends.disbursedChange >= 0 ? '+' : ''}{trends.disbursedChange}% from last month</span>
                         </div>
                     </div>
-                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-slate-300 text-sm">Total Collections</p>
-                        <p className="text-2xl font-bold mt-1">
+                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
+                        <p className="text-white text-sm font-medium">Total Collections</p>
+                        <p className="text-2xl font-bold mt-1 text-white">
                             KES {((dashboard?.totalRecoveries || 0) / 1000000).toFixed(1)}M
                         </p>
-                        <div className="flex items-center gap-1 mt-2 text-emerald-400 text-xs">
-                            <TrendingUp size={12} />
-                            <span>+8% from last month</span>
+                        <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trends.recoveriesChange >= 0 ? 'text-emerald-200' : 'text-red-200'}`}>
+                            {trends.recoveriesChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                            <span>{trends.recoveriesChange >= 0 ? '+' : ''}{trends.recoveriesChange}% from last month</span>
                         </div>
                     </div>
-                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-slate-300 text-sm">New Loans</p>
-                        <p className="text-2xl font-bold mt-1">{dashboard?.totalNewLoans || 0}</p>
-                        <div className="flex items-center gap-1 mt-2 text-slate-400 text-xs">
+                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
+                        <p className="text-white text-sm font-medium">New Loans</p>
+                        <p className="text-2xl font-bold mt-1 text-white">{dashboard?.totalNewLoans || 0}</p>
+                        <div className="flex items-center gap-1 mt-2 text-white/80 text-xs">
                             <span>{dashboard?.reportCount || 0} branches reporting</span>
                         </div>
                     </div>
-                    <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                        <p className="text-slate-300 text-sm">Portfolio at Risk (PAR)</p>
-                        <p className={`text-2xl font-bold mt-1 ${(dashboard?.avgPAR || 0) > 5 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
+                        <p className="text-white text-sm font-medium">Portfolio at Risk (PAR)</p>
+                        <p className={`text-2xl font-bold mt-1 ${(dashboard?.avgPAR || 0) > 5 ? 'text-red-200' : 'text-emerald-200'}`}>
                             {(dashboard?.avgPAR || 0).toFixed(2)}%
                         </p>
-                        <div className="flex items-center gap-1 mt-2 text-xs">
+                        <div className="flex items-center gap-1 mt-2 text-xs font-medium">
                             {(dashboard?.avgPAR || 0) > 5 ? (
-                                <span className="text-red-400 flex items-center gap-1">
+                                <span className="text-red-200 flex items-center gap-1">
                                     <AlertTriangle size={12} /> Above threshold
                                 </span>
                             ) : (
-                                <span className="text-emerald-400 flex items-center gap-1">
+                                <span className="text-emerald-200 flex items-center gap-1">
                                     <CheckCircle size={12} /> Within target
                                 </span>
                             )}
@@ -195,25 +310,25 @@ export const CEODashboard: React.FC = () => {
                 />
                 <StatCard
                     title="Total Staff"
-                    value={dashboard?.staffStats?.total || '--'}
-                    subtitle="Active employees"
+                    value={staffStats.total || '--'}
+                    subtitle={`${staffStats.active} active, ${staffStats.onLeave} on leave`}
                     icon={<Users className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-blue-500 to-blue-600"
+                    color="bg-gradient-to-br from-cyan-400 to-blue-600"
                     link="/staff"
                 />
                 <StatCard
                     title="Outstanding Loans"
-                    value={`KES ${((loanStats?.totalOutstanding || 0) / 1000000).toFixed(1)}M`}
-                    subtitle={`${loanStats?.active || 0} active loans`}
+                    value={`KES ${((loanStats.totalOutstanding || 0) / 1000000).toFixed(1)}M`}
+                    subtitle={`${loanStats.active || 0} active loans`}
                     icon={<DollarSign className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-emerald-500 to-green-600"
+                    color="bg-gradient-to-br from-emerald-400 to-teal-600"
                     link="/loans"
                 />
                 <StatCard
                     title="Open Positions"
                     value={recruitmentStats?.openPositions || 0}
                     subtitle={`${recruitmentStats?.applicationsThisMonth || 0} new applications`}
-                    icon={<Users className="text-white" size={24} />}
+                    icon={<Briefcase className="text-white" size={24} />}
                     color="bg-gradient-to-br from-[#0066B3] to-[#00AEEF]"
                     link="/recruitment"
                 />
@@ -307,68 +422,96 @@ export const CEODashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* HR & Leave Overview */}
+            {/* HR & Staff Loans Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white">
-                    <h3 className="font-semibold mb-4">Leave Summary</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <FileText size={18} />
+                            Leave Summary
+                        </h3>
+                        <Link to="/leave" className="text-xs text-blue-200 hover:text-white">View all</Link>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <p className="text-blue-200 text-xs">Total Requests</p>
-                            <p className="text-2xl font-bold">{dashboard?.leaveStats?.total || 0}</p>
+                            <p className="text-2xl font-bold">{leaveStats.total}</p>
                         </div>
                         <div>
                             <p className="text-blue-200 text-xs">Pending</p>
-                            <p className="text-2xl font-bold">{dashboard?.leaveStats?.pending || 0}</p>
+                            <p className="text-2xl font-bold">{leaveStats.pending}</p>
                         </div>
                         <div>
                             <p className="text-blue-200 text-xs">Approved</p>
-                            <p className="text-2xl font-bold">{dashboard?.leaveStats?.approved || 0}</p>
+                            <p className="text-2xl font-bold">{leaveStats.approved}</p>
                         </div>
                         <div>
                             <p className="text-blue-200 text-xs">Days Taken</p>
-                            <p className="text-2xl font-bold">{dashboard?.leaveStats?.totalDays || 0}</p>
+                            <p className="text-2xl font-bold">{leaveStats.totalDays}</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-5 text-white">
-                    <h3 className="font-semibold mb-4">Claims Summary</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <Wallet size={18} />
+                            Claims Summary
+                        </h3>
+                        <Link to="/claims" className="text-xs text-emerald-200 hover:text-white">View all</Link>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-emerald-200 text-xs">Submitted</p>
-                            <p className="text-2xl font-bold">{dashboard?.claimsStats?.submitted || 0}</p>
+                            <p className="text-emerald-200 text-xs">Total Claims</p>
+                            <p className="text-2xl font-bold">{claimsStats.total}</p>
                         </div>
                         <div>
                             <p className="text-emerald-200 text-xs">Pending</p>
-                            <p className="text-2xl font-bold">{dashboard?.claimsStats?.pendingCount || 0}</p>
+                            <p className="text-2xl font-bold">{claimsStats.pendingCount}</p>
                         </div>
-                        <div className="col-span-2">
-                            <p className="text-emerald-200 text-xs">Approved Amount</p>
-                            <p className="text-2xl font-bold">
-                                KES {((dashboard?.claimsStats?.approvedAmount || 0) / 1000).toFixed(0)}K
+                        <div>
+                            <p className="text-emerald-200 text-xs">Total Amount</p>
+                            <p className="text-lg font-bold">
+                                KES {((claimsStats.totalAmount || 0) / 1000).toFixed(0)}K
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-emerald-200 text-xs">Approved</p>
+                            <p className="text-lg font-bold">
+                                KES {((claimsStats.approvedAmount || 0) / 1000).toFixed(0)}K
                             </p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-[#0066B3] to-[#00AEEF] rounded-xl p-5 text-white">
-                    <h3 className="font-semibold mb-4">Recruitment Pipeline</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <Briefcase size={18} />
+                            Staff Loans
+                        </h3>
+                        <Link to="/loans" className="text-xs text-blue-100 hover:text-white">View all</Link>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-blue-100 text-xs">Open Jobs</p>
-                            <p className="text-2xl font-bold">{recruitmentStats?.openPositions || 0}</p>
+                            <p className="text-blue-100 text-xs">Total Loans</p>
+                            <p className="text-2xl font-bold">{loanStats.total}</p>
                         </div>
                         <div>
-                            <p className="text-blue-100 text-xs">Applications</p>
-                            <p className="text-2xl font-bold">{recruitmentStats?.totalApplications || 0}</p>
+                            <p className="text-blue-100 text-xs">Pending Approval</p>
+                            <p className="text-2xl font-bold">{loanStats.pending}</p>
                         </div>
                         <div>
-                            <p className="text-blue-100 text-xs">Interviews</p>
-                            <p className="text-2xl font-bold">{recruitmentStats?.scheduledInterviews || 0}</p>
+                            <p className="text-blue-100 text-xs">Disbursed</p>
+                            <p className="text-lg font-bold">
+                                KES {((loanStats.totalDisbursed || 0) / 1000000).toFixed(1)}M
+                            </p>
                         </div>
                         <div>
-                            <p className="text-blue-100 text-xs">Hired</p>
-                            <p className="text-2xl font-bold">{recruitmentStats?.hiredThisMonth || 0}</p>
+                            <p className="text-blue-100 text-xs">Outstanding</p>
+                            <p className="text-lg font-bold">
+                                KES {((loanStats.totalOutstanding || 0) / 1000000).toFixed(1)}M
+                            </p>
                         </div>
                     </div>
                 </div>

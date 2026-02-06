@@ -720,6 +720,117 @@ export class LoansService {
         }));
     }
 
+    // ==================== REJECT LOAN ====================
+
+    async rejectLoan(loanId: string, rejectorStaffId: string, reason: string): Promise<StaffLoan> {
+        const loan = await this.loanRepo.findOne({
+            where: { id: loanId },
+            relations: ['staff'],
+        });
+
+        if (!loan) throw new NotFoundException('Loan not found');
+        if (loan.status !== LoanStatus.PENDING) {
+            throw new BadRequestException('Only pending loans can be rejected');
+        }
+
+        const rejector = await this.staffRepo.findOne({ where: { id: rejectorStaffId } });
+
+        loan.status = LoanStatus.REJECTED;
+        loan.rejection_reason = reason;
+        if (rejector) loan.rejectedBy = rejector;
+
+        return this.loanRepo.save(loan);
+    }
+
+    // ==================== WRITE-OFF LOAN ====================
+
+    async writeOffLoan(loanId: string, reason: string): Promise<StaffLoan> {
+        const loan = await this.loanRepo.findOne({
+            where: { id: loanId },
+            relations: ['repayments'],
+        });
+
+        if (!loan) throw new NotFoundException('Loan not found');
+        if (loan.status !== LoanStatus.ACTIVE && loan.status !== LoanStatus.DEFAULTED) {
+            throw new BadRequestException('Only active or defaulted loans can be written off');
+        }
+
+        loan.status = LoanStatus.WRITTEN_OFF;
+        loan.remarks = `Written off: ${reason}. Outstanding balance at write-off: ${loan.outstanding_balance}`;
+
+        return this.loanRepo.save(loan);
+    }
+
+    // ==================== MARK AS DEFAULTED ====================
+
+    async markAsDefaulted(loanId: string, reason?: string): Promise<StaffLoan> {
+        const loan = await this.loanRepo.findOne({
+            where: { id: loanId },
+            relations: ['repayments'],
+        });
+
+        if (!loan) throw new NotFoundException('Loan not found');
+        if (loan.status !== LoanStatus.ACTIVE && loan.status !== LoanStatus.DISBURSED) {
+            throw new BadRequestException('Only active or disbursed loans can be marked as defaulted');
+        }
+
+        loan.status = LoanStatus.DEFAULTED;
+        if (reason) {
+            loan.remarks = loan.remarks ? `${loan.remarks}\nDefaulted: ${reason}` : `Defaulted: ${reason}`;
+        }
+
+        return this.loanRepo.save(loan);
+    }
+
+    // ==================== TEAM LOANS ====================
+
+    async getTeamLoans(managerId: string, status?: LoanStatus): Promise<StaffLoan[]> {
+        const qb = this.loanRepo.createQueryBuilder('loan')
+            .leftJoinAndSelect('loan.staff', 'staff')
+            .leftJoinAndSelect('loan.repayments', 'repayments')
+            .leftJoin('staff.manager', 'manager')
+            .where('manager.id = :managerId', { managerId })
+            .orderBy('loan.created_at', 'DESC');
+
+        if (status) {
+            qb.andWhere('loan.status = :status', { status });
+        }
+
+        return qb.getMany();
+    }
+
+    async getPendingTeamLoans(managerId: string): Promise<StaffLoan[]> {
+        return this.getTeamLoans(managerId, LoanStatus.PENDING);
+    }
+
+    // ==================== GUARANTOR CONSENT ====================
+
+    async recordGuarantorConsent(loanId: string, guarantorStaffId: string): Promise<StaffLoan> {
+        const loan = await this.loanRepo.findOne({
+            where: { id: loanId },
+            relations: ['guarantor'],
+        });
+
+        if (!loan) throw new NotFoundException('Loan not found');
+        if (!loan.guarantor || loan.guarantor.id !== guarantorStaffId) {
+            throw new ForbiddenException('You are not the guarantor for this loan');
+        }
+        if (loan.status !== LoanStatus.PENDING) {
+            throw new BadRequestException('Guarantor consent can only be recorded for pending loans');
+        }
+
+        loan.guarantor_consent_date = new Date();
+        return this.loanRepo.save(loan);
+    }
+
+    async getLoansAsGuarantor(staffId: string): Promise<StaffLoan[]> {
+        return this.loanRepo.find({
+            where: { guarantor: { id: staffId } },
+            relations: ['staff', 'repayments'],
+            order: { created_at: 'DESC' },
+        });
+    }
+
     // ==================== UTILITIES ====================
 
     private calculateEMI(principal: number, annualRate: number, months: number): number {

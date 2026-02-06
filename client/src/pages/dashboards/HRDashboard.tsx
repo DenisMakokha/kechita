@@ -144,14 +144,12 @@ export const HRDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">HR Dashboard</h1>
-                    <p className="text-slate-500">
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.first_name}! Here's your HR overview.
-                    </p>
+                    <p className="text-slate-500">Staff management, recruitment, and HR analytics</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Link
                         to="/staff"
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-colors font-medium flex items-center gap-2"
                     >
                         <UserPlus size={18} />
                         New Staff
@@ -182,7 +180,7 @@ export const HRDashboard: React.FC = () => {
                     value={recruitmentStats?.openPositions || 0}
                     subtitle={`${recruitmentStats?.applicationsThisMonth || 0} applications this month`}
                     icon={<Briefcase className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-purple-500 to-pink-600"
+                    color="bg-[#0066B3]"
                     link="/recruitment"
                 />
                 <StatCard
@@ -226,7 +224,7 @@ export const HRDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-slate-900">Leave Overview</h3>
-                        <Link to="/leave" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+                        <Link to="/leave" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium">
                             View all
                         </Link>
                     </div>
@@ -265,7 +263,7 @@ export const HRDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-slate-900">Recruitment</h3>
-                        <Link to="/recruitment" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+                        <Link to="/recruitment" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium">
                             View all
                         </Link>
                     </div>
@@ -289,7 +287,7 @@ export const HRDashboard: React.FC = () => {
                         <div className="pt-3 border-t border-slate-100">
                             <Link
                                 to="/recruitment"
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors font-medium"
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-[#0066B3] rounded-lg hover:bg-blue-100 transition-colors font-medium"
                             >
                                 <Briefcase size={16} />
                                 Manage Recruitment
@@ -321,7 +319,7 @@ export const HRDashboard: React.FC = () => {
                                 <div key={staff.id} className="p-4 hover:bg-slate-50">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                                            <div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">
                                                 {staff.first_name?.charAt(0)}
                                             </div>
                                             <div>
@@ -362,13 +360,13 @@ export const HRDashboard: React.FC = () => {
                             <p className="text-2xl font-bold text-emerald-900">{claimsStats?.pending || 0}</p>
                             <p className="text-xs text-emerald-600">Pending review</p>
                         </div>
-                        <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
+                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
                             <div className="flex items-center gap-2 mb-2">
-                                <TrendingUp className="text-purple-600" size={18} />
-                                <span className="font-medium text-purple-900">Active Loans</span>
+                                <TrendingUp className="text-[#0066B3]" size={18} />
+                                <span className="font-medium text-slate-900">Active Loans</span>
                             </div>
-                            <p className="text-2xl font-bold text-purple-900">{loanStats?.active || 0}</p>
-                            <p className="text-xs text-purple-600">Currently running</p>
+                            <p className="text-2xl font-bold text-slate-900">{loanStats?.active || 0}</p>
+                            <p className="text-xs text-[#0066B3]">Currently running</p>
                         </div>
                         <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
                             <div className="flex items-center gap-2 mb-2">
