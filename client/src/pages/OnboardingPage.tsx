@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    CheckCircle, Clock, AlertTriangle, Plus, Edit2, Trash2,
-    ChevronDown, ChevronRight, FileText, User, Calendar
+    CheckCircle, Clock, AlertTriangle, Plus,
+    ChevronDown, ChevronRight, FileText, User,
+    Edit, Trash2, X, Save, GripVertical
 } from 'lucide-react';
 import api from '../lib/api';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 
 interface OnboardingTask {
     id: string;
@@ -57,46 +59,112 @@ export default function OnboardingPage() {
     const [activeTab, setActiveTab] = useState<'instances' | 'templates'>('instances');
     const [selectedInstance, setSelectedInstance] = useState<OnboardingInstance | null>(null);
     const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState<OnboardingTemplate | null>(null);
+    const [templateForm, setTemplateForm] = useState<{ name: string; description: string; tasks: { name: string; description: string; category: string; is_required: boolean; estimated_days: number }[] }>({ name: '', description: '', tasks: [] });
+    const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<OnboardingTemplate | null>(null);
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
     const queryClient = useQueryClient();
 
     // Fetch onboarding stats
     const { data: stats } = useQuery<OnboardingStats>({
         queryKey: ['onboarding-stats'],
-        queryFn: () => api.get('/onboarding/stats').then(r => r.data),
+        queryFn: () => api.get('/staff/onboarding/stats').then(r => r.data),
+        refetchInterval: 60000,
     });
 
     // Fetch in-progress instances
     const { data: instances = [] } = useQuery<OnboardingInstance[]>({
         queryKey: ['onboarding-instances'],
-        queryFn: () => api.get('/onboarding/instances').then(r => r.data),
-    });
-
-    // Fetch overdue instances
-    const { data: overdueInstances = [] } = useQuery<OnboardingInstance[]>({
-        queryKey: ['onboarding-overdue'],
-        queryFn: () => api.get('/onboarding/instances/overdue').then(r => r.data),
+        queryFn: () => api.get('/staff/onboarding/instances').then(r => r.data),
+        refetchInterval: 60000,
     });
 
     // Fetch templates
     const { data: templates = [] } = useQuery<OnboardingTemplate[]>({
         queryKey: ['onboarding-templates'],
-        queryFn: () => api.get('/onboarding/templates').then(r => r.data),
+        queryFn: () => api.get('/staff/onboarding/templates').then(r => r.data),
     });
 
     // Complete task mutation
     const completeTaskMutation = useMutation({
         mutationFn: ({ taskStatusId, notes }: { taskStatusId: string; notes?: string }) =>
-            api.patch(`/onboarding/task-status/${taskStatusId}/complete`, { notes }),
+            api.patch(`/staff/onboarding/tasks/${taskStatusId}/complete`, { notes }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['onboarding-instances'] });
             queryClient.invalidateQueries({ queryKey: ['onboarding-stats'] });
             if (selectedInstance) {
-                api.get(`/onboarding/instances/${selectedInstance.id}`).then(r => {
+                api.get(`/staff/${selectedInstance.staff.id}/onboarding`).then(r => {
                     setSelectedInstance(r.data);
                 });
             }
+            showToast('Task completed');
         },
     });
+
+    // Template mutations
+    const createTemplateMutation = useMutation({
+        mutationFn: async (data: { name: string; description: string; tasks: any[] }) =>
+            (await api.post('/staff/onboarding/templates', data)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['onboarding-templates'] });
+            setShowTemplateModal(false);
+            setTemplateForm({ name: '', description: '', tasks: [] });
+            showToast('Template created');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create template', 'error'),
+    });
+
+    const updateTemplateMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: any }) =>
+            (await api.put(`/staff/onboarding/templates/${id}`, data)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['onboarding-templates'] });
+            setShowTemplateModal(false);
+            setEditingTemplate(null);
+            showToast('Template updated');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update template', 'error'),
+    });
+
+    const deleteTemplateMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/staff/onboarding/templates/${id}`)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['onboarding-templates'] });
+            showToast('Template deleted');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete template', 'error'),
+    });
+
+    const openTemplateModal = (template?: OnboardingTemplate) => {
+        if (template) {
+            setEditingTemplate(template);
+            setTemplateForm({
+                name: template.name,
+                description: template.description || '',
+                tasks: (template.tasks || []).map(t => ({ name: t.name, description: t.description || '', category: t.category || 'general', is_required: t.is_required, estimated_days: t.estimated_days || 1 })),
+            });
+        } else {
+            setEditingTemplate(null);
+            setTemplateForm({ name: '', description: '', tasks: [{ name: '', description: '', category: 'general', is_required: true, estimated_days: 1 }] });
+        }
+        setShowTemplateModal(true);
+    };
+
+    const handleSaveTemplate = () => {
+        if (!templateForm.name.trim()) return;
+        const payload = { ...templateForm, tasks: templateForm.tasks.filter(t => t.name.trim()).map((t, i) => ({ ...t, order: i + 1 })) };
+        if (editingTemplate) {
+            updateTemplateMutation.mutate({ id: editingTemplate.id, data: payload });
+        } else {
+            createTemplateMutation.mutate(payload);
+        }
+    };
+
+    const addTaskRow = () => setTemplateForm({ ...templateForm, tasks: [...templateForm.tasks, { name: '', description: '', category: 'general', is_required: false, estimated_days: 1 }] });
+    const removeTaskRow = (idx: number) => setTemplateForm({ ...templateForm, tasks: templateForm.tasks.filter((_, i) => i !== idx) });
+    const updateTaskRow = (idx: number, field: string, value: any) => { const tasks = [...templateForm.tasks]; (tasks[idx] as any)[field] = value; setTemplateForm({ ...templateForm, tasks }); };
 
     const toggleTemplate = (id: string) => {
         const newExpanded = new Set(expandedTemplates);
@@ -218,7 +286,7 @@ export default function OnboardingPage() {
                                         <p>No active onboarding</p>
                                     </div>
                                 ) : (
-                                    instances.map((instance) => (
+                                    instances.filter(i => i.status === 'in_progress').map((instance) => (
                                         <button
                                             key={instance.id}
                                             onClick={() => setSelectedInstance(instance)}
@@ -255,7 +323,7 @@ export default function OnboardingPage() {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
                             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                                 <h3 className="font-semibold text-slate-700">Templates</h3>
-                                <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                                <button onClick={() => openTemplateModal()} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Add Template">
                                     <Plus className="w-4 h-4" />
                                 </button>
                             </div>
@@ -294,6 +362,10 @@ export default function OnboardingPage() {
                                                         )}
                                                     </div>
                                                 ))}
+                                                <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
+                                                    <button onClick={() => openTemplateModal(template)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"><Edit className="w-3 h-3" />Edit</button>
+                                                    <button onClick={() => setDeleteTarget(template)} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"><Trash2 className="w-3 h-3" />Delete</button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -387,6 +459,91 @@ export default function OnboardingPage() {
                     )}
                 </div>
             </div>
+
+            {/* Template Modal */}
+            {showTemplateModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
+                            <h2 className="text-xl font-bold text-slate-900">{editingTemplate ? 'Edit Template' : 'Create Template'}</h2>
+                            <button onClick={() => { setShowTemplateModal(false); setEditingTemplate(null); }} className="p-2 hover:bg-white rounded-lg"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Template Name</label>
+                                <input type="text" value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} placeholder="e.g., Standard Onboarding" className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                                <textarea value={templateForm.description} onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg" placeholder="Brief description..." />
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <label className="text-sm font-medium text-slate-700">Tasks</label>
+                                    <button onClick={addTaskRow} className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"><Plus size={14} />Add Task</button>
+                                </div>
+                                <div className="space-y-3">
+                                    {templateForm.tasks.map((task, idx) => (
+                                        <div key={idx} className="flex gap-2 items-start bg-slate-50 p-3 rounded-lg">
+                                            <GripVertical size={16} className="text-slate-300 mt-2.5 flex-shrink-0" />
+                                            <div className="flex-1 space-y-2">
+                                                <input type="text" value={task.name} onChange={(e) => updateTaskRow(idx, 'name', e.target.value)} placeholder={`Task ${idx + 1} name`} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
+                                                <div className="flex gap-2">
+                                                    <select value={task.category} onChange={(e) => updateTaskRow(idx, 'category', e.target.value)} className="px-2 py-1 border border-slate-200 rounded text-xs bg-white">
+                                                        <option value="general">General</option>
+                                                        <option value="documents">Documents</option>
+                                                        <option value="training">Training</option>
+                                                        <option value="it_setup">IT Setup</option>
+                                                        <option value="compliance">Compliance</option>
+                                                    </select>
+                                                    <input type="number" value={task.estimated_days} onChange={(e) => updateTaskRow(idx, 'estimated_days', parseInt(e.target.value) || 1)} min={1} className="w-16 px-2 py-1 border border-slate-200 rounded text-xs" title="Est. days" />
+                                                    <label className="flex items-center gap-1 text-xs text-slate-600">
+                                                        <input type="checkbox" checked={task.is_required} onChange={(e) => updateTaskRow(idx, 'is_required', e.target.checked)} className="w-3 h-3 text-blue-600 rounded" />
+                                                        Required
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => removeTaskRow(idx)} className="p-1 text-slate-400 hover:text-red-500 flex-shrink-0"><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                    {templateForm.tasks.length === 0 && (
+                                        <p className="text-sm text-slate-400 text-center py-4">No tasks yet. Click "Add Task" above.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
+                            <button onClick={() => { setShowTemplateModal(false); setEditingTemplate(null); }} className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-white">Cancel</button>
+                            <button onClick={handleSaveTemplate} disabled={!templateForm.name.trim() || createTemplateMutation.isPending || updateTemplateMutation.isPending} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+                                <Save size={18} />
+                                {editingTemplate ? 'Update' : 'Create'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Template Confirm */}
+            <ConfirmDialog
+                isOpen={!!deleteTarget}
+                title="Delete Template"
+                message={`Delete template "${deleteTarget?.name}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                variant="danger"
+                onConfirm={() => { if (deleteTarget) deleteTemplateMutation.mutate(deleteTarget.id); setDeleteTarget(null); }}
+                onCancel={() => setDeleteTarget(null)}
+                isLoading={deleteTemplateMutation.isPending}
+            />
+
+            {/* Toast */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-[60] flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border text-sm font-medium ${
+                    toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                    {toast.type === 'success' ? <CheckCircle size={18} className="text-emerald-500" /> : <AlertTriangle size={18} className="text-red-500" />}
+                    {toast.text}
+                </div>
+            )}
         </div>
     );
 }

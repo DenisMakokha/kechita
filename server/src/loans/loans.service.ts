@@ -5,8 +5,11 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { StaffLoan, LoanType, LoanStatus } from './entities/staff-loan.entity';
 import { StaffLoanRepayment, RepaymentStatus } from './entities/staff-loan-repayment.entity';
 import { ApprovalService, ApprovalCompletedEvent } from '../approval/approval.service';
+import { SettingsService } from '../settings/settings.service';
 import { Staff } from '../staff/entities/staff.entity';
 import { randomDigits } from '../common/id-utils';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 
 interface ApplyLoanDto {
     loan_type: LoanType;
@@ -40,6 +43,8 @@ export class LoansService {
         @InjectRepository(Staff)
         private staffRepo: Repository<Staff>,
         private approvalService: ApprovalService,
+        private settingsService: SettingsService,
+        private auditService: AuditService,
         private dataSource: DataSource,
     ) { }
 
@@ -82,6 +87,17 @@ export class LoansService {
     }
 
     async applyForLoan(staffId: string, dto: ApplyLoanDto): Promise<StaffLoan> {
+        // Load loan settings from DB
+        const settings = await this.settingsService.getByCategory('loans');
+        const allowMultiple = settings.loan_allow_multiple ?? false;
+        const advanceMaxPerMonth = settings.advance_max_per_month ?? 1;
+        const advanceInterestRate = settings.advance_interest_rate ?? 0;
+        const loanInterestRate = settings.loan_interest_rate ?? 12;
+        const loanMaxAmount = settings.loan_max_amount ?? 500000;
+        const loanMaxTermMonths = settings.loan_max_term_months ?? 24;
+        const loanMaxDeductionPercent = settings.loan_max_deduction_percent ?? 33;
+        const loanRequireGuarantor = settings.loan_require_guarantor ?? true;
+
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
@@ -93,8 +109,18 @@ export class LoansService {
             });
             if (!staff) throw new NotFoundException('Staff not found');
 
-            // Validate no existing active loan (for staff loans)
-            if (dto.loan_type === LoanType.STAFF_LOAN) {
+            // Validate max loan amount
+            if (dto.loan_type === LoanType.STAFF_LOAN && dto.principal > loanMaxAmount) {
+                throw new BadRequestException(`Loan amount cannot exceed KES ${loanMaxAmount.toLocaleString()}`);
+            }
+
+            // Validate max term
+            if (dto.loan_type === LoanType.STAFF_LOAN && dto.term_months > loanMaxTermMonths) {
+                throw new BadRequestException(`Loan term cannot exceed ${loanMaxTermMonths} months`);
+            }
+
+            // Validate no existing active loan (for staff loans) — unless multiple allowed
+            if (dto.loan_type === LoanType.STAFF_LOAN && !allowMultiple) {
                 const existingActive = await queryRunner.manager.findOne(StaffLoan, {
                     where: {
                         staff: { id: staffId },
@@ -107,23 +133,23 @@ export class LoansService {
                 }
             }
 
-            // Validate salary advance - only one per month
+            // Validate salary advance - max per month from settings
             if (dto.loan_type === LoanType.SALARY_ADVANCE) {
                 const thisMonth = new Date();
                 const startOfMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1);
                 const endOfMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 1, 0);
 
-                const existingAdvance = await queryRunner.manager.createQueryBuilder(StaffLoan, 'loan')
+                const existingAdvanceCount = await queryRunner.manager.createQueryBuilder(StaffLoan, 'loan')
                     .where('loan.staff_id = :staffId', { staffId })
                     .andWhere('loan.loan_type = :type', { type: LoanType.SALARY_ADVANCE })
                     .andWhere('loan.application_date BETWEEN :start AND :end', { start: startOfMonth, end: endOfMonth })
                     .andWhere('loan.status NOT IN (:...excludedStatus)', {
                         excludedStatus: [LoanStatus.REJECTED, LoanStatus.CANCELLED],
                     })
-                    .getOne();
+                    .getCount();
 
-                if (existingAdvance) {
-                    throw new BadRequestException('You can only request one salary advance per month');
+                if (existingAdvanceCount >= advanceMaxPerMonth) {
+                    throw new BadRequestException(`You can only request ${advanceMaxPerMonth} salary advance(s) per month`);
                 }
             }
 
@@ -135,8 +161,13 @@ export class LoansService {
                 if (guarantor.id === staffId) throw new BadRequestException('You cannot be your own guarantor');
             }
 
-            // Calculate interest and totals
-            const interestRate = dto.interest_rate || (dto.loan_type === LoanType.SALARY_ADVANCE ? 0 : 12);
+            // Validate guarantor required for large loans
+            if (dto.loan_type === LoanType.STAFF_LOAN && loanRequireGuarantor && dto.principal > 100000 && !dto.guarantor_id) {
+                throw new BadRequestException('A guarantor is required for loans exceeding KES 100,000');
+            }
+
+            // Calculate interest and totals using settings
+            const interestRate = dto.interest_rate || (dto.loan_type === LoanType.SALARY_ADVANCE ? advanceInterestRate : loanInterestRate);
             const totalInterest = this.calculateTotalInterest(dto.principal, interestRate, dto.term_months);
             const totalPayable = dto.principal + totalInterest;
             const monthlyInstallment = this.calculateEMI(dto.principal, interestRate, dto.term_months);
@@ -159,7 +190,7 @@ export class LoansService {
                 purpose: dto.purpose,
                 is_urgent: dto.is_urgent || false,
                 deduct_from_salary: dto.deduct_from_salary !== false,
-                max_salary_deduction_percent: dto.max_salary_deduction_percent || 33,
+                max_salary_deduction_percent: dto.max_salary_deduction_percent || loanMaxDeductionPercent,
                 guarantor: guarantor || undefined,
                 createdBy: staff,
             });
@@ -329,7 +360,11 @@ export class LoansService {
 
         // Update status to active
         loan.status = LoanStatus.ACTIVE;
-        return this.loanRepo.save(loan);
+        const result = await this.loanRepo.save(loan);
+
+        this.auditService.logAction(undefined, AuditAction.UPDATE, 'StaffLoan', loanId, `Loan ${loan.loan_number} disbursed: KES ${loan.principal}`, { disburserId, disbursementReference, disbursementMethod, principal: loan.principal, loanType: loan.loan_type }).catch(() => {});
+
+        return result;
     }
 
     private getNextPayrollDate(): Date {

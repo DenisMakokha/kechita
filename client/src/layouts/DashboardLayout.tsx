@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import { NotificationBell } from '../components/notifications/NotificationBell';
+import { useNotifications } from '../hooks/useNotifications';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import {
     LayoutDashboard,
@@ -16,7 +17,6 @@ import {
     Menu,
     X,
     ClipboardCheck,
-    CheckSquare,
     Wallet,
     Megaphone,
     Search,
@@ -24,25 +24,34 @@ import {
     ChevronRight,
     Command,
     HelpCircle,
+    Lock,
+    Bell,
+    FileText,
+    UserCircle,
+    UserCheck,
+    Building2,
 } from 'lucide-react';
 import LogoHeader from '../assets/LogoHeader.svg';
 
 // All staff can access basic features; managers/HR get additional access
-const ALL_STAFF_ROLES = ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'STAFF', 'HR_ASSISTANT'];
+const ALL_STAFF_ROLES = ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'STAFF', 'HR_ASSISTANT', 'RELATIONSHIP_OFFICER', 'BDM', 'REGIONAL_ADMIN'];
 
 const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_STAFF_ROLES },
     { path: '/approvals', label: 'Approvals', icon: ClipboardCheck, roles: ALL_STAFF_ROLES },
     { path: '/announcements', label: 'Announcements', icon: Megaphone, roles: ALL_STAFF_ROLES },
-    { path: '/staff', label: 'Staff', icon: Users, roles: ['CEO', 'HR_MANAGER'] },
-    { path: '/onboarding', label: 'Onboarding', icon: CheckSquare, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
-    { path: '/leave', label: 'Leave', icon: Calendar, roles: ALL_STAFF_ROLES },
+    { path: '/staff-management', label: 'Staff Management', icon: Users, roles: ['CEO', 'HR_MANAGER'] },
+    { path: '/leave-management', label: 'Leave', icon: Calendar, roles: ALL_STAFF_ROLES },
     { path: '/claims', label: 'Claims', icon: Receipt, roles: ALL_STAFF_ROLES },
     { path: '/loans', label: 'Loans', icon: PiggyBank, roles: ALL_STAFF_ROLES },
     { path: '/petty-cash', label: 'Petty Cash', icon: Wallet, roles: ['CEO', 'ACCOUNTANT', 'BRANCH_MANAGER', 'REGIONAL_MANAGER'] },
     { path: '/recruitment', label: 'Recruitment', icon: UserPlus, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
-    { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'ACCOUNTANT'] },
+    { path: '/onboarding', label: 'Onboarding', icon: UserCheck, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
+    { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'RELATIONSHIP_OFFICER', 'BDM'] },
+    { path: '/organization', label: 'Organization', icon: Building2, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER'] },
+    { path: '/audit', label: 'Audit Logs', icon: FileText, roles: ['CEO', 'HR_MANAGER'] },
     { path: '/settings', label: 'Settings', icon: Settings, roles: ['CEO', 'HR_MANAGER'] },
+    { path: '/my-profile', label: 'My Profile', icon: UserCircle, roles: ALL_STAFF_ROLES },
 ];
 
 // Get time-based greeting
@@ -71,6 +80,9 @@ export const DashboardLayout: React.FC = () => {
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Establish WebSocket connection for real-time notifications
+    useNotifications();
 
     const userRoles = user?.roles.map((r) => r.code) || [];
     const greeting = getGreeting();
@@ -307,16 +319,56 @@ export const DashboardLayout: React.FC = () => {
                             {/* Notification Bell */}
                             <NotificationBell />
 
-                            {/* User Profile */}
-                            <div className="flex items-center gap-3 pl-3 ml-2 border-l border-slate-200">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-sm font-semibold text-slate-900">{firstName}</p>
-                                    <p className="text-xs text-slate-500">
-                                        {userRoles[0]?.replace(/_/g, ' ')}
-                                    </p>
-                                </div>
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00AEEF] to-[#8DC63F] flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">
-                                    {firstName.charAt(0).toUpperCase()}
+                            {/* User Profile Dropdown */}
+                            <div className="relative group pl-3 ml-2 border-l border-slate-200">
+                                <button className="flex items-center gap-3 cursor-pointer">
+                                    <div className="text-right hidden sm:block">
+                                        <p className="text-sm font-semibold text-slate-900">{firstName}</p>
+                                        <p className="text-xs text-slate-500">
+                                            {userRoles[0]?.replace(/_/g, ' ')}
+                                        </p>
+                                    </div>
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00AEEF] to-[#8DC63F] flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">
+                                        {firstName.charAt(0).toUpperCase()}
+                                    </div>
+                                </button>
+                                
+                                {/* Dropdown Menu */}
+                                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 py-2">
+                                    <div className="px-4 py-3 border-b border-slate-100">
+                                        <p className="text-sm font-semibold text-slate-900">{firstName}</p>
+                                        <p className="text-xs text-slate-500">{user?.email}</p>
+                                    </div>
+                                    <Link
+                                        to="/my-profile"
+                                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Users size={16} className="text-slate-400" />
+                                        My Profile
+                                    </Link>
+                                    <Link
+                                        to="/notifications"
+                                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Bell size={16} className="text-slate-400" />
+                                        Notifications
+                                    </Link>
+                                    <Link
+                                        to="/security"
+                                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Lock size={16} className="text-slate-400" />
+                                        Security Settings
+                                    </Link>
+                                    <div className="border-t border-slate-100 mt-2 pt-2">
+                                        <button
+                                            onClick={handleLogout}
+                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+                                        >
+                                            <LogOut size={16} />
+                                            Sign Out
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

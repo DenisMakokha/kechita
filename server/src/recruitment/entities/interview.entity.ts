@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable, Index } from 'typeorm';
 import { Application } from './application.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
@@ -36,6 +36,7 @@ export class Interview {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @Index()
     @ManyToOne(() => Application)
     @JoinColumn({ name: 'application_id' })
     application: Application;
@@ -50,6 +51,7 @@ export class Interview {
     title: string;
 
     // Scheduling
+    @Index()
     @Column({ type: 'timestamp' })
     scheduled_at: Date;
 

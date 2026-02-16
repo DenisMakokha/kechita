@@ -53,13 +53,11 @@ export function useNotifications(): UseNotificationsReturn {
         });
 
         socket.on('connect', () => {
-            console.log('🔔 Notification socket connected');
             setIsConnected(true);
             socket.emit('subscribe');
         });
 
-        socket.on('disconnect', (reason: string) => {
-            console.log('🔕 Notification socket disconnected:', reason);
+        socket.on('disconnect', (_reason: string) => {
             setIsConnected(false);
         });
 
@@ -70,7 +68,6 @@ export function useNotifications(): UseNotificationsReturn {
 
         // Handle new notification
         socket.on('notification', (notification: Notification) => {
-            console.log('📬 New notification:', notification);
             
             setNotifications((prev) => [notification, ...prev]);
             setUnreadCount((prev) => prev + 1);

@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
+import { InputDialog } from '../components/ui/InputDialog';
 import {
     BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Target, AlertTriangle,
-    Download, FileSpreadsheet, FileText, Calendar, RefreshCw, ChevronDown, Building2
+    Download, FileSpreadsheet, FileText, RefreshCw, ChevronDown, Building2,
+    Calendar, Briefcase, UserCheck, Clock, Wallet, CalendarDays
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ComposedChart
+    PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
+
+type ReportTab = 'overview' | 'financial' | 'hr' | 'recruitment';
 
 const COLORS = {
     primary: '#0066B3',
@@ -20,8 +24,6 @@ const COLORS = {
     teal: '#14B8A6',
     pink: '#EC4899',
 };
-
-const CHART_COLORS = ['#7C3AED', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#A855F7'];
 
 interface DashboardData {
     period: { start: string; end: string };
@@ -73,15 +75,39 @@ interface DashboardData {
     };
 }
 
-export const ReportsPage: React.FC = () => {
+interface BranchReport {
+    id: string;
+    report_date: string;
+    status: string;
+    disbursements: number;
+    collections: number;
+    new_clients: number;
+    par_30: number;
+    branch?: { name: string };
+    submitted_by?: { full_name: string };
+    approval_comment?: string;
+    rejection_reason?: string;
+}
+
+const ReportsPage: React.FC = () => {
     const { user } = useAuthStore();
+    const queryClient = useQueryClient();
     const [period, setPeriod] = useState('month');
     const [isExporting, setIsExporting] = useState(false);
+    const [activeView, setActiveView] = useState<'dashboard' | 'my-reports' | 'pending'>('dashboard');
+    const isAccountant = user?.roles.some((r) => r.code === 'ACCOUNTANT');
+    const [reportTab, setReportTab] = useState<ReportTab>(isAccountant ? 'financial' : 'overview');
+    const [rejectReportId, setRejectReportId] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
 
     const isCEO = user?.roles.some((r) => r.code === 'CEO');
     const isHR = user?.roles.some((r) => r.code === 'HR_MANAGER');
     const isRM = user?.roles.some((r) => r.code === 'REGIONAL_MANAGER');
-    const canViewDashboard = isCEO || isHR || isRM;
+    const isBM = user?.roles.some((r) => r.code === 'BRANCH_MANAGER');
+    const canViewDashboard = isCEO || isHR || isRM || isAccountant;
+    const canSubmitReports = isBM;
+    const canApproveReports = isRM || isCEO;
 
     const { data: dashboardData, isLoading, refetch } = useQuery<DashboardData>({
         queryKey: ['ceo-dashboard', period],
@@ -90,6 +116,50 @@ export const ReportsPage: React.FC = () => {
             return response.data;
         },
         enabled: canViewDashboard,
+        refetchInterval: 120000,
+    });
+
+    const { data: recruitmentStats } = useQuery<{ activeJobs: number; totalApplications: number; interviewsThisWeek: number; avgTimeToHire: number; pipeline: { stage: string; count: number }[] }>({
+        queryKey: ['recruitment-stats'],
+        queryFn: async () => {
+            try {
+                const response = await api.get('/recruitment/stats');
+                return response.data;
+            } catch {
+                return { activeJobs: 0, totalApplications: 0, interviewsThisWeek: 0, avgTimeToHire: 0, pipeline: [] };
+            }
+        },
+        enabled: canViewDashboard && reportTab === 'recruitment',
+    });
+
+    const { data: myReports } = useQuery<BranchReport[]>({
+        queryKey: ['my-reports'],
+        queryFn: async () => (await api.get('/reporting/my/reports')).data,
+        enabled: canSubmitReports,
+    });
+
+    const approveReportMutation = useMutation({
+        mutationFn: async ({ id, comment }: { id: string; comment?: string }) => {
+            return (await api.post(`/reporting/${id}/approve`, { comment })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+            queryClient.invalidateQueries({ queryKey: ['ceo-dashboard'] });
+            showToast('Report approved');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to approve report', 'error'),
+    });
+
+    const rejectReportMutation = useMutation({
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+            return (await api.post(`/reporting/${id}/reject`, { reason })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+            queryClient.invalidateQueries({ queryKey: ['ceo-dashboard'] });
+            showToast('Report rejected');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to reject report', 'error'),
     });
 
     const handleExport = async (format: 'pdf' | 'excel') => {
@@ -157,13 +227,13 @@ export const ReportsPage: React.FC = () => {
         return null;
     };
 
-    if (!canViewDashboard) {
+    if (!canViewDashboard && !canSubmitReports) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
                 <div className="text-center">
                     <AlertTriangle className="mx-auto mb-4 text-amber-500" size={48} />
                     <h2 className="text-xl font-semibold text-slate-900 mb-2">Access Restricted</h2>
-                    <p className="text-slate-500">You don't have permission to view the analytics dashboard.</p>
+                    <p className="text-slate-500">You don't have permission to view reports.</p>
                 </div>
             </div>
         );
@@ -171,6 +241,14 @@ export const ReportsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* Toast */}
+            {toast && (
+                <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+                    <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
+                        <span className="font-medium">{toast.text}</span>
+                    </div>
+                </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -224,7 +302,107 @@ export const ReportsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Executive Summary */}
+            {/* Report Category Tabs */}
+            <div className="flex flex-wrap gap-3">
+                {[
+                    { key: 'overview', label: 'Overview', icon: BarChart3 },
+                    { key: 'financial', label: 'Financial', icon: Wallet },
+                    ...(isAccountant ? [] : [
+                        { key: 'hr', label: 'HR & Staff', icon: Users },
+                        { key: 'recruitment', label: 'Recruitment', icon: Briefcase },
+                    ]),
+                ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                        <button
+                            key={tab.key}
+                            onClick={() => setReportTab(tab.key as ReportTab)}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
+                                reportTab === tab.key
+                                    ? 'bg-[#0066B3] text-white shadow-lg'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-[#0066B3]'
+                            }`}
+                        >
+                            <Icon size={18} />
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* My Reports Tab for Branch Managers */}
+            {canSubmitReports && (
+                <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit">
+                    <button
+                        onClick={() => setActiveView('dashboard')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'dashboard' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        Analytics
+                    </button>
+                    <button
+                        onClick={() => setActiveView('my-reports')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'my-reports' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        My Reports ({myReports?.length || 0})
+                    </button>
+                </div>
+            )}
+
+            {/* My Reports View */}
+            {activeView === 'my-reports' && myReports && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200">
+                        <h3 className="font-semibold text-slate-900">My Submitted Reports</h3>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {myReports.length === 0 ? (
+                            <div className="p-8 text-center text-slate-500">No reports submitted yet</div>
+                        ) : myReports.map((report) => (
+                            <div key={report.id} className="p-4 hover:bg-slate-50 flex items-center justify-between">
+                                <div>
+                                    <p className="font-medium text-slate-900">{new Date(report.report_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                    <p className="text-sm text-slate-500">{report.branch?.name}</p>
+                                    <div className="flex gap-4 text-xs text-slate-500 mt-1">
+                                        <span>Disbursed: KES {(report.disbursements || 0).toLocaleString()}</span>
+                                        <span>Collections: KES {(report.collections || 0).toLocaleString()}</span>
+                                        <span>PAR: {(report.par_30 || 0).toFixed(2)}%</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                        report.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                        report.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                        report.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                        'bg-slate-100 text-slate-700'
+                                    }`}>
+                                        {report.status}
+                                    </span>
+                                    {canApproveReports && report.status === 'pending' && (
+                                        <>
+                                            <button
+                                                onClick={() => approveReportMutation.mutate({ id: report.id })}
+                                                className="px-3 py-1 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600"
+                                            >
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => setRejectReportId(report.id)}
+                                                className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600"
+                                            >
+                                                Reject
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Executive Summary - Overview Tab */}
+            {activeView === 'dashboard' && reportTab === 'overview' && (
+            <>
             <div className="bg-gradient-to-r from-[#0F172A] via-[#1E3A5F] to-[#0F172A] rounded-2xl p-6 text-white relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0aDR2MWgtNHYtMXptMC0yaDF2NGgtMXYtNHptMi0yaDF2MWgtMXYtMXptLTIgMGgxdjFoLTF2LTF6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50"></div>
                 <div className="relative z-10">
@@ -437,7 +615,7 @@ export const ReportsPage: React.FC = () => {
                                     outerRadius={80}
                                     paddingAngle={5}
                                     dataKey="value"
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                    label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                                     labelLine={false}
                                 >
                                     {staffPieData.map((entry, index) => (
@@ -674,6 +852,243 @@ export const ReportsPage: React.FC = () => {
                     </div>
                 </div>
             )}
+            </>
+            )}
+
+            {/* Financial Reports Tab */}
+            {activeView === 'dashboard' && reportTab === 'financial' && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-green-100 rounded-lg"><DollarSign className="text-green-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">KES {((dashboardData?.totalDisbursed || 0) / 1000000).toFixed(1)}M</p>
+                            <p className="text-xs text-slate-500 mt-1">Total Disbursed</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-blue-100 rounded-lg"><Wallet className="text-blue-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">KES {((dashboardData?.totalRecoveries || 0) / 1000000).toFixed(1)}M</p>
+                            <p className="text-xs text-slate-500 mt-1">Total Recoveries</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-amber-100 rounded-lg"><AlertTriangle className="text-amber-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{(dashboardData?.avgPAR || 0).toFixed(2)}%</p>
+                            <p className="text-xs text-slate-500 mt-1">Portfolio at Risk</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-purple-100 rounded-lg"><TrendingUp className="text-purple-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{dashboardData?.totalNewLoans || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">New Loans</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Claims & Expenses Summary</h3>
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="p-4 bg-slate-50 rounded-lg">
+                                <p className="text-sm text-slate-600 mb-1">Claims Submitted</p>
+                                <p className="text-2xl font-bold text-slate-900">{dashboardData?.claimsStats.submitted || 0}</p>
+                            </div>
+                            <div className="p-4 bg-green-50 rounded-lg">
+                                <p className="text-sm text-slate-600 mb-1">Approved Amount</p>
+                                <p className="text-2xl font-bold text-green-600">KES {((dashboardData?.claimsStats.approvedAmount || 0) / 1000).toFixed(0)}K</p>
+                            </div>
+                            <div className="p-4 bg-amber-50 rounded-lg">
+                                <p className="text-sm text-slate-600 mb-1">Pending Claims</p>
+                                <p className="text-2xl font-bold text-amber-600">{dashboardData?.claimsStats.pendingCount || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Monthly Financial Trends</h3>
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={trendChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#94A3B8" />
+                                    <YAxis tick={{ fontSize: 12 }} stroke="#94A3B8" tickFormatter={(v) => `${v}M`} />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Legend />
+                                    <Area type="monotone" dataKey="disbursed" name="Disbursed (KES M)" stroke={COLORS.primary} fill={COLORS.primary} fillOpacity={0.2} />
+                                    <Area type="monotone" dataKey="collections" name="Collections (KES M)" stroke={COLORS.success} fill={COLORS.success} fillOpacity={0.2} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* HR Reports Tab */}
+            {activeView === 'dashboard' && reportTab === 'hr' && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-blue-100 rounded-lg"><Users className="text-blue-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{dashboardData?.staffStats.total || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">Total Staff</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-green-100 rounded-lg"><UserCheck className="text-green-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{dashboardData?.staffStats.active || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">Active Staff</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-amber-100 rounded-lg"><CalendarDays className="text-amber-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{dashboardData?.staffStats.onLeave || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">On Leave</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-purple-100 rounded-lg"><Clock className="text-purple-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{dashboardData?.staffStats.onboarding || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">Onboarding</p>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h3 className="text-lg font-semibold text-slate-900 mb-4">Staff Distribution</h3>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={staffPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="value">
+                                            {staffPieData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h3 className="text-lg font-semibold text-slate-900 mb-4">Leave Summary</h3>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                    <span className="text-slate-700">Approved Leaves</span>
+                                    <span className="text-xl font-bold text-green-600">{dashboardData?.leaveStats.approved || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+                                    <span className="text-slate-700">Pending Requests</span>
+                                    <span className="text-xl font-bold text-amber-600">{dashboardData?.leaveStats.pending || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                                    <span className="text-slate-700">Rejected</span>
+                                    <span className="text-xl font-bold text-red-600">{dashboardData?.leaveStats.rejected || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                    <span className="text-slate-700">Total Days Used</span>
+                                    <span className="text-xl font-bold text-blue-600">{dashboardData?.leaveStats.totalDays || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Recruitment Reports Tab */}
+            {activeView === 'dashboard' && reportTab === 'recruitment' && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-blue-100 rounded-lg"><Briefcase className="text-blue-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{recruitmentStats?.activeJobs || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">Active Job Posts</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-green-100 rounded-lg"><Users className="text-green-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{recruitmentStats?.totalApplications || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">Total Applications</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-purple-100 rounded-lg"><Calendar className="text-purple-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{recruitmentStats?.interviewsThisWeek || 0}</p>
+                            <p className="text-xs text-slate-500 mt-1">Interviews This Week</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-3 bg-amber-100 rounded-lg"><Clock className="text-amber-600" size={20} /></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{recruitmentStats?.avgTimeToHire || 0}d</p>
+                            <p className="text-xs text-slate-500 mt-1">Avg. Time to Hire</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Recruitment Pipeline</h3>
+                        <div className="grid grid-cols-6 gap-4">
+                            {(recruitmentStats?.pipeline?.length ? recruitmentStats.pipeline : [
+                                { stage: 'Applied', count: 0 }, { stage: 'Screening', count: 0 }, { stage: 'Interview', count: 0 },
+                                { stage: 'Assessment', count: 0 }, { stage: 'Offer', count: 0 }, { stage: 'Hired', count: 0 },
+                            ]).map((item) => (
+                                <div key={item.stage} className="text-center p-4 bg-slate-50 rounded-lg">
+                                    <p className="text-2xl font-bold text-slate-900">{item.count}</p>
+                                    <p className="text-xs text-slate-500">{item.stage}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Source of Hire</h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={[
+                                    { name: 'Job Boards', count: 45 },
+                                    { name: 'LinkedIn', count: 32 },
+                                    { name: 'Referrals', count: 28 },
+                                    { name: 'Website', count: 18 },
+                                    { name: 'Agencies', count: 12 },
+                                ]}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#94A3B8" />
+                                    <YAxis tick={{ fontSize: 12 }} stroke="#94A3B8" />
+                                    <Tooltip />
+                                    <Bar dataKey="count" name="Candidates" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Reject Report Dialog */}
+            <InputDialog
+                isOpen={!!rejectReportId}
+                title="Reject Report"
+                message="Please provide a reason for rejecting this report."
+                inputLabel="Reason"
+                inputType="textarea"
+                placeholder="Enter reason..."
+                confirmLabel="Reject"
+                onConfirm={(reason) => { if (rejectReportId && reason) rejectReportMutation.mutate({ id: rejectReportId, reason }); setRejectReportId(null); }}
+                onCancel={() => setRejectReportId(null)}
+                isLoading={rejectReportMutation.isPending}
+            />
         </div>
     );
 };
+
+export { ReportsPage };
+export default ReportsPage;

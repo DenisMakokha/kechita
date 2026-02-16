@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { useFormValidation, validators } from '../hooks/useFormValidation';
+import type { ValidationRules } from '../hooks/useFormValidation';
+import { FieldError } from '../components/ui/FieldError';
 
 export const ResetPasswordPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -13,20 +16,16 @@ export const ResetPasswordPage: React.FC = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
+    const rules = useMemo<ValidationRules<{ password: string; confirmPassword: string }>>(() => ({
+        password: [v => validators.required(v, 'Password'), validators.passwordStrength],
+        confirmPassword: [v => validators.required(v, 'Confirm password'), validators.passwordMatch(password)],
+    }), [password]);
+    const { validateAll, onBlur, onChange, getFieldError } = useFormValidation(rules);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-
-        if (password !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters long');
-            return;
-        }
-
+        if (!validateAll({ password, confirmPassword })) return;
         setLoading(true);
 
         try {
@@ -124,14 +123,13 @@ export const ResetPasswordPage: React.FC = () => {
                             <input
                                 type="password"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent transition-all"
+                                onChange={(e) => { setPassword(e.target.value); onChange('password', e.target.value); }}
+                                onBlur={() => onBlur('password', password)}
+                                className={`w-full px-4 py-3 bg-white/5 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent transition-all ${getFieldError('password') ? 'border-red-400' : 'border-white/10'}`}
                                 placeholder="••••••••"
-                                required
-                                minLength={8}
                                 autoFocus
                             />
-                            <p className="text-slate-400 text-xs mt-1">Minimum 8 characters</p>
+                            <FieldError error={getFieldError('password')} />
                         </div>
 
                         <div>
@@ -141,11 +139,12 @@ export const ResetPasswordPage: React.FC = () => {
                             <input
                                 type="password"
                                 value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent transition-all"
+                                onChange={(e) => { setConfirmPassword(e.target.value); onChange('confirmPassword', e.target.value); }}
+                                onBlur={() => onBlur('confirmPassword', confirmPassword)}
+                                className={`w-full px-4 py-3 bg-white/5 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent transition-all ${getFieldError('confirmPassword') ? 'border-red-400' : 'border-white/10'}`}
                                 placeholder="••••••••"
-                                required
                             />
+                            <FieldError error={getFieldError('confirmPassword')} />
                         </div>
 
                         <button
@@ -170,3 +169,5 @@ export const ResetPasswordPage: React.FC = () => {
         </div>
     );
 };
+
+export default ResetPasswordPage;

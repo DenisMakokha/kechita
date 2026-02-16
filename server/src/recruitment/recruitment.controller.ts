@@ -1,10 +1,13 @@
 import {
-    Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
+    Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Res,
     UseGuards, Req, UseInterceptors, UploadedFile, Ip, Headers, BadRequestException, ParseUUIDPipe,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { RecruitmentService } from './recruitment.service';
 import { BackgroundCheckService, InitiateBackgroundCheckDto, CreateReferenceCheckDto, SubmitReferenceResponseDto } from './background-check.service';
 import { SignatureService } from './signature.service';
+import { ScreeningService } from './screening.service';
+import { ScreeningStatus } from './entities/screening-result.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -24,6 +27,7 @@ import {
     SignOfferDto, DeclineOfferDto,
 } from './dto/recruitment.dto';
 import { UpdateBackgroundCheckDto } from './background-check.service';
+import { ContractService } from './contract.service';
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('recruitment')
@@ -32,6 +36,8 @@ export class RecruitmentController {
         private readonly recruitmentService: RecruitmentService,
         private readonly backgroundCheckService: BackgroundCheckService,
         private readonly signatureService: SignatureService,
+        private readonly screeningService: ScreeningService,
+        private readonly contractService: ContractService,
     ) { }
 
     // ==================== PUBLIC ENDPOINTS ====================
@@ -93,6 +99,30 @@ export class RecruitmentController {
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     getJobPost(@Param('id') id: string) {
         return this.recruitmentService.getJobPost(id);
+    }
+
+    @Get('jobs/:id/jd/pdf')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    async downloadJobDescriptionPDF(@Param('id') id: string, @Res() res: any) {
+        const job = await this.recruitmentService.getJobPost(id);
+        const { buffer, fileName } = await this.contractService.generateJobDescriptionPDF(job);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.end(buffer);
+    }
+
+    @Get('jobs/:id/jd/preview')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    async previewJobDescriptionPDF(@Param('id') id: string, @Res() res: any) {
+        const job = await this.recruitmentService.getJobPost(id);
+        const { buffer, fileName } = await this.contractService.generateJobDescriptionPDF(job);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.end(buffer);
     }
 
     @Post('jobs')
@@ -352,6 +382,15 @@ export class RecruitmentController {
         return this.recruitmentService.getDashboardStats();
     }
 
+    @Get('stats')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(60000)
+    getStats() {
+        return this.recruitmentService.getDashboardStats();
+    }
+
     // ==================== OFFERS ====================
 
     @Post('applications/:id/offer')
@@ -570,6 +609,134 @@ export class RecruitmentController {
     @Roles('CEO', 'HR_MANAGER')
     unblacklistCandidate(@Param('id', ParseUUIDPipe) id: string) {
         return this.recruitmentService.unblacklistCandidate(id);
+    }
+
+    // ==================== ATS SCREENING ENDPOINTS ====================
+
+    // Get screening criteria for a job
+    @Get('jobs/:id/screening-criteria')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getScreeningCriteria(@Param('id', ParseUUIDPipe) id: string) {
+        return this.screeningService.getScreeningCriteria(id);
+    }
+
+    // Add screening criteria to a job
+    @Post('jobs/:id/screening-criteria')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    addScreeningCriteria(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: any,
+    ) {
+        return this.screeningService.addScreeningCriteria(id, dto);
+    }
+
+    // Update screening criteria
+    @Put('screening-criteria/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    updateScreeningCriteria(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: any,
+    ) {
+        return this.screeningService.updateScreeningCriteria(id, dto);
+    }
+
+    // Delete screening criteria
+    @Delete('screening-criteria/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    deleteScreeningCriteria(@Param('id', ParseUUIDPipe) id: string) {
+        return this.screeningService.deleteScreeningCriteria(id);
+    }
+
+    // Get knockout questions for a job
+    @Get('jobs/:id/knockout-questions')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getKnockoutQuestions(@Param('id', ParseUUIDPipe) id: string) {
+        return this.screeningService.getKnockoutQuestions(id);
+    }
+
+    // Add knockout question to a job
+    @Post('jobs/:id/knockout-questions')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    addKnockoutQuestion(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: any,
+    ) {
+        return this.screeningService.addKnockoutQuestion(id, dto);
+    }
+
+    // Update knockout question
+    @Put('knockout-questions/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    updateKnockoutQuestion(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: any,
+    ) {
+        return this.screeningService.updateKnockoutQuestion(id, dto);
+    }
+
+    // Delete knockout question
+    @Delete('knockout-questions/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    deleteKnockoutQuestion(@Param('id', ParseUUIDPipe) id: string) {
+        return this.screeningService.deleteKnockoutQuestion(id);
+    }
+
+    // Screen a single application
+    @Post('applications/:id/screen')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    screenApplication(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('responses') responses?: Record<string, any>,
+    ) {
+        return this.screeningService.screenApplication(id, responses);
+    }
+
+    // Get screening result for an application
+    @Get('applications/:id/screening-result')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getScreeningResult(@Param('id', ParseUUIDPipe) id: string) {
+        return this.screeningService.getScreeningResult(id);
+    }
+
+    // Get all screening results for a job
+    @Get('jobs/:id/screening-results')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getScreeningResults(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query('status') status?: ScreeningStatus,
+    ) {
+        return this.screeningService.getScreeningResults(id, status);
+    }
+
+    // Bulk screen all applications for a job
+    @Post('jobs/:id/screen-all')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    screenAllApplications(@Param('id', ParseUUIDPipe) id: string) {
+        return this.screeningService.screenAllApplications(id);
+    }
+
+    // Override screening result (manual override)
+    @Patch('screening-results/:id/override')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CEO', 'HR_MANAGER')
+    overrideScreeningResult(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('status') status: ScreeningStatus,
+        @Body('reason') reason: string,
+    ) {
+        return this.screeningService.overrideScreeningResult(id, status, reason);
     }
 }
 

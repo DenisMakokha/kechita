@@ -3,6 +3,7 @@ import {
     UseGuards, Req, BadRequestException, ParseUUIDPipe, UseInterceptors,
     UploadedFile, HttpStatus,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LeaveService } from './leave.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -90,6 +91,31 @@ export class LeaveController {
         return this.leaveService.cancelLeaveRequest(id, staffId, reason);
     }
 
+    @Patch('requests/:id/approve')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    approveRequest(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body('comment') comment?: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.leaveService.approveLeaveRequest(id, staffId, comment);
+    }
+
+    @Patch('requests/:id/reject')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    rejectRequest(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body('reason') reason: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!reason) throw new BadRequestException('Rejection reason is required');
+        return this.leaveService.rejectLeaveRequest(id, staffId, reason);
+    }
+
     // ==================== LEAVE BALANCES ====================
 
     @Get('my-balance')
@@ -154,6 +180,8 @@ export class LeaveController {
 
     @Get('stats')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(60000)
     getLeaveStats(
         @Query('year') year?: string,
         @Query('branchId') branchId?: string,

@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import api from '../lib/api';
+import { useFormValidation, validators, fieldErrorClass } from '../hooks/useFormValidation';
+import type { ValidationRules } from '../hooks/useFormValidation';
+import { FieldError } from '../components/ui/FieldError';
 import {
     Mail, Lock, Eye, EyeOff, Users, Calendar, Receipt,
     TrendingUp, Shield, CheckCircle, ArrowRight
@@ -17,20 +20,27 @@ export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const login = useAuthStore((state) => state.login);
 
+    const rules = useMemo<ValidationRules<{ email: string; password: string }>>(() => ({
+        email: [v => validators.required(v, 'Email'), validators.email],
+        password: [v => validators.required(v, 'Password'), validators.minLength(6, 'Password')],
+    }), []);
+    const { validateAll, onBlur, onChange, getFieldError } = useFormValidation(rules);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        if (!validateAll({ email, password })) return;
         setLoading(true);
 
         try {
             const response = await api.post('/auth/login', { email, password });
             const { access_token, refresh_token } = response.data;
 
-            localStorage.setItem('token', access_token);
-            localStorage.setItem('refresh_token', refresh_token);
+            // Temporarily set token so the /auth/me call works
+            useAuthStore.getState().setTokens(access_token, refresh_token);
 
             const meResponse = await api.get('/auth/me');
-            login(access_token, meResponse.data);
+            login(access_token, refresh_token, meResponse.data);
             navigate('/dashboard');
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed');
@@ -83,12 +93,13 @@ export const LoginPage: React.FC = () => {
                                 <input
                                     type="email"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent focus:bg-white transition-all"
+                                    onChange={(e) => { setEmail(e.target.value); onChange('email', e.target.value); }}
+                                    onBlur={() => onBlur('email', email)}
+                                    className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white transition-all ${fieldErrorClass(getFieldError('email'))}`}
                                     placeholder="you@company.com"
-                                    required
                                 />
                             </div>
+                            <FieldError error={getFieldError('email')} />
                         </div>
 
                         <div>
@@ -100,10 +111,10 @@ export const LoginPage: React.FC = () => {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent focus:bg-white transition-all"
+                                    onChange={(e) => { setPassword(e.target.value); onChange('password', e.target.value); }}
+                                    onBlur={() => onBlur('password', password)}
+                                    className={`w-full pl-12 pr-12 py-3.5 bg-slate-50 border rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white transition-all ${fieldErrorClass(getFieldError('password'))}`}
                                     placeholder="Enter your password"
-                                    required
                                 />
                                 <button
                                     type="button"
@@ -113,6 +124,7 @@ export const LoginPage: React.FC = () => {
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
+                            <FieldError error={getFieldError('password')} />
                         </div>
 
                         <div className="flex justify-end">
@@ -205,3 +217,5 @@ export const LoginPage: React.FC = () => {
         </div>
     );
 };
+
+export default LoginPage;

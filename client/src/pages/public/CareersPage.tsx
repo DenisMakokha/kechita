@@ -166,3 +166,5 @@ export const CareersPage: React.FC = () => {
         </div>
     );
 };
+
+export default CareersPage;

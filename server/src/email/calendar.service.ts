@@ -36,7 +36,7 @@ export class CalendarService {
         let ics = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
-            'PRODID:-//Kechita Microfinance//Staff Portal//EN',
+            'PRODID:-//Kechita Capital//Staff Portal//EN',
             'CALSCALE:GREGORIAN',
             'METHOD:REQUEST',
             'BEGIN:VEVENT',

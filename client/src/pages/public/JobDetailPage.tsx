@@ -206,3 +206,5 @@ export const JobDetailPage: React.FC = () => {
         </div>
     );
 };
+
+export default JobDetailPage;

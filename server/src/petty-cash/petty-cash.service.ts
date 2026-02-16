@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 import { PettyCashFloat, FloatTier, FLOAT_TIER_LIMITS } from './entities/petty-cash-float.entity';
 import { PettyCashTransaction, TransactionType, ExpenseCategory, TransactionStatus } from './entities/petty-cash-transaction.entity';
 import { PettyCashReplenishment, ReplenishmentStatus } from './entities/petty-cash-replenishment.entity';
 import { PettyCashReconciliation, ReconciliationStatus } from './entities/petty-cash-reconciliation.entity';
+import { ApprovalService, ApprovalCompletedEvent } from '../approval/approval.service';
 import { Branch } from '../org/entities/branch.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { generateRef } from '../common/id-utils';
@@ -67,7 +69,33 @@ export class PettyCashService {
         private replenishmentRepo: Repository<PettyCashReplenishment>,
         @InjectRepository(PettyCashReconciliation)
         private reconciliationRepo: Repository<PettyCashReconciliation>,
+        private approvalService: ApprovalService,
     ) { }
+
+    // ==================== APPROVAL EVENT LISTENER ====================
+
+    @OnEvent('approval.completed')
+    async handleApprovalCompleted(event: ApprovalCompletedEvent) {
+        if (event.targetType !== 'petty_cash_replenishment') return;
+
+        const replenishment = await this.replenishmentRepo.findOne({
+            where: { id: event.targetId },
+            relations: ['float'],
+        });
+        if (!replenishment) return;
+
+        if (event.status === 'approved') {
+            replenishment.status = ReplenishmentStatus.APPROVED;
+            replenishment.approved_at = new Date();
+            replenishment.approval_comment = event.comment;
+            replenishment.amount_approved = replenishment.amount_requested;
+            await this.replenishmentRepo.save(replenishment);
+        } else if (event.status === 'rejected') {
+            replenishment.status = ReplenishmentStatus.REJECTED;
+            replenishment.approval_comment = event.comment || 'Rejected';
+            await this.replenishmentRepo.save(replenishment);
+        }
+    }
 
     // ==================== FLOAT MANAGEMENT ====================
 
@@ -335,7 +363,21 @@ export class PettyCashService {
             status: ReplenishmentStatus.REQUESTED,
         });
 
-        return this.replenishmentRepo.save(replenishment);
+        const saved = await this.replenishmentRepo.save(replenishment);
+
+        // Initiate approval workflow
+        try {
+            await this.approvalService.initiateApproval(
+                'petty_cash_replenishment',
+                saved.id,
+                'PETTY_CASH_REPLENISHMENT_DEFAULT',
+                requestedById,
+            );
+        } catch (e) {
+            console.warn('Petty cash replenishment approval flow not found:', e.message);
+        }
+
+        return saved;
     }
 
     async approveReplenishment(replenishmentId: string, approvedById: string, comment?: string, amountApproved?: number): Promise<PettyCashReplenishment> {

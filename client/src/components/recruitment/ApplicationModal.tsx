@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, User, Mail, Phone, MapPin, Calendar, MessageSquare, Tag, Send, FileText, Briefcase, ExternalLink, Download, Clock } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Calendar, MessageSquare, Tag, Send, FileText, Briefcase, ExternalLink, Download, Clock, Shield, CheckCircle, XCircle, AlertTriangle, BarChart3 } from 'lucide-react';
 import api from '../../lib/api';
+import { BackgroundChecksPanel } from './BackgroundChecksPanel';
 
 interface ApplicationModalProps {
     applicationId: string;
@@ -11,7 +12,7 @@ interface ApplicationModalProps {
 }
 
 export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationId, onClose, onScheduleInterview, onGenerateOffer }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'notes'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'screening' | 'background'>('overview');
     const [newNote, setNewNote] = useState('');
     const [newTag, setNewTag] = useState('');
     const queryClient = useQueryClient();
@@ -31,6 +32,23 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
         enabled: !!candidateId,
     });
 
+    // Fetch Screening Result
+    const { data: screeningResult, isLoading: screeningLoading } = useQuery({
+        queryKey: ['screening-result', applicationId],
+        queryFn: async () => (await api.get(`/recruitment/applications/${applicationId}/screening-result`)).data,
+        enabled: !!applicationId,
+    });
+
+    // Screen Application Mutation
+    const screenMutation = useMutation({
+        mutationFn: async () => api.post(`/recruitment/applications/${applicationId}/screen`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['screening-result', applicationId] });
+            queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+        },
+        onError: (e: any) => console.error('Screen failed:', e),
+    });
+
     // Fetch Notes
     const { data: notes, isLoading: notesLoading } = useQuery({
         queryKey: ['candidate-notes', candidateId],
@@ -47,6 +65,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
             queryClient.invalidateQueries({ queryKey: ['candidate-notes', candidateId] });
             setNewNote('');
         },
+        onError: (e: any) => console.error('Failed to add note:', e),
     });
 
     // Mutate Tags
@@ -56,7 +75,8 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['candidate', candidateId] });
-        }
+        },
+        onError: (e: any) => console.error('Failed to update tags:', e),
     });
 
     const handleAddTag = (e?: React.FormEvent) => {
@@ -145,6 +165,20 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                             }`}
                     >
                         <MessageSquare size={18} /> Notes & Activity
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('screening')}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'screening' ? 'bg-blue-50 text-[#0066B3]' : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
+                        <BarChart3 size={18} /> Screening Score
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('background')}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'background' ? 'bg-blue-50 text-[#0066B3]' : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
+                        <Shield size={18} /> Background & References
                     </button>
                     {/* Tags Display */}
                     <div className="ml-auto flex items-center gap-2 overflow-x-auto">
@@ -248,6 +282,198 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                         </div>
                     )}
 
+                    {activeTab === 'screening' && (
+                        <div className="space-y-6">
+                            {/* Screening Status Header */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                        <Shield className="text-[#0066B3]" /> ATS Screening Result
+                                    </h3>
+                                    {!screeningResult && (
+                                        <button
+                                            onClick={() => screenMutation.mutate()}
+                                            disabled={screenMutation.isPending}
+                                            className="px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] disabled:opacity-50"
+                                        >
+                                            {screenMutation.isPending ? 'Screening...' : 'Run Screening'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {screeningLoading ? (
+                                    <div className="text-center py-8 text-slate-400">Loading screening results...</div>
+                                ) : !screeningResult ? (
+                                    <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                                        <AlertTriangle className="mx-auto text-amber-400 mb-2" size={32} />
+                                        <p className="text-slate-600 font-medium">Not Yet Screened</p>
+                                        <p className="text-slate-400 text-sm">Click "Run Screening" to evaluate this application</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Overall Score */}
+                                        <div className="flex items-center gap-6 mb-6">
+                                            <div className={`w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold text-white ${
+                                                screeningResult.percentage >= 80 ? 'bg-green-500' :
+                                                screeningResult.percentage >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                                            }`}>
+                                                {Math.round(screeningResult.percentage)}%
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    {screeningResult.status === 'passed' ? (
+                                                        <CheckCircle className="text-green-500" size={24} />
+                                                    ) : screeningResult.status === 'failed' ? (
+                                                        <XCircle className="text-red-500" size={24} />
+                                                    ) : (
+                                                        <AlertTriangle className="text-amber-500" size={24} />
+                                                    )}
+                                                    <span className={`text-lg font-bold ${
+                                                        screeningResult.status === 'passed' ? 'text-green-600' :
+                                                        screeningResult.status === 'failed' ? 'text-red-600' : 'text-amber-600'
+                                                    }`}>
+                                                        {screeningResult.status?.toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-slate-600">{screeningResult.notes}</p>
+                                                <p className="text-sm text-slate-400 mt-1">
+                                                    Screened: {screeningResult.screened_at ? new Date(screeningResult.screened_at).toLocaleString() : 'N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Knockout Reasons */}
+                                        {screeningResult.knockout_reasons?.length > 0 && (
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                                                <h4 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                                                    <XCircle size={16} /> Knockout Criteria Failed
+                                                </h4>
+                                                <ul className="space-y-2">
+                                                    {screeningResult.knockout_reasons.map((ko: any, idx: number) => (
+                                                        <li key={idx} className="text-sm text-red-700">
+                                                            <strong>{ko.name}:</strong> {ko.reason}
+                                                            <span className="text-red-500 ml-2">(Has: {ko.candidateValue}, Required: {ko.requiredValue})</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {/* Score Breakdown */}
+                                        {screeningResult.score_breakdown && (
+                                            <div className="space-y-4">
+                                                <h4 className="font-semibold text-slate-800">Score Breakdown</h4>
+                                                
+                                                {/* Experience */}
+                                                <div className="bg-slate-50 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-medium text-slate-700">Experience</span>
+                                                        <span className="text-sm text-slate-600">
+                                                            {screeningResult.score_breakdown.experience?.score || 0} / {screeningResult.score_breakdown.experience?.max || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                                        <div 
+                                                            className="bg-blue-500 h-2 rounded-full" 
+                                                            style={{ width: `${(screeningResult.score_breakdown.experience?.score / screeningResult.score_breakdown.experience?.max) * 100 || 0}%` }}
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 mt-1">{screeningResult.score_breakdown.experience?.details}</p>
+                                                </div>
+
+                                                {/* Education */}
+                                                <div className="bg-slate-50 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-medium text-slate-700">Education</span>
+                                                        <span className="text-sm text-slate-600">
+                                                            {screeningResult.score_breakdown.education?.score || 0} / {screeningResult.score_breakdown.education?.max || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                                        <div 
+                                                            className="bg-purple-500 h-2 rounded-full" 
+                                                            style={{ width: `${(screeningResult.score_breakdown.education?.score / screeningResult.score_breakdown.education?.max) * 100 || 0}%` }}
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 mt-1">{screeningResult.score_breakdown.education?.details}</p>
+                                                </div>
+
+                                                {/* Skills */}
+                                                <div className="bg-slate-50 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-medium text-slate-700">Skills Match</span>
+                                                        <span className="text-sm text-slate-600">
+                                                            {screeningResult.score_breakdown.skills?.score || 0} / {screeningResult.score_breakdown.skills?.max || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                                        <div 
+                                                            className="bg-green-500 h-2 rounded-full" 
+                                                            style={{ width: `${(screeningResult.score_breakdown.skills?.score / screeningResult.score_breakdown.skills?.max) * 100 || 0}%` }}
+                                                        />
+                                                    </div>
+                                                    {screeningResult.score_breakdown.skills?.matched?.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                            {screeningResult.score_breakdown.skills.matched.map((s: string) => (
+                                                                <span key={s} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{s}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {screeningResult.score_breakdown.skills?.missing?.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                            {screeningResult.score_breakdown.skills.missing.map((s: string) => (
+                                                                <span key={s} className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">{s}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Certifications */}
+                                                <div className="bg-slate-50 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-medium text-slate-700">Certifications</span>
+                                                        <span className="text-sm text-slate-600">
+                                                            {screeningResult.score_breakdown.certifications?.score || 0} / {screeningResult.score_breakdown.certifications?.max || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                                        <div 
+                                                            className="bg-amber-500 h-2 rounded-full" 
+                                                            style={{ width: `${(screeningResult.score_breakdown.certifications?.score / screeningResult.score_breakdown.certifications?.max) * 100 || 0}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Keywords */}
+                                                <div className="bg-slate-50 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-medium text-slate-700">Keywords</span>
+                                                        <span className="text-sm text-slate-600">
+                                                            {screeningResult.score_breakdown.keywords?.score || 0} / {screeningResult.score_breakdown.keywords?.max || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                                        <div 
+                                                            className="bg-cyan-500 h-2 rounded-full" 
+                                                            style={{ width: `${(screeningResult.score_breakdown.keywords?.score / screeningResult.score_breakdown.keywords?.max) * 100 || 0}%` }}
+                                                        />
+                                                    </div>
+                                                    {screeningResult.score_breakdown.keywords?.matched?.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                            {screeningResult.score_breakdown.keywords.matched.map((k: string) => (
+                                                                <span key={k} className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-xs rounded-full">{k}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'notes' && (
                         <div className="flex flex-col h-full">
                             <div className="flex-1 space-y-4 mb-4 overflow-y-auto">
@@ -308,6 +534,13 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ applicationI
                                 <p className="text-xs text-slate-400 mt-2">Press Enter to send. Only visible to team members.</p>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'background' && candidateId && (
+                        <BackgroundChecksPanel
+                            candidateId={candidateId}
+                            candidateName={`${application.candidate?.first_name} ${application.candidate?.last_name}`}
+                        />
                     )}
                 </div>
             </div>

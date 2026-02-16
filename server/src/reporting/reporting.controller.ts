@@ -20,7 +20,7 @@ export class ReportingController {
     ) { }
 
     @Post('daily')
-    @Roles('BRANCH_MANAGER', 'RELATIONSHIP_OFFICER')
+    @Roles('BRANCH_MANAGER', 'RELATIONSHIP_OFFICER', 'BDM')
     submitDailyReport(
         @Req() req: AuthenticatedRequest,
         @Body() dto: SubmitReportDto,
@@ -49,7 +49,7 @@ export class ReportingController {
     }
 
     @Get('dashboard/ceo')
-    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'ACCOUNTANT')
     getCEODashboard() {
         return this.reportingService.getCEODashboard();
     }
@@ -115,7 +115,7 @@ export class ReportingController {
 
     @Post('kpi/import/csv')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
     async importCsv(@UploadedFile() file: Express.Multer.File, @Req() req: AuthenticatedRequest) {
         const csvContent = file.buffer.toString('utf-8');
         const staffId = req.user?.staff_id;
@@ -125,7 +125,7 @@ export class ReportingController {
 
     @Post('kpi/import/excel')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
     async importExcel(@UploadedFile() file: Express.Multer.File, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');

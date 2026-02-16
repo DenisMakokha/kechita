@@ -11,16 +11,19 @@ import { UserController } from './user.controller';
 import { RoleController } from './role.controller';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
+import { Permission } from './entities/permission.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtStrategy } from './jwt.strategy';
 import { Staff } from '../staff/entities/staff.entity';
 import { EmailModule } from '../email/email.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User, Role, Staff, PasswordResetToken, RefreshToken]),
+        TypeOrmModule.forFeature([User, Role, Permission, Staff, PasswordResetToken, RefreshToken]),
         EmailModule,
+        AuditModule,
         PassportModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],

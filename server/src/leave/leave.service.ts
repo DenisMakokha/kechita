@@ -279,7 +279,7 @@ export class LeaveService {
 
             // Initiate approval workflow (outside transaction)
             try {
-                await this.approvalService.initiateApproval('leave', savedRequest.id, 'LEAVE_DEFAULT');
+                await this.approvalService.initiateApproval('leave', savedRequest.id, 'LEAVE_DEFAULT', staffId);
             } catch (e) {
                 console.warn('Leave approval flow not found:', e.message);
             }
@@ -878,6 +878,41 @@ export class LeaveService {
         }
 
         return workingDays;
+    }
+
+    // Direct approve/reject methods for controller use
+    async approveLeaveRequest(requestId: string, approverId: string, comment?: string): Promise<LeaveRequest> {
+        const request = await this.leaveRequestRepo.findOne({
+            where: { id: requestId },
+            relations: ['staff', 'leaveType'],
+        });
+        if (!request) throw new NotFoundException('Leave request not found');
+        if (request.status !== LeaveRequestStatus.PENDING) {
+            throw new BadRequestException('Only pending requests can be approved');
+        }
+        await this.onLeaveApproved(requestId, approverId);
+        const updated = await this.leaveRequestRepo.findOne({
+            where: { id: requestId },
+            relations: ['staff', 'leaveType', 'finalApprover'],
+        });
+        return updated!;
+    }
+
+    async rejectLeaveRequest(requestId: string, rejectorId: string, reason: string): Promise<LeaveRequest> {
+        const request = await this.leaveRequestRepo.findOne({
+            where: { id: requestId },
+            relations: ['staff', 'leaveType'],
+        });
+        if (!request) throw new NotFoundException('Leave request not found');
+        if (request.status !== LeaveRequestStatus.PENDING) {
+            throw new BadRequestException('Only pending requests can be rejected');
+        }
+        await this.onLeaveRejected(requestId, reason);
+        const updated = await this.leaveRequestRepo.findOne({
+            where: { id: requestId },
+            relations: ['staff', 'leaveType'],
+        });
+        return updated!;
     }
 
     // Called by approval service when leave is approved

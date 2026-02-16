@@ -25,6 +25,18 @@ export class RoleController {
         return this.roleService.getRoleStats();
     }
 
+    @Get('permissions/all')
+    @Roles('CEO', 'HR_MANAGER')
+    async findAllPermissions() {
+        return this.roleService.findAllPermissions();
+    }
+
+    @Get('permissions/grouped')
+    @Roles('CEO', 'HR_MANAGER')
+    async getPermissionsByModule() {
+        return this.roleService.getPermissionsByModule();
+    }
+
     @Get(':id')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     async findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -71,5 +83,43 @@ export class RoleController {
     @Roles('CEO')
     async delete(@Param('id', ParseUUIDPipe) id: string) {
         return this.roleService.delete(id);
+    }
+
+    // ==================== ROLE-SPECIFIC PERMISSIONS ====================
+
+    @Get(':id/permissions')
+    @Roles('CEO', 'HR_MANAGER')
+    async getRolePermissions(@Param('id', ParseUUIDPipe) id: string) {
+        return this.roleService.getRolePermissions(id);
+    }
+
+    @Post(':id/permissions')
+    @Roles('CEO')
+    @HttpCode(HttpStatus.OK)
+    async setRolePermissions(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() body: { permissionIds: string[] },
+    ) {
+        return this.roleService.setRolePermissions(id, body.permissionIds);
+    }
+
+    @Post(':id/permissions/add')
+    @Roles('CEO')
+    @HttpCode(HttpStatus.OK)
+    async addPermissions(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() body: { permissionIds: string[] },
+    ) {
+        return this.roleService.addPermissionsToRole(id, body.permissionIds);
+    }
+
+    @Post(':id/permissions/remove')
+    @Roles('CEO')
+    @HttpCode(HttpStatus.OK)
+    async removePermissions(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() body: { permissionIds: string[] },
+    ) {
+        return this.roleService.removePermissionsFromRole(id, body.permissionIds);
     }
 }

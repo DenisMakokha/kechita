@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { PettyCashFloat } from './petty-cash-float.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
@@ -51,6 +51,7 @@ export class PettyCashTransaction {
     @Column({ unique: true })
     transaction_number: string;
 
+    @Index()
     @ManyToOne(() => PettyCashFloat, { eager: true })
     @JoinColumn({ name: 'float_id' })
     float: PettyCashFloat;
@@ -105,6 +106,7 @@ export class PettyCashTransaction {
     @Column({ type: 'text', nullable: true })
     notes: string;
 
+    @Index()
     @CreateDateColumn()
     created_at: Date;
 }

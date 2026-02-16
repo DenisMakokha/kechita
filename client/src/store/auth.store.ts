@@ -6,31 +6,39 @@ interface User {
     email: string;
     first_name?: string;
     last_name?: string;
-    roles: { code: string }[];
+    roles: { id: string; code: string; name: string }[];
+    permissions?: string[];
     staff_id?: string;
+    two_factor_enabled?: boolean;
+    is_active?: boolean;
+    last_login_at?: string;
 }
 
 interface AuthState {
     token: string | null;
+    refreshToken: string | null;
     user: User | null;
     isAuthenticated: boolean;
-    login: (token: string, user: User) => void;
+    login: (token: string, refreshToken: string, user: User) => void;
     logout: () => void;
+    setTokens: (token: string, refreshToken: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
             token: null,
+            refreshToken: null,
             user: null,
             isAuthenticated: false,
-            login: (token, user) => {
-                localStorage.setItem('token', token);
-                set({ token, user, isAuthenticated: true });
+            login: (token, refreshToken, user) => {
+                set({ token, refreshToken, user, isAuthenticated: true });
             },
             logout: () => {
-                localStorage.removeItem('token');
-                set({ token: null, user: null, isAuthenticated: false });
+                set({ token: null, refreshToken: null, user: null, isAuthenticated: false });
+            },
+            setTokens: (token, refreshToken) => {
+                set({ token, refreshToken });
             },
         }),
         {

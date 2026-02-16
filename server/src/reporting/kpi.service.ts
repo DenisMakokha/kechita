@@ -326,6 +326,7 @@ export class KpiService {
         total_recoveries: number;
         total_new_loans: number;
         average_par: number;
+        par_buckets: { par_1_30: number; par_31_60: number; par_61_90: number; par_90_plus: number; total: number };
         branch_count: number;
         report_count: number;
     }> {
@@ -345,9 +346,15 @@ export class KpiService {
                 recoveries: acc.recoveries + Number(r.recoveries_amount || 0),
                 newLoans: acc.newLoans + (r.loans_new_count || 0),
                 par: acc.par + Number(r.par_ratio || 0),
+                par_1_30: acc.par_1_30 + Number(r.par_1_30 || 0),
+                par_31_60: acc.par_31_60 + Number(r.par_31_60 || 0),
+                par_61_90: acc.par_61_90 + Number(r.par_61_90 || 0),
+                par_90_plus: acc.par_90_plus + Number(r.par_90_plus || 0),
             }),
-            { disbursed: 0, recoveries: 0, newLoans: 0, par: 0 },
+            { disbursed: 0, recoveries: 0, newLoans: 0, par: 0, par_1_30: 0, par_31_60: 0, par_61_90: 0, par_90_plus: 0 },
         );
+
+        const parTotal = totals.par_1_30 + totals.par_31_60 + totals.par_61_90 + totals.par_90_plus;
 
         return {
             period: `${year}-${month.toString().padStart(2, '0')}`,
@@ -355,6 +362,13 @@ export class KpiService {
             total_recoveries: totals.recoveries,
             total_new_loans: totals.newLoans,
             average_par: reports.length > 0 ? Math.round((totals.par / reports.length) * 100) / 100 : 0,
+            par_buckets: {
+                par_1_30: totals.par_1_30,
+                par_31_60: totals.par_31_60,
+                par_61_90: totals.par_61_90,
+                par_90_plus: totals.par_90_plus,
+                total: parTotal,
+            },
             branch_count: uniqueBranches.size,
             report_count: reports.length,
         };

@@ -8,11 +8,13 @@ import { ApprovalAction } from './entities/approval-action.entity';
 import { ApprovalService } from './approval.service';
 import { ApprovalController } from './approval.controller';
 import { Staff } from '../staff/entities/staff.entity';
+import { AuditModule } from '../audit/audit.module';
 
 @Global()
 @Module({
     imports: [
         EventEmitterModule.forRoot(),
+        AuditModule,
         TypeOrmModule.forFeature([
             ApprovalFlow,
             ApprovalFlowStep,

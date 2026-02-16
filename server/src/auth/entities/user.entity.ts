@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToMany, JoinTable, OneToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToMany, JoinTable, OneToOne, Index } from 'typeorm';
 import { Role } from './role.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
@@ -13,6 +13,7 @@ export class User {
     @Column({ select: false })
     password_hash: string;
 
+    @Index()
     @Column({ default: true })
     is_active: boolean;
 

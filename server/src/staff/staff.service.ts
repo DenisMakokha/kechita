@@ -532,12 +532,112 @@ export class StaffService {
         return generateTempPasswordSecure(10);
     }
 
+    // ==================== PROMOTION ====================
+
+    async promoteStaff(
+        staffId: string,
+        data: {
+            new_position_id: string;
+            new_salary?: number;
+            new_department_id?: string;
+            new_branch_id?: string;
+            effective_date?: Date;
+            reason?: string;
+        },
+        promotedBy?: string,
+    ): Promise<Staff> {
+        const staff = await this.findOne(staffId);
+        const effectiveDate = data.effective_date || new Date();
+        const oldPosition = staff.position;
+        const oldSalary = staff.basic_salary;
+
+        const newPosition = await this.positionRepo.findOne({ where: { id: data.new_position_id } });
+        if (!newPosition) throw new BadRequestException('Invalid position ID');
+
+        // Close current employment history record
+        const lastHistory = await this.employmentHistoryRepo.findOne({
+            where: { staff: { id: staff.id }, end_date: null as any },
+            order: { start_date: 'DESC' },
+        });
+        if (lastHistory) {
+            lastHistory.end_date = effectiveDate;
+            await this.employmentHistoryRepo.save(lastHistory);
+        }
+
+        // Update staff record
+        staff.position = newPosition;
+        if (data.new_salary !== undefined) staff.basic_salary = data.new_salary;
+        if (data.new_department_id) {
+            const dept = await this.departmentRepo.findOne({ where: { id: data.new_department_id } });
+            if (dept) staff.department = dept;
+        }
+        if (data.new_branch_id) {
+            const branch = await this.branchRepo.findOne({ where: { id: data.new_branch_id } });
+            if (branch) staff.branch = branch;
+        }
+        staff.updated_by = promotedBy;
+
+        const saved = await this.staffRepo.save(staff);
+
+        // Create new employment history record for the promotion
+        const newHistory = this.employmentHistoryRepo.create({
+            staff: saved,
+            position: newPosition,
+            branch: staff.branch,
+            region: staff.region,
+            department: staff.department,
+            employment_type: 'full-time',
+            change_type: 'promotion',
+            salary: data.new_salary || staff.basic_salary,
+            start_date: effectiveDate,
+            change_reason: data.reason || `Promoted from ${oldPosition?.name || 'N/A'} to ${newPosition.name}${oldSalary && data.new_salary ? `. Salary: ${oldSalary} → ${data.new_salary}` : ''}`,
+        });
+        await this.employmentHistoryRepo.save(newHistory);
+
+        return this.findOne(staffId);
+    }
+
+    // ==================== HIRE CANDIDATE (Recruitment → Staff) ====================
+
+    async hireCandidate(data: {
+        candidate_first_name: string;
+        candidate_last_name: string;
+        candidate_email: string;
+        candidate_phone?: string;
+        position_id: string;
+        role_id: string;
+        branch_id?: string;
+        region_id?: string;
+        department_id?: string;
+        manager_id?: string;
+        basic_salary?: number;
+        hire_date?: string;
+        probation_months?: number;
+    }, createdBy?: string): Promise<Staff> {
+        // Delegate to the existing create method with candidate data pre-filled
+        return this.create({
+            first_name: data.candidate_first_name,
+            last_name: data.candidate_last_name,
+            email: data.candidate_email,
+            phone: data.candidate_phone,
+            position_id: data.position_id,
+            role_id: data.role_id,
+            branch_id: data.branch_id,
+            region_id: data.region_id,
+            department_id: data.department_id,
+            manager_id: data.manager_id,
+            basic_salary: data.basic_salary,
+            hire_date: data.hire_date,
+            probation_months: data.probation_months,
+        } as any, createdBy);
+    }
+
     // ==================== EMPLOYMENT HISTORY ====================
 
     async getEmploymentHistory(staffId: string): Promise<EmploymentHistory[]> {
         return this.employmentHistoryRepo.find({
             where: { staff: { id: staffId } },
-            relations: ['position', 'region', 'branch'],
+            relations: ['position', 'region', 'branch', 'department'],
             order: { start_date: 'DESC' },
         });
     }

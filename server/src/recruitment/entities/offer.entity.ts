@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Application } from './application.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
@@ -7,6 +7,7 @@ export class Offer {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @Index()
     @ManyToOne(() => Application)
     @JoinColumn({ name: 'application_id' })
     application: Application;
@@ -32,6 +33,8 @@ export class Offer {
     @Column({ type: 'date', nullable: true })
     expiration_date: Date;
 
+    @Column({ type: 'int', nullable: true, default: 3 })
+    probation_months: number;
 
     @ManyToOne(() => Staff, { nullable: true })
     @JoinColumn({ name: 'created_by_staff_id' })

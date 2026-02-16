@@ -119,9 +119,17 @@ export class OrgService {
         return this.branchRepo.save(branch);
     }
 
-    async getBranches(regionId?: string, includeInactive = false): Promise<Branch[]> {
+    async getBranches(regionId?: string, includeInactive = false): Promise<any[]> {
         const qb = this.branchRepo.createQueryBuilder('branch')
-            .leftJoinAndSelect('branch.region', 'region');
+            .leftJoinAndSelect('branch.region', 'region')
+            .addSelect(
+                (sub) => sub
+                    .select('COUNT(s.id)')
+                    .from('staff', 's')
+                    .where('s.branch_id = branch.id')
+                    .andWhere("s.status = 'active'"),
+                'staffCount',
+            );
 
         if (regionId) {
             qb.where('region.id = :regionId', { regionId });
@@ -131,7 +139,11 @@ export class OrgService {
             qb.andWhere('branch.is_active = true');
         }
 
-        return qb.orderBy('branch.name', 'ASC').getMany();
+        const raw = await qb.orderBy('branch.name', 'ASC').getRawAndEntities();
+        return raw.entities.map((branch, i) => ({
+            ...branch,
+            staffCount: parseInt(raw.raw[i]?.staffCount || '0', 10),
+        }));
     }
 
     async getBranch(id: string): Promise<Branch> {

@@ -13,6 +13,7 @@ interface MonthlyKPI {
     total_recoveries: number;
     total_new_loans: number;
     average_par: number;
+    par_buckets: { par_1_30: number; par_31_60: number; par_61_90: number; par_90_plus: number; total: number };
     branch_count: number;
     report_count: number;
 }
@@ -57,6 +58,7 @@ export const KPIDashboard: React.FC = () => {
             setImportResult(response.data);
             queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
         },
+        onError: (e: any) => console.error('Import failed:', e),
     });
 
     const formatCurrency = (amount: number) =>
@@ -251,35 +253,52 @@ export const KPIDashboard: React.FC = () => {
         </div>
     );
 
-    const renderPAR = () => (
-        <div className="kpi-par">
-            <h3>Portfolio at Risk Analysis</h3>
-            <p className="kpi-par-subtitle">Coming soon: Detailed PAR breakdown by aging bucket and branch</p>
+    const renderPAR = () => {
+        const buckets = kpiSummary?.par_buckets;
+        const total = buckets?.total || 0;
+        const pct = (val: number) => total > 0 ? Math.round((val / total) * 100) : 0;
 
-            <div className="kpi-par-preview">
-                <div className="par-bucket">
-                    <div className="par-bucket-header">PAR 1-30</div>
-                    <div className="par-bucket-bar" style={{ width: '40%' }}></div>
-                    <span>40%</span>
-                </div>
-                <div className="par-bucket">
-                    <div className="par-bucket-header">PAR 31-60</div>
-                    <div className="par-bucket-bar" style={{ width: '25%' }}></div>
-                    <span>25%</span>
-                </div>
-                <div className="par-bucket">
-                    <div className="par-bucket-header">PAR 61-90</div>
-                    <div className="par-bucket-bar" style={{ width: '20%' }}></div>
-                    <span>20%</span>
-                </div>
-                <div className="par-bucket">
-                    <div className="par-bucket-header">PAR 90+</div>
-                    <div className="par-bucket-bar danger" style={{ width: '15%' }}></div>
-                    <span>15%</span>
-                </div>
+        return (
+            <div className="kpi-par">
+                <h3>Portfolio at Risk Analysis</h3>
+                <p className="kpi-par-subtitle">
+                    PAR breakdown by aging bucket for {kpiSummary?.period || selectedMonth}
+                    {total > 0 ? ` — Total: ${formatCurrency(total)}` : ''}
+                </p>
+
+                {total === 0 ? (
+                    <div className="kpi-par-preview" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                        <AlertTriangle size={32} style={{ margin: '0 auto 0.5rem' }} />
+                        <p>No PAR data available for this period.</p>
+                        <p style={{ fontSize: '0.85rem' }}>Import branch daily reports with PAR figures to see the breakdown.</p>
+                    </div>
+                ) : (
+                    <div className="kpi-par-preview">
+                        <div className="par-bucket">
+                            <div className="par-bucket-header">PAR 1-30</div>
+                            <div className="par-bucket-bar" style={{ width: `${pct(buckets!.par_1_30)}%` }}></div>
+                            <span>{pct(buckets!.par_1_30)}% ({formatCurrency(buckets!.par_1_30)})</span>
+                        </div>
+                        <div className="par-bucket">
+                            <div className="par-bucket-header">PAR 31-60</div>
+                            <div className="par-bucket-bar" style={{ width: `${pct(buckets!.par_31_60)}%` }}></div>
+                            <span>{pct(buckets!.par_31_60)}% ({formatCurrency(buckets!.par_31_60)})</span>
+                        </div>
+                        <div className="par-bucket">
+                            <div className="par-bucket-header">PAR 61-90</div>
+                            <div className="par-bucket-bar" style={{ width: `${pct(buckets!.par_61_90)}%` }}></div>
+                            <span>{pct(buckets!.par_61_90)}% ({formatCurrency(buckets!.par_61_90)})</span>
+                        </div>
+                        <div className="par-bucket">
+                            <div className="par-bucket-header">PAR 90+</div>
+                            <div className="par-bucket-bar danger" style={{ width: `${pct(buckets!.par_90_plus)}%` }}></div>
+                            <span>{pct(buckets!.par_90_plus)}% ({formatCurrency(buckets!.par_90_plus)})</span>
+                        </div>
+                    </div>
+                )}
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="kpi-dashboard">

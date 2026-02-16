@@ -71,6 +71,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             queryClient.invalidateQueries({ queryKey: ['applications'] });
             queryClient.invalidateQueries({ queryKey: ['recruitment-dashboard'] });
         },
+        onError: (e: any) => console.error('Failed to update stage:', e),
     });
 
     const starMutation = useMutation({
@@ -80,6 +81,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['applications'] });
         },
+        onError: (e: any) => console.error('Failed to update star:', e),
     });
 
     const handleDragStart = (e: DragEvent<HTMLDivElement>, app: Application) => {

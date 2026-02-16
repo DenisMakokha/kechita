@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { ApprovalFlow } from './approval-flow.entity';
 import { ApprovalAction } from './approval-action.entity';
 import { Staff } from '../../staff/entities/staff.entity';
@@ -19,6 +19,7 @@ export class ApprovalInstance {
     @JoinColumn({ name: 'flow_id' })
     flow: ApprovalFlow;
 
+    @Index('IDX_approval_target', ['target_type', 'target_id'])
     @Column()
     target_type: string; // leave, claim, staff_loan
 
@@ -30,6 +31,7 @@ export class ApprovalInstance {
     @JoinColumn({ name: 'requester_id' })
     requester?: Staff;
 
+    @Index()
     @Column({ type: 'enum', enum: ApprovalInstanceStatus, default: ApprovalInstanceStatus.PENDING })
     status: ApprovalInstanceStatus;
 

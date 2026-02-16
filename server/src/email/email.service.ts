@@ -39,7 +39,7 @@ export class EmailService {
         const smtpPass = this.configService.get('SMTP_PASS');
 
         this.fromEmail = this.configService.get('SMTP_FROM_EMAIL') || 'noreply@kechita.com';
-        this.fromName = this.configService.get('SMTP_FROM_NAME') || 'Kechita Microfinance';
+        this.fromName = this.configService.get('SMTP_FROM_NAME') || 'Kechita Capital';
 
         this.transporter = nodemailer.createTransport({
             host: smtpHost,
@@ -133,7 +133,7 @@ export class EmailService {
         </div>
         <div class="content">
             <p>Dear ${data.candidateName},</p>
-            <p>We are pleased to invite you for an interview for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Microfinance'}.</p>
+            <p>We are pleased to invite you for an interview for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Capital'}.</p>
             
             <div class="details">
                 <h3>📅 Interview Details</h3>
@@ -150,7 +150,7 @@ export class EmailService {
             ${data.type === 'video' && data.videoLink ? `<a href="${data.videoLink}" class="btn">Join Video Call</a>` : ''}
             
             <p style="margin-top: 30px;">We look forward to meeting you!</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message. Please do not reply directly to this email.</p>
@@ -167,7 +167,7 @@ export class EmailService {
 
         return this.sendEmail({
             to: data.candidateEmail,
-            subject: `Interview Invitation - ${data.jobTitle} at ${data.companyName || 'Kechita Microfinance'}`,
+            subject: `Interview Invitation - ${data.jobTitle} at ${data.companyName || 'Kechita Capital'}`,
             html,
             attachments,
         });
@@ -236,7 +236,7 @@ export class EmailService {
             ${data.type === 'video' && data.videoLink ? `<a href="${data.videoLink}" class="btn">Join Video Call</a>` : ''}
             
             <p style="margin-top: 30px;">Good luck! We look forward to speaking with you.</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated reminder. Please do not reply directly to this email.</p>
@@ -317,7 +317,7 @@ export class EmailService {
             ${data.type === 'video' && data.videoLink ? `<a href="${data.videoLink}" class="btn">Join Video Call</a>` : ''}
             
             <p style="margin-top: 30px;">We apologize for any inconvenience and look forward to speaking with you.</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message from our recruitment system.</p>
@@ -382,7 +382,7 @@ export class EmailService {
                 <p>We apologize for any inconvenience this may cause. If you have any questions, please don't hesitate to contact our HR team.</p>
             `}
             
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message from our recruitment system.</p>
@@ -427,7 +427,7 @@ export class EmailService {
         </div>
         <div class="content">
             <p>Dear ${data.candidateName},</p>
-            <p>Thank you for your interest in the <strong>${data.jobTitle}</strong> position at ${data.companyName || 'Kechita Microfinance'} and for taking the time to apply.</p>
+            <p>Thank you for your interest in the <strong>${data.jobTitle}</strong> position at ${data.companyName || 'Kechita Capital'} and for taking the time to apply.</p>
             
             <p>After careful consideration, we regret to inform you that we have decided to move forward with other candidates whose qualifications more closely match our current requirements.</p>
             
@@ -441,7 +441,7 @@ export class EmailService {
             
             <p>We wish you the very best in your job search and future career endeavors.</p>
             
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message from our recruitment system.</p>
@@ -494,7 +494,7 @@ export class EmailService {
         </div>
         <div class="content">
             <p>Dear ${data.candidateName},</p>
-            <p>We are thrilled to extend an offer for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Microfinance'}!</p>
+            <p>We are thrilled to extend an offer for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Capital'}!</p>
             
             <div class="details">
                 <h3>💼 Offer Details</h3>
@@ -512,7 +512,7 @@ export class EmailService {
             ${data.signatureLink ? `<a href="${data.signatureLink}" class="btn">Sign Offer Letter</a>` : ''}
             
             <p style="margin-top: 30px;">We are excited about the possibility of you joining our team!</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message. Please reply to this email if you have any questions.</p>
@@ -529,7 +529,7 @@ export class EmailService {
 
         return this.sendEmail({
             to: data.candidateEmail,
-            subject: `Job Offer - ${data.jobTitle} at ${data.companyName || 'Kechita Microfinance'}`,
+            subject: `Job Offer - ${data.jobTitle} at ${data.companyName || 'Kechita Capital'}`,
             html,
             attachments,
         });
@@ -560,14 +560,14 @@ export class EmailService {
 <body>
     <div class="container">
         <div class="header">
-            <h2>Kechita Microfinance</h2>
+            <h2>Kechita Capital</h2>
         </div>
         <div class="content">
             <p>Dear ${data.name},</p>
             <h3>${data.title}</h3>
             <p>${data.message}</p>
             ${data.actionUrl ? `<a href="${data.actionUrl}" class="btn">${data.actionText || 'View Details'}</a>` : ''}
-            <p style="margin-top: 30px;">Best regards,<br>Kechita Microfinance</p>
+            <p style="margin-top: 30px;">Best regards,<br>Kechita Capital</p>
         </div>
         <div class="footer">
             <p>This is an automated notification from Kechita Staff Portal.</p>
@@ -613,7 +613,7 @@ export class EmailService {
         </div>
         <div class="content">
             <p>Dear ${data.candidateName},</p>
-            <p>As part of the hiring process for the <strong>${data.jobTitle}</strong> position at ${data.companyName || 'Kechita Microfinance'}, we have initiated a background verification check.</p>
+            <p>As part of the hiring process for the <strong>${data.jobTitle}</strong> position at ${data.companyName || 'Kechita Capital'}, we have initiated a background verification check.</p>
             
             <div class="info-box">
                 <h3>Verification Details</h3>
@@ -625,7 +625,7 @@ export class EmailService {
             
             <p>If you have any questions about this process, please don't hesitate to reach out to our HR team.</p>
             
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message from our recruitment system.</p>
@@ -683,7 +683,7 @@ export class EmailService {
             <p>${resultMessages[data.result]}</p>
             ${data.nextSteps ? `<p><strong>Next Steps:</strong> ${data.nextSteps}</p>` : ''}
             <p>Thank you for your patience during this process.</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message from our recruitment system.</p>
@@ -732,7 +732,7 @@ export class EmailService {
         </div>
         <div class="content">
             <p>Dear ${data.referenceName},</p>
-            <p><strong>${data.candidateName}</strong> has applied for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Microfinance'} and has listed you as a professional reference.</p>
+            <p><strong>${data.candidateName}</strong> has applied for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Capital'} and has listed you as a professional reference.</p>
             
             <div class="info-box">
                 <p><strong>Candidate:</strong> ${data.candidateName}</p>
@@ -748,7 +748,7 @@ export class EmailService {
             <p style="margin-top: 30px;">Your input is invaluable in helping us make an informed hiring decision. All information provided will be kept confidential.</p>
             
             <p>Thank you for your time and assistance.</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message. If you believe you received this in error, please disregard.</p>
@@ -759,7 +759,7 @@ export class EmailService {
 
         return this.sendEmail({
             to: data.referenceEmail,
-            subject: `Reference Request for ${data.candidateName} - ${data.companyName || 'Kechita Microfinance'}`,
+            subject: `Reference Request for ${data.candidateName} - ${data.companyName || 'Kechita Capital'}`,
             html,
         });
     }
@@ -791,7 +791,7 @@ export class EmailService {
             <p>Dear ${data.referenceName},</p>
             <p>Thank you for taking the time to provide a reference for <strong>${data.candidateName}</strong>.</p>
             <p>Your feedback is invaluable in helping us make well-informed hiring decisions. We truly appreciate your assistance.</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is an automated message from our recruitment system.</p>
@@ -802,7 +802,7 @@ export class EmailService {
 
         return this.sendEmail({
             to: data.referenceEmail,
-            subject: `Thank You for Your Reference - ${data.companyName || 'Kechita Microfinance'}`,
+            subject: `Thank You for Your Reference - ${data.companyName || 'Kechita Capital'}`,
             html,
         });
     }
@@ -842,7 +842,7 @@ export class EmailService {
         </div>
         <div class="content">
             <p>Dear ${data.candidateName},</p>
-            <p>Congratulations! Your offer letter for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Microfinance'} is ready for your signature.</p>
+            <p>Congratulations! Your offer letter for the position of <strong>${data.jobTitle}</strong> at ${data.companyName || 'Kechita Capital'} is ready for your signature.</p>
             
             <div class="offer-summary">
                 <h3>Offer Summary</h3>
@@ -864,7 +864,7 @@ export class EmailService {
             <p style="margin-top: 30px;">If you have any questions about your offer, please don't hesitate to reach out to our HR team.</p>
             
             <p>We're excited to welcome you to the team!</p>
-            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Best regards,<br>HR Team<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>This is a secure link generated specifically for you. Please do not share it with others.</p>
@@ -913,7 +913,7 @@ export class EmailService {
         <div class="content">
             <div class="celebration">🎊</div>
             <p>Dear ${data.candidateName},</p>
-            <p>Congratulations! We have received your signed offer letter for the position of <strong>${data.jobTitle}</strong>. We're thrilled to welcome you to ${data.companyName || 'Kechita Microfinance'}!</p>
+            <p>Congratulations! We have received your signed offer letter for the position of <strong>${data.jobTitle}</strong>. We're thrilled to welcome you to ${data.companyName || 'Kechita Capital'}!</p>
             
             <div class="next-steps">
                 <h3>📋 Next Steps</h3>
@@ -928,7 +928,7 @@ export class EmailService {
             <p>If you have any questions before your start date, please contact our HR team${data.hrEmail ? ` at <a href="mailto:${data.hrEmail}">${data.hrEmail}</a>` : ''}.</p>
             
             <p>We look forward to working with you!</p>
-            <p>Best regards,<br>The ${data.companyName || 'Kechita Microfinance'} Team</p>
+            <p>Best regards,<br>The ${data.companyName || 'Kechita Capital'} Team</p>
         </div>
         <div class="footer">
             <p>This is an automated confirmation. A copy has been sent to our HR team.</p>
@@ -939,7 +939,7 @@ export class EmailService {
 
         return this.sendEmail({
             to: data.candidateEmail,
-            subject: `Welcome to ${data.companyName || 'Kechita Microfinance'} - Offer Accepted!`,
+            subject: `Welcome to ${data.companyName || 'Kechita Capital'} - Offer Accepted!`,
             html,
             cc: data.hrEmail,
         });
@@ -983,7 +983,7 @@ export class EmailService {
             
             <p>Please take necessary action to update the recruitment pipeline and consider re-approaching other candidates.</p>
             
-            <p>Recruitment System<br>${data.companyName || 'Kechita Microfinance'}</p>
+            <p>Recruitment System<br>${data.companyName || 'Kechita Capital'}</p>
         </div>
         <div class="footer">
             <p>Automated notification from the Recruitment System.</p>
@@ -1048,7 +1048,7 @@ export class EmailService {
                 <span class="code" style="word-break: break-all;">${data.resetUrl}</span>
             </p>
             
-            <p>Best regards,<br>Kechita Microfinance</p>
+            <p>Best regards,<br>Kechita Capital</p>
         </div>
         <div class="footer">
             <p>This is an automated security message. Please do not reply to this email.</p>

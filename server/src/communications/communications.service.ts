@@ -153,7 +153,7 @@ export class CommunicationsService {
             }
         }
 
-        // SMS would be sent here if configured
+        // Send SMS notifications
         if (announcement.channels.includes(DeliveryChannel.SMS)) {
             const usersWithStaff = await this.userRepo.find({
                 where: { id: In(targetUsers.map((u) => u.id)) },

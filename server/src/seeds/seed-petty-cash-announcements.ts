@@ -178,10 +178,21 @@ Enrollment opens next week. Stay tuned for details.`,
 
 // Run if called directly
 if (require.main === module) {
-    const { createDataSource } = require('./seed-org');
-    createDataSource().then((ds: DataSource) => {
-        seedPettyCashAndAnnouncements(ds)
-            .then(() => ds.destroy())
-            .catch(console.error);
+    const dotenv = require('dotenv');
+    const { getRequiredDbConfig, assertSeedingEnabled } = require('./seed-utils');
+    dotenv.config();
+    assertSeedingEnabled('seed-petty-cash-announcements');
+    
+    const dbConfig = getRequiredDbConfig();
+    const ds = new DataSource({
+        type: 'postgres',
+        ...dbConfig,
+        entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+        synchronize: false,
     });
+    
+    ds.initialize()
+        .then(() => seedPettyCashAndAnnouncements(ds))
+        .then(() => ds.destroy())
+        .catch(console.error);
 }

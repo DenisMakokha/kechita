@@ -6,6 +6,7 @@ import { BackgroundCheckService } from './background-check.service';
 import { SignatureService } from './signature.service';
 import { ContractService } from './contract.service';
 import { RecruitmentSchedulerService } from './recruitment-scheduler.service';
+import { ScreeningService } from './screening.service';
 import { JobPost } from './entities/job-post.entity';
 import { PipelineStage } from './entities/pipeline-stage.entity';
 import { Candidate } from './entities/candidate.entity';
@@ -16,6 +17,9 @@ import { CandidateNote } from './entities/candidate-note.entity';
 import { BackgroundCheck } from './entities/background-check.entity';
 import { ReferenceCheck } from './entities/reference-check.entity';
 import { OfferSignature } from './entities/offer-signature.entity';
+import { ScreeningCriteria } from './entities/screening-criteria.entity';
+import { KnockoutQuestion } from './entities/knockout-question.entity';
+import { ScreeningResult } from './entities/screening-result.entity';
 import { Staff } from '../staff/entities/staff.entity';
 
 @Module({
@@ -31,6 +35,9 @@ import { Staff } from '../staff/entities/staff.entity';
             BackgroundCheck,
             ReferenceCheck,
             OfferSignature,
+            ScreeningCriteria,
+            KnockoutQuestion,
+            ScreeningResult,
             Staff,
         ]),
     ],
@@ -41,6 +48,7 @@ import { Staff } from '../staff/entities/staff.entity';
         SignatureService,
         ContractService,
         RecruitmentSchedulerService,
+        ScreeningService,
     ],
     exports: [
         RecruitmentService,
@@ -48,6 +56,7 @@ import { Staff } from '../staff/entities/staff.entity';
         SignatureService,
         ContractService,
         RecruitmentSchedulerService,
+        ScreeningService,
     ],
 })
 export class RecruitmentModule { }

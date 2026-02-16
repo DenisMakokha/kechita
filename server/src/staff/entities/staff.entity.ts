@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToOne, OneToMany, Index } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { Region } from '../../org/entities/region.entity';
 import { Branch } from '../../org/entities/branch.entity';
@@ -105,6 +105,7 @@ export class Staff {
     @JoinColumn({ name: 'region_id' })
     region?: Region;
 
+    @Index()
     @ManyToOne(() => Branch, { nullable: true })
     @JoinColumn({ name: 'branch_id' })
     branch?: Branch;
@@ -117,6 +118,7 @@ export class Staff {
     @JoinColumn({ name: 'position_id' })
     position: Position;
 
+    @Index()
     @Column({ type: 'enum', enum: StaffStatus, default: StaffStatus.ONBOARDING })
     status: StaffStatus;
 
@@ -136,12 +138,14 @@ export class Staff {
     @Column({ type: 'date', nullable: true })
     probation_start_date?: Date;
 
+    @Index()
     @Column({ type: 'date', nullable: true })
     probation_end_date?: Date;
 
     @Column({ type: 'int', default: 3 })
     probation_months: number;
 
+    @Index()
     @Column({ type: 'enum', enum: ProbationStatus, default: ProbationStatus.NOT_APPLICABLE })
     probation_status: ProbationStatus;
 
@@ -152,6 +156,7 @@ export class Staff {
     probation_extended_until?: Date;
 
     // Manager/Reporting
+    @Index()
     @ManyToOne(() => Staff, { nullable: true })
     @JoinColumn({ name: 'manager_id' })
     manager?: Staff;

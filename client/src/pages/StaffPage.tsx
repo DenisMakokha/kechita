@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import {
     Plus, Search, Filter, MoreVertical, X, ChevronLeft, ChevronRight,
-    Eye, Edit, UserX, Mail, Phone, Building2, MapPin, Loader2, Users, RefreshCw,
+    Eye, Edit, UserX, Mail, Loader2, Users, RefreshCw,
     CheckCircle, AlertTriangle
 } from 'lucide-react';
 
@@ -42,15 +43,14 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 export const StaffPage: React.FC = () => {
+    const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [branchFilter, setBranchFilter] = useState<string>('all');
     const [showFilters, setShowFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
-    const [showDetailModal, setShowDetailModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
     const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -108,9 +108,8 @@ export const StaffPage: React.FC = () => {
         setCurrentPage(1);
     }, [search, statusFilter, branchFilter]);
 
-    const openDetail = (member: Staff) => {
-        setSelectedStaff(member);
-        setShowDetailModal(true);
+    const openProfile = (member: Staff) => {
+        navigate(`/staff/${member.id}`);
         setActionMenuId(null);
     };
 
@@ -135,8 +134,7 @@ export const StaffPage: React.FC = () => {
 
     // Action handlers
     const handleEdit = (member: Staff) => {
-        setSelectedStaff(member);
-        setShowEditModal(true);
+        navigate(`/staff/${member.id}`);
         setActionMenuId(null);
     };
 
@@ -400,7 +398,7 @@ export const StaffPage: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-end gap-1">
                                                 <button
-                                                    onClick={() => openDetail(member)}
+                                                    onClick={() => openProfile(member)}
                                                     className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-700"
                                                     title="View details"
                                                 >
@@ -421,7 +419,7 @@ export const StaffPage: React.FC = () => {
                                                             />
                                                             <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
                                                                 <button
-                                                                    onClick={() => openDetail(member)}
+                                                                    onClick={() => openProfile(member)}
                                                                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                                                 >
                                                                     <Eye size={16} /> View Profile
@@ -508,105 +506,6 @@ export const StaffPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Staff Detail Modal */}
-            {showDetailModal && selectedStaff && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-xl font-bold text-slate-900">Staff Profile</h2>
-                            <button
-                                onClick={() => setShowDetailModal(false)}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-                            {/* Profile Header */}
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="w-20 h-20 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-2xl font-bold">
-                                    {selectedStaff.first_name?.charAt(0)}{selectedStaff.last_name?.charAt(0)}
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-slate-900">
-                                        {selectedStaff.first_name} {selectedStaff.last_name}
-                                    </h3>
-                                    <p className="text-slate-600">{selectedStaff.position?.name || 'No position'}</p>
-                                    <StatusBadge status={selectedStaff.status} />
-                                </div>
-                            </div>
-
-                            {/* Details Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                                    <Mail className="text-slate-400" size={20} />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Email</p>
-                                        <p className="text-sm font-medium text-slate-900">{selectedStaff.user?.email || '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                                    <Phone className="text-slate-400" size={20} />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Phone</p>
-                                        <p className="text-sm font-medium text-slate-900">{selectedStaff.phone || '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                                    <Building2 className="text-slate-400" size={20} />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Branch</p>
-                                        <p className="text-sm font-medium text-slate-900">{selectedStaff.branch?.name || '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                                    <MapPin className="text-slate-400" size={20} />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Region</p>
-                                        <p className="text-sm font-medium text-slate-900">{selectedStaff.region?.name || '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                                    <Users className="text-slate-400" size={20} />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Department</p>
-                                        <p className="text-sm font-medium text-slate-900">{selectedStaff.department?.name || '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                                    <Users className="text-slate-400" size={20} />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Manager</p>
-                                        <p className="text-sm font-medium text-slate-900">
-                                            {selectedStaff.manager ? `${selectedStaff.manager.first_name} ${selectedStaff.manager.last_name}` : '-'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3 mt-6 pt-6 border-t border-slate-200">
-                                <button 
-                                    onClick={() => {
-                                        setShowDetailModal(false);
-                                        handleEdit(selectedStaff);
-                                    }}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-colors"
-                                >
-                                    <Edit size={18} /> Edit Profile
-                                </button>
-                                <button 
-                                    onClick={() => handleSendEmail(selectedStaff)}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-                                >
-                                    <Mail size={18} /> Send Email
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Add Staff Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -622,11 +521,11 @@ export const StaffPage: React.FC = () => {
                         </div>
                         <div className="p-6">
                             <p className="text-slate-600 mb-4">
-                                New staff members are typically added through the onboarding process after recruitment.
+                                New staff members are added through the recruitment and onboarding workflow.
                             </p>
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                 <p className="text-sm text-blue-800">
-                                    <strong>Tip:</strong> To add a new staff member, go to <strong>Recruitment → Offers</strong> and complete the onboarding workflow for accepted candidates.
+                                    <strong>How it works:</strong> Post a job in Recruitment → Review applications → Make an offer → Complete onboarding. The staff record is created automatically.
                                 </p>
                             </div>
                         </div>
@@ -635,78 +534,13 @@ export const StaffPage: React.FC = () => {
                                 onClick={() => setShowAddModal(false)}
                                 className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition-colors"
                             >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Staff Modal */}
-            {showEditModal && selectedStaff && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-xl font-bold text-slate-900">Edit Staff Member</h2>
-                            <button
-                                onClick={() => setShowEditModal(false)}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                                <input
-                                    type="text"
-                                    defaultValue={selectedStaff.first_name}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                                <input
-                                    type="text"
-                                    defaultValue={selectedStaff.last_name}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
-                                <input
-                                    type="text"
-                                    defaultValue={selectedStaff.phone || ''}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                                <select
-                                    defaultValue={selectedStaff.status}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="probation">Probation</option>
-                                    <option value="suspended">Suspended</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                            <button
-                                onClick={() => setShowEditModal(false)}
-                                className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition-colors"
-                            >
                                 Cancel
                             </button>
                             <button
-                                onClick={() => {
-                                    setShowEditModal(false);
-                                    showToast('Staff member updated successfully');
-                                }}
+                                onClick={() => { setShowAddModal(false); navigate('/recruitment'); }}
                                 className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-colors"
                             >
-                                Save Changes
+                                Go to Recruitment
                             </button>
                         </div>
                     </div>

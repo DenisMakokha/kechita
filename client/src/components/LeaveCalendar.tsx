@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
     ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-    Umbrella, Sun, Users, Filter, X
+    Umbrella, Sun, Filter, X
 } from 'lucide-react';
 
 interface LeaveCalendarEntry {
@@ -266,13 +266,13 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                             {day.date}
                                         </span>
                                         {day.holiday && (
-                                            <Sun size={14} className="text-amber-500" title={day.holiday.name} />
+                                            <Sun size={14} className="text-amber-500" />
                                         )}
                                     </div>
 
                                     {/* Leave Pills */}
                                     <div className="space-y-0.5">
-                                        {day.leaves.slice(0, 3).map((leave, i) => (
+                                        {day.leaves.slice(0, 3).map((leave) => (
                                             <div
                                                 key={leave.id}
                                                 onClick={(e) => { e.stopPropagation(); onLeaveClick?.(leave); }}
@@ -282,7 +282,6 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                                     color: leave.leaveTypeColor || '#6366f1',
                                                     borderLeft: `2px solid ${leave.leaveTypeColor || '#6366f1'}`
                                                 }}
-                                                title={`${leave.staffName} - ${leave.leaveType}`}
                                             >
                                                 <span className="truncate font-medium">
                                                     {leave.staffName.split(' ')[0]}

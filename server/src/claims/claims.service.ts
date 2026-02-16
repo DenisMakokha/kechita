@@ -187,6 +187,31 @@ export class ClaimsService {
                     throw new BadRequestException(`${claimType.name} requires a receipt or document`);
                 }
 
+                // Enforce once-per-month rule
+                if (claimType.once_per_month) {
+                    const now = new Date();
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+                    const existingClaim = await queryRunner.manager
+                        .createQueryBuilder(ClaimItem, 'item')
+                        .leftJoin('item.claim', 'claim')
+                        .leftJoin('claim.staff', 'staff')
+                        .where('item.claim_type_id = :claimTypeId', { claimTypeId: claimType.id })
+                        .andWhere('staff.id = :staffId', { staffId })
+                        .andWhere('claim.status NOT IN (:...excludedStatuses)', {
+                            excludedStatuses: [ClaimStatus.CANCELLED, ClaimStatus.REJECTED],
+                        })
+                        .andWhere('claim.created_at BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd })
+                        .getOne();
+
+                    if (existingClaim) {
+                        throw new BadRequestException(
+                            `You have already submitted a ${claimType.name} claim this month. Only one ${claimType.name} claim is allowed per month.`
+                        );
+                    }
+                }
+
                 totalAmount += itemAmount;
                 validatedItems.push({ claimType, data: { ...itemData, amount: itemAmount } });
             }
@@ -317,6 +342,35 @@ export class ClaimsService {
         }
         if (!claim.items || claim.items.length === 0) {
             throw new BadRequestException('Cannot submit claim without items');
+        }
+
+        // Enforce once-per-month rule for draft submissions
+        for (const item of claim.items) {
+            const claimType = item.claimType;
+            if (claimType?.once_per_month) {
+                const now = new Date();
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+                const existingClaim = await this.claimItemRepo
+                    .createQueryBuilder('item')
+                    .leftJoin('item.claim', 'c')
+                    .leftJoin('c.staff', 's')
+                    .where('item.claim_type_id = :claimTypeId', { claimTypeId: claimType.id })
+                    .andWhere('s.id = :staffId', { staffId })
+                    .andWhere('c.id != :currentClaimId', { currentClaimId: claimId })
+                    .andWhere('c.status NOT IN (:...excludedStatuses)', {
+                        excludedStatuses: [ClaimStatus.CANCELLED, ClaimStatus.REJECTED],
+                    })
+                    .andWhere('c.created_at BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd })
+                    .getOne();
+
+                if (existingClaim) {
+                    throw new BadRequestException(
+                        `You have already submitted a ${claimType.name} claim this month. Only one ${claimType.name} claim is allowed per month.`
+                    );
+                }
+            }
         }
 
         claim.status = ClaimStatus.SUBMITTED;

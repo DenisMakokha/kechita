@@ -1002,7 +1002,7 @@ export class RecruitmentService {
                 `Department: ${application.jobPost.department?.name || 'General'}`,
                 `Start Date: ${new Date(offer.start_date).toLocaleDateString()}`,
                 `Salary: ${offer.currency} ${Number(offer.offered_salary).toLocaleString()} per month`,
-                `Probation Period: 3 months` // Hardcoded or from JobPost
+                `Probation Period: ${offer.probation_months || 3} months`
             ], { bulletRadius: 2 });
 
             if (notes) {

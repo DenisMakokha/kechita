@@ -153,6 +153,20 @@ async function seedClaimsLoans() {
                 display_order: 10,
             },
             {
+                code: 'AIRTIME',
+                name: 'Airtime',
+                description: 'Monthly airtime allowance for staff communication',
+                max_amount_per_claim: 2000,
+                max_amount_per_month: 2000,
+                requires_receipt: false,
+                requires_approval: true,
+                is_taxable: false,
+                once_per_month: true,
+                icon: 'smartphone',
+                color: '#0EA5E9',
+                display_order: 11,
+            },
+            {
                 code: 'MISC',
                 name: 'Miscellaneous',
                 description: 'Other approved expenses',
@@ -178,10 +192,10 @@ async function seedClaimsLoans() {
                         id, code, name, description,
                         max_amount_per_claim, max_amount_per_month, max_amount_per_year,
                         requires_receipt, requires_approval, is_taxable,
-                        eligible_role_codes, icon, color, display_order, is_active,
+                        eligible_role_codes, once_per_month, icon, color, display_order, is_active,
                         created_at, updated_at
                     ) VALUES (
-                        gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true,
+                        gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true,
                         NOW(), NOW()
                     )`,
                     [
@@ -193,6 +207,7 @@ async function seedClaimsLoans() {
                         ct.requires_approval,
                         ct.is_taxable,
                         ct.eligible_role_codes?.join(',') || null,
+                        (ct as any).once_per_month || false,
                         ct.icon, ct.color, ct.display_order,
                     ]
                 );
@@ -221,24 +236,24 @@ async function seedClaimsLoans() {
             // Step 1: Branch Manager
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 1, 'Branch Manager Review', 'ROLE', 'BRANCH_MANAGER', false, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 1, 'Branch Manager Review', 'role', 'BRANCH_MANAGER', false)`,
                 [flow.id]
             );
 
             // Step 2: HR Manager
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 2, 'HR Review', 'ROLE', 'HR_MANAGER', false, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 2, 'HR Review', 'role', 'HR_MANAGER', false)`,
                 [flow.id]
             );
 
             // Step 3: Accountant
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 3, 'Finance Approval', 'ROLE', 'ACCOUNTANT', true, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 3, 'Finance Approval', 'role', 'ACCOUNTANT', true)`,
                 [flow.id]
             );
 
@@ -266,16 +281,16 @@ async function seedClaimsLoans() {
             // Step 1: Branch Manager
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 1, 'Branch Manager Approval', 'ROLE', 'BRANCH_MANAGER', false, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 1, 'Branch Manager Approval', 'role', 'BRANCH_MANAGER', false)`,
                 [flow.id]
             );
 
             // Step 2: HR
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 2, 'HR Approval', 'ROLE', 'HR_MANAGER', true, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 2, 'HR Approval', 'role', 'HR_MANAGER', true)`,
                 [flow.id]
             );
 
@@ -300,32 +315,32 @@ async function seedClaimsLoans() {
             // Step 1: Branch Manager
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 1, 'Branch Manager Review', 'ROLE', 'BRANCH_MANAGER', false, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 1, 'Branch Manager Review', 'role', 'BRANCH_MANAGER', false)`,
                 [flow.id]
             );
 
             // Step 2: Regional Manager
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 2, 'Regional Manager Review', 'ROLE', 'REGIONAL_MANAGER', false, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 2, 'Regional Manager Review', 'role', 'REGIONAL_MANAGER', false)`,
                 [flow.id]
             );
 
             // Step 3: HR Manager
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 3, 'HR Verification', 'ROLE', 'HR_MANAGER', false, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 3, 'HR Verification', 'role', 'HR_MANAGER', false)`,
                 [flow.id]
             );
 
             // Step 4: CEO
             await queryRunner.query(
                 `INSERT INTO approval_flow_steps (
-                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final, created_at, updated_at
-                ) VALUES (gen_random_uuid(), $1, 4, 'CEO Final Approval', 'ROLE', 'CEO', true, NOW(), NOW())`,
+                    id, flow_id, step_order, name, approver_type, approver_role_code, is_final
+                ) VALUES (gen_random_uuid(), $1, 4, 'CEO Final Approval', 'role', 'CEO', true)`,
                 [flow.id]
             );
 

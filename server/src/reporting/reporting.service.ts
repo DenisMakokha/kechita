@@ -641,7 +641,7 @@ export class ReportingService {
         period: { start?: Date; end?: Date } = {},
     ): Promise<Buffer> {
         const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'Kechita Staff Portal';
+        workbook.creator = 'Kechita Capital Portal';
         workbook.created = new Date();
 
         const dashboard = await this.getCEODashboard();
@@ -673,9 +673,9 @@ export class ReportingService {
         // Title
         sheet.mergeCells('A1:D1');
         const titleCell = sheet.getCell('A1');
-        titleCell.value = 'KECHITA MICROFINANCE - EXECUTIVE SUMMARY';
+        titleCell.value = 'KECHITA CAPITAL - EXECUTIVE SUMMARY';
         titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A1D96' } };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0066B3' } };
         titleCell.alignment = { horizontal: 'center' };
 
         // Period
@@ -790,106 +790,150 @@ export class ReportingService {
         return new Promise(async (resolve, reject) => {
             try {
                 const dashboard = await this.getCEODashboard();
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument({ 
+                    margin: 50,
+                    size: 'A4',
+                    bufferPages: true,
+                    info: {
+                        Title: 'Kechita Capital - Executive Report',
+                        Author: 'Kechita Capital',
+                        Subject: 'Executive Summary Report',
+                        Creator: 'Kechita Capital Staff Portal',
+                    }
+                });
                 const chunks: Buffer[] = [];
 
                 doc.on('data', (chunk: Buffer) => chunks.push(chunk));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
                 doc.on('error', reject);
 
-                // Header
-                doc.fontSize(20).fillColor('#4A1D96').text('KECHITA MICROFINANCE', { align: 'center' });
-                doc.fontSize(14).fillColor('#666666').text('Executive Summary Report', { align: 'center' });
-                doc.moveDown();
-                doc.fontSize(10).text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
-                doc.moveDown(2);
+                const pageWidth = doc.page.width;
+                const pageHeight = doc.page.height;
+                const margin = 50;
+                const contentWidth = pageWidth - (margin * 2);
 
-                // Divider
-                doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#E2E8F0');
-                doc.moveDown();
+                // ===== HEADER =====
+                // Blue gradient header bar
+                doc.rect(0, 0, pageWidth, 80).fill('#0066B3');
+                
+                // Company name
+                doc.fontSize(28).fillColor('#FFFFFF').text('KECHITA CAPITAL', margin, 25, { width: contentWidth });
+                doc.fontSize(10).fillColor('#B3D9F2').text('Your Growth Partner', margin, 55);
+                
+                // Report title on right
+                doc.fontSize(12).fillColor('#FFFFFF').text('EXECUTIVE SUMMARY', pageWidth - margin - 150, 30, { width: 150, align: 'right' });
+                doc.fontSize(9).fillColor('#B3D9F2').text(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), pageWidth - margin - 150, 48, { width: 150, align: 'right' });
 
-                // KPIs Section
-                doc.fontSize(14).fillColor('#1E293B').text('Key Performance Indicators (MTD)', { underline: true });
-                doc.moveDown(0.5);
+                doc.y = 100;
 
+                // ===== PERIOD BANNER =====
+                doc.rect(margin, doc.y, contentWidth, 30).fill('#F0F9FF');
+                doc.fontSize(10).fillColor('#0066B3').text(
+                    `Report Period: ${dashboard.period.start.toLocaleDateString('en-GB')} - ${dashboard.period.end.toLocaleDateString('en-GB')}`,
+                    margin + 15, doc.y + 10
+                );
+                doc.y += 45;
+
+                // ===== KPI CARDS =====
+                doc.fontSize(14).fillColor('#1E293B').text('Key Performance Indicators', margin, doc.y);
+                doc.y += 25;
+
+                const kpiCardWidth = (contentWidth - 30) / 4;
                 const kpis = [
-                    { label: 'Total Disbursed', value: `KES ${dashboard.totalDisbursed.toLocaleString()}` },
-                    { label: 'Total Recoveries', value: `KES ${dashboard.totalRecoveries.toLocaleString()}` },
-                    { label: 'New Loans', value: dashboard.totalNewLoans.toString() },
-                    { label: 'Portfolio at Risk', value: `${dashboard.avgPAR.toFixed(2)}%` },
+                    { label: 'Total Disbursed', value: `KES ${(dashboard.totalDisbursed / 1000000).toFixed(2)}M`, color: '#0066B3' },
+                    { label: 'Collections', value: `KES ${(dashboard.totalRecoveries / 1000000).toFixed(2)}M`, color: '#10B981' },
+                    { label: 'New Loans', value: dashboard.totalNewLoans.toString(), color: '#00AEEF' },
+                    { label: 'PAR Rate', value: `${dashboard.avgPAR.toFixed(2)}%`, color: dashboard.avgPAR > 5 ? '#EF4444' : '#10B981' },
                 ];
 
-                doc.fontSize(11).fillColor('#475569');
+                let kpiX = margin;
+                const kpiY = doc.y;
                 for (const kpi of kpis) {
-                    doc.text(`• ${kpi.label}: `, { continued: true }).fillColor('#1E293B').text(kpi.value);
-                    doc.fillColor('#475569');
+                    // Card background
+                    doc.roundedRect(kpiX, kpiY, kpiCardWidth, 60, 5).fill('#FFFFFF').stroke('#E2E8F0');
+                    // Colored top border
+                    doc.rect(kpiX, kpiY, kpiCardWidth, 4).fill(kpi.color);
+                    // Value
+                    doc.fontSize(16).fillColor('#1E293B').text(kpi.value, kpiX + 10, kpiY + 18, { width: kpiCardWidth - 20 });
+                    // Label
+                    doc.fontSize(9).fillColor('#64748B').text(kpi.label, kpiX + 10, kpiY + 40, { width: kpiCardWidth - 20 });
+                    kpiX += kpiCardWidth + 10;
                 }
-                doc.moveDown(1.5);
+                doc.y = kpiY + 80;
 
-                // Regional Performance
-                doc.fontSize(14).fillColor('#1E293B').text('Regional Performance', { underline: true });
-                doc.moveDown(0.5);
+                // ===== REGIONAL PERFORMANCE TABLE =====
+                doc.fontSize(14).fillColor('#1E293B').text('Regional Performance', margin, doc.y);
+                doc.y += 25;
+
+                const tableTop = doc.y;
+                const colWidths = [120, 100, 100, 80, 95];
 
                 // Table header
-                const tableTop = doc.y;
-                const colWidths = [100, 120, 120, 80, 80];
-                let xPos = 50;
-
+                doc.rect(margin, tableTop, contentWidth, 28).fill('#0066B3');
+                let xPos = margin;
                 doc.fontSize(10).fillColor('#FFFFFF');
-                doc.rect(50, tableTop, 500, 20).fill('#4A1D96');
-                doc.text('Region', xPos + 5, tableTop + 5);
-                xPos += colWidths[0];
-                doc.text('Disbursed', xPos + 5, tableTop + 5);
-                xPos += colWidths[1];
-                doc.text('Collections', xPos + 5, tableTop + 5);
-                xPos += colWidths[2];
-                doc.text('Rate', xPos + 5, tableTop + 5);
-                xPos += colWidths[3];
-                doc.text('PAR', xPos + 5, tableTop + 5);
+                const headers = ['Region', 'Disbursed', 'Collections', 'Rate', 'PAR'];
+                for (let i = 0; i < headers.length; i++) {
+                    doc.text(headers[i], xPos + 10, tableTop + 9, { width: colWidths[i] - 20 });
+                    xPos += colWidths[i];
+                }
 
                 // Table rows
-                let rowY = tableTop + 20;
-                doc.fillColor('#1E293B');
-                for (const region of dashboard.regionPerformance) {
+                let rowY = tableTop + 28;
+                for (let i = 0; i < dashboard.regionPerformance.length; i++) {
+                    const region = dashboard.regionPerformance[i];
                     const collectionRate = region.disbursed > 0 ? ((region.collections / region.disbursed) * 100).toFixed(1) : '0';
-                    xPos = 50;
-
+                    
                     // Alternate row colors
-                    const rowIndex = dashboard.regionPerformance.indexOf(region);
-                    if (rowIndex % 2 === 1) {
-                        doc.rect(50, rowY, 500, 18).fill('#F8FAFC');
-                        doc.fillColor('#1E293B');
-                    }
-
-                    doc.text(region.name, xPos + 5, rowY + 4);
+                    const bgColor = i % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+                    doc.rect(margin, rowY, contentWidth, 24).fill(bgColor);
+                    
+                    // Row border
+                    doc.moveTo(margin, rowY + 24).lineTo(margin + contentWidth, rowY + 24).stroke('#E2E8F0');
+                    
+                    xPos = margin;
+                    doc.fontSize(10).fillColor('#334155');
+                    doc.text(region.name, xPos + 10, rowY + 7, { width: colWidths[0] - 20 });
                     xPos += colWidths[0];
-                    doc.text(`KES ${region.disbursed.toLocaleString()}`, xPos + 5, rowY + 4);
+                    doc.text(`KES ${region.disbursed.toLocaleString()}`, xPos + 10, rowY + 7, { width: colWidths[1] - 20 });
                     xPos += colWidths[1];
-                    doc.text(`KES ${region.collections.toLocaleString()}`, xPos + 5, rowY + 4);
+                    doc.text(`KES ${region.collections.toLocaleString()}`, xPos + 10, rowY + 7, { width: colWidths[2] - 20 });
                     xPos += colWidths[2];
-                    doc.text(`${collectionRate}%`, xPos + 5, rowY + 4);
+                    doc.text(`${collectionRate}%`, xPos + 10, rowY + 7, { width: colWidths[3] - 20 });
                     xPos += colWidths[3];
-                    doc.text(`${region.par.toFixed(2)}%`, xPos + 5, rowY + 4);
-
-                    rowY += 18;
+                    
+                    // PAR with color coding
+                    const parColor = region.par > 5 ? '#EF4444' : region.par > 3 ? '#F59E0B' : '#10B981';
+                    doc.fillColor(parColor).text(`${region.par.toFixed(2)}%`, xPos + 10, rowY + 7, { width: colWidths[4] - 20 });
+                    
+                    rowY += 24;
                 }
-                doc.moveDown(3);
+                doc.y = rowY + 20;
 
-                // Risk Alerts
+                // ===== RISK ALERTS =====
                 if (dashboard.riskAlerts.length > 0) {
-                    doc.y = rowY + 20;
-                    doc.fontSize(14).fillColor('#1E293B').text('Risk Alerts', { underline: true });
-                    doc.moveDown(0.5);
+                    doc.fontSize(14).fillColor('#1E293B').text('Risk Alerts', margin, doc.y);
+                    doc.y += 20;
 
                     for (const alert of dashboard.riskAlerts) {
-                        const color = alert.severity === 'high' ? '#DC2626' : alert.severity === 'medium' ? '#F59E0B' : '#22C55E';
-                        doc.fontSize(10).fillColor(color).text(`⚠ ${alert.message}`);
+                        const alertBg = alert.severity === 'high' ? '#FEE2E2' : alert.severity === 'medium' ? '#FEF3C7' : '#DCFCE7';
+                        const alertColor = alert.severity === 'high' ? '#DC2626' : alert.severity === 'medium' ? '#D97706' : '#16A34A';
+                        const alertIcon = alert.severity === 'high' ? '●' : alert.severity === 'medium' ? '●' : '●';
+                        
+                        doc.roundedRect(margin, doc.y, contentWidth, 28, 4).fill(alertBg);
+                        doc.fontSize(10).fillColor(alertColor).text(`${alertIcon} ${alert.type}: ${alert.message}`, margin + 12, doc.y + 9, { width: contentWidth - 24 });
+                        doc.y += 32;
                     }
                 }
 
-                // Footer
-                doc.moveDown(2);
-                doc.fontSize(8).fillColor('#94A3B8').text('This report is confidential and intended for internal use only.', { align: 'center' });
+                // ===== FOOTER =====
+                const footerY = pageHeight - 40;
+                doc.moveTo(margin, footerY - 10).lineTo(pageWidth - margin, footerY - 10).stroke('#E2E8F0');
+                doc.fontSize(8).fillColor('#94A3B8').text(
+                    'CONFIDENTIAL - This report is generated by Kechita Capital Staff Portal and is intended for internal use only.',
+                    margin, footerY, { width: contentWidth, align: 'center' }
+                );
+                doc.text(`Page 1 | Generated on ${new Date().toLocaleString('en-GB')}`, margin, footerY + 12, { width: contentWidth, align: 'center' });
 
                 doc.end();
             } catch (error) {

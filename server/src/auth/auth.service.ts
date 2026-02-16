@@ -10,6 +10,8 @@ import { Staff } from '../staff/entities/staff.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { EmailService } from '../email/email.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 
 export interface TokenPair {
     access_token: string;
@@ -47,13 +49,14 @@ export class AuthService {
         private jwtService: JwtService,
         private configService: ConfigService,
         private emailService: EmailService,
+        private auditService: AuditService,
     ) { }
 
     async validateUser(email: string, pass: string): Promise<any> {
         const user = await this.usersRepository.findOne({
             where: { email },
             select: ['id', 'email', 'password_hash', 'is_active', 'failed_login_attempts', 'locked_until', 'two_factor_enabled'],
-            relations: ['roles']
+            relations: ['roles', 'roles.permissions']
         });
 
         if (!user) {
@@ -82,6 +85,8 @@ export class AuthService {
         // Reset failed attempts on successful login
         await this.handleSuccessfulLogin(user);
 
+        this.auditService.log({ userId: user.id, action: AuditAction.LOGIN, entityType: 'User', entityId: user.id, description: `User ${user.email} logged in`, isSuccessful: true }).catch(() => {});
+
         const { password_hash, failed_login_attempts, locked_until, ...result } = user;
         return result;
     }
@@ -99,6 +104,7 @@ export class AuthService {
             });
             
             this.logger.warn(`Account locked for user: ${user.email} after ${newAttempts} failed attempts`);
+            this.auditService.log({ userId: user.id, action: AuditAction.LOGIN, entityType: 'User', entityId: user.id, description: `Account locked after ${newAttempts} failed attempts`, isSuccessful: false, errorMessage: 'Account locked' }).catch(() => {});
             throw new UnauthorizedException(`Too many failed attempts. Account locked for ${this.LOCKOUT_DURATION_MINUTES} minutes.`);
         } else {
             await this.usersRepository.update(user.id, {
@@ -119,7 +125,7 @@ export class AuthService {
     async getMe(userId: string) {
         const user = await this.usersRepository.findOne({
             where: { id: userId },
-            relations: ['roles'],
+            relations: ['roles', 'roles.permissions'],
         });
         if (!user) {
             throw new UnauthorizedException('Invalid user');
@@ -130,21 +136,38 @@ export class AuthService {
             relations: ['user'],
         });
 
+        const permissions = this.collectPermissions(user.roles || []);
+
         return {
             id: user.id,
             email: user.email,
             roles: (user.roles || []).map((r) => ({ code: r.code })),
+            permissions,
             staff_id: staff?.id,
             first_name: staff?.first_name,
             last_name: staff?.last_name,
         };
     }
 
+    private collectPermissions(roles: any[]): string[] {
+        const perms = new Set<string>();
+        for (const role of roles) {
+            if (role.permissions) {
+                for (const p of role.permissions) {
+                    perms.add(p.code);
+                }
+            }
+        }
+        return Array.from(perms);
+    }
+
     async login(user: any, userAgent?: string, ipAddress?: string): Promise<TokenPair> {
+        const permissions = this.collectPermissions(user.roles || []);
         const payload = {
             email: user.email,
             sub: user.id,
-            roles: user.roles.map((r: any) => r.code)
+            roles: user.roles.map((r: any) => r.code),
+            permissions,
         };
 
         const accessToken = this.jwtService.sign(payload, { expiresIn: this.ACCESS_TOKEN_EXPIRY });

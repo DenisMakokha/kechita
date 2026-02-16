@@ -17,6 +17,8 @@ import { Document } from './entities/document.entity';
 import { DocumentType } from './entities/document-type.entity';
 import { StaffDocument } from './entities/staff-document.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
+import { StaffContract } from './entities/staff-contract.entity';
+import { ContractService } from './services/contract.service';
 
 // Onboarding Entities
 import { OnboardingTemplate } from './entities/onboarding-template.entity';
@@ -34,6 +36,9 @@ import { Branch } from '../org/entities/branch.entity';
 import { Department } from '../org/entities/department.entity';
 import { Position } from '../org/entities/position.entity';
 
+// Recruitment (for JD in contracts)
+import { JobPost } from '../recruitment/entities/job-post.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -43,6 +48,7 @@ import { Position } from '../org/entities/position.entity';
       DocumentType,
       StaffDocument,
       EmploymentHistory,
+      StaffContract,
       // Onboarding domain
       OnboardingTemplate,
       OnboardingTask,
@@ -56,6 +62,8 @@ import { Position } from '../org/entities/position.entity';
       Branch,
       Department,
       Position,
+      // Recruitment
+      JobPost,
     ]),
     MulterModule.register({
       storage: memoryStorage(),
@@ -63,7 +71,7 @@ import { Position } from '../org/entities/position.entity';
     NotificationModule,
   ],
   controllers: [StaffController, DocumentController, OnboardingController],
-  providers: [StaffService, DocumentService, OnboardingService, DocumentExpiryScheduler],
-  exports: [StaffService, DocumentService, OnboardingService, DocumentExpiryScheduler],
+  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler],
+  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler],
 })
 export class StaffModule { }

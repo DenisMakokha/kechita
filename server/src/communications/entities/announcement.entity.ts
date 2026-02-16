@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { Staff } from '../../staff/entities/staff.entity';
 
 export enum AnnouncementPriority {
@@ -47,6 +47,7 @@ export class Announcement {
     @Column({ type: 'enum', enum: AnnouncementPriority, default: AnnouncementPriority.NORMAL })
     priority: AnnouncementPriority;
 
+    @Index()
     @Column({ type: 'enum', enum: AnnouncementStatus, default: AnnouncementStatus.DRAFT })
     status: AnnouncementStatus;
 
@@ -102,6 +103,7 @@ export class Announcement {
     @JoinColumn({ name: 'published_by_id' })
     publishedBy: Staff;
 
+    @Index()
     @Column({ type: 'timestamp', nullable: true })
     published_at: Date;
 

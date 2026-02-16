@@ -35,6 +35,13 @@ import { ApprovalAction } from '../approval/entities/approval-action.entity';
 import { JobPost } from '../recruitment/entities/job-post.entity';
 import { PipelineStage } from '../recruitment/entities/pipeline-stage.entity';
 import { Candidate } from '../recruitment/entities/candidate.entity';
+import { CandidateNote } from '../recruitment/entities/candidate-note.entity';
+import { BackgroundCheck } from '../recruitment/entities/background-check.entity';
+import { ReferenceCheck } from '../recruitment/entities/reference-check.entity';
+import { OfferSignature } from '../recruitment/entities/offer-signature.entity';
+import { ScreeningCriteria } from '../recruitment/entities/screening-criteria.entity';
+import { ScreeningResult } from '../recruitment/entities/screening-result.entity';
+import { KnockoutQuestion } from '../recruitment/entities/knockout-question.entity';
 import { Application } from '../recruitment/entities/application.entity';
 import { Interview } from '../recruitment/entities/interview.entity';
 import { Offer } from '../recruitment/entities/offer.entity';
@@ -61,7 +68,9 @@ const AppDataSource = new DataSource({
         ApprovalFlow, ApprovalFlowStep, ApprovalInstance, ApprovalAction,
         ClaimType, Claim, ClaimItem,
         StaffLoan, StaffLoanRepayment,
-        JobPost, PipelineStage, Candidate, Application, Interview, Offer,
+        JobPost, PipelineStage, Candidate, CandidateNote, Application, Interview, Offer,
+        BackgroundCheck, ReferenceCheck, OfferSignature,
+        ScreeningCriteria, ScreeningResult, KnockoutQuestion,
         BranchDailyReport, Notification, NotificationPreference, AuditLog
     ],
     synchronize: false,
@@ -80,6 +89,11 @@ async function seedTransactions() {
         const claimItemRepo = AppDataSource.getRepository(ClaimItem);
         const loanRepo = AppDataSource.getRepository(StaffLoan);
 
+        const existingLeaveRequestCount = await leaveRequestRepo.count();
+        const existingClaimCount = await claimRepo.count();
+        const existingClaimItemCount = await claimItemRepo.count();
+        const existingLoanCount = await loanRepo.count();
+
         // Fetch all staff
         const allStaff = await staffRepo.find({ relations: ['user'] });
         console.log(`Found ${allStaff.length} staff members.`);
@@ -94,110 +108,156 @@ async function seedTransactions() {
 
         if (leaveTypes.length === 0 || claimTypes.length === 0) {
             console.log("Missing leave/claim types. Run seed-claims-loans.ts first.");
+            return;
         }
 
         // SEED LEAVE REQUESTS
-        console.log("Seeding Leave Requests...");
-        for (const staff of allStaff) {
-            const numRequests = faker.number.int({ min: 1, max: 3 });
+        if (existingLeaveRequestCount > 0) {
+            console.log(`Leave requests already exist (${existingLeaveRequestCount}). Skipping leave request seeding.`);
+        } else {
+            console.log("Seeding Leave Requests...");
+            for (const staff of allStaff) {
+                const numRequests = faker.number.int({ min: 1, max: 3 });
 
-            for (let i = 0; i < numRequests; i++) {
-                const leaveType = faker.helpers.arrayElement(leaveTypes);
-                const startDate = faker.date.between({ from: '2025-01-01', to: '2025-12-31' });
-                const days = faker.number.int({ min: 1, max: 5 });
-                const endDate = new Date(startDate);
-                endDate.setDate(endDate.getDate() + days);
+                for (let i = 0; i < numRequests; i++) {
+                    const leaveType = faker.helpers.arrayElement(leaveTypes);
+                    const startDate = faker.date.between({ from: '2025-01-01', to: '2025-12-31' });
+                    const days = faker.number.int({ min: 1, max: 5 });
+                    const endDate = new Date(startDate);
+                    endDate.setDate(endDate.getDate() + days);
 
-                const status = faker.helpers.arrayElement([
-                    LeaveRequestStatus.APPROVED,
-                    LeaveRequestStatus.PENDING,
-                    LeaveRequestStatus.REJECTED
-                ]);
+                    const status = faker.helpers.arrayElement([
+                        LeaveRequestStatus.APPROVED,
+                        LeaveRequestStatus.PENDING,
+                        LeaveRequestStatus.REJECTED
+                    ]);
 
-                const request = leaveRequestRepo.create({
-                    staff: staff,
-                    leaveType: leaveType,
-                    start_date: startDate,
-                    end_date: endDate,
-                    total_days: days,
-                    reason: faker.lorem.sentence(),
-                    status: status,
-                } as any);
-                await leaveRequestRepo.save(request);
+                    const request = leaveRequestRepo.create({
+                        staff: staff,
+                        leaveType: leaveType,
+                        start_date: startDate,
+                        end_date: endDate,
+                        total_days: days,
+                        reason: faker.lorem.sentence(),
+                        status: status,
+                    } as any);
+                    await leaveRequestRepo.save(request);
+                }
             }
+            console.log("✅ Leave Requests seeded.");
         }
-        console.log("✅ Leave Requests seeded.");
 
         // SEED CLAIMS
-        console.log("Seeding Claims...");
-        for (const staff of allStaff) {
-            const numClaims = faker.number.int({ min: 1, max: 4 });
-            for (let i = 0; i < numClaims; i++) {
-                const claimType = FakerClaimType(claimTypes);
-                const amount = faker.number.int({ min: 1000, max: 20000 });
-                const status = faker.helpers.arrayElement([
-                    ClaimStatus.APPROVED,
-                    ClaimStatus.SUBMITTED,
-                    ClaimStatus.DRAFT
-                ]);
+        if (existingClaimCount > 0) {
+            console.log(`Claims already exist (${existingClaimCount}). Skipping claims seeding.`);
 
-                const claim = claimRepo.create({
-                    staff: staff,
-                    claim_number: `CLM-${faker.string.alphanumeric(8).toUpperCase()}`,
-                    claim_date: faker.date.past(),
-                    total_amount: amount,
-                    approved_amount: status === ClaimStatus.APPROVED ? amount : 0,
-                    paid_amount: 0,
-                    purpose: faker.lorem.sentence(),
-                    remarks: faker.lorem.sentence(),
-                    status: status,
-                    currency: 'KES',
-                } as any);
-                const savedClaim = await claimRepo.save(claim);
+            if (existingClaimItemCount === 0) {
+                console.log('No claim items found. Seeding claim items for existing claims...');
+                const claimRows = await AppDataSource.query(
+                    `SELECT c.id
+                     FROM claims c
+                     LEFT JOIN claim_items ci ON ci.claim_id = c.id
+                     WHERE ci.id IS NULL
+                     LIMIT 200`,
+                );
 
-                // Add Item
-                const item = claimItemRepo.create({
-                    claim: savedClaim,
-                    claimType: claimType, // Correct relation
-                    description: claimType.name,
-                    amount: amount,
-                    approved_amount: status === ClaimStatus.APPROVED ? amount : 0,
-                    quantity: 1,
-                    status: status === ClaimStatus.APPROVED ? ClaimItemStatus.APPROVED : ClaimItemStatus.PENDING,
-                } as any);
-                await claimItemRepo.save(item);
+                if (claimRows.length === 0) {
+                    console.log('  ⏭️ All existing claims already have claim items');
+                } else {
+                    for (const row of claimRows) {
+                        const claim = await claimRepo.findOne({ where: { id: row.id } as any });
+                        if (!claim) continue;
+                        const claimType = FakerClaimType(claimTypes);
+                        const amount = faker.number.int({ min: 1000, max: 20000 });
+                        const item = claimItemRepo.create({
+                            claim: claim,
+                            claimType: claimType,
+                            description: claimType.name,
+                            amount: amount,
+                            approved_amount: 0,
+                            quantity: 1,
+                            status: ClaimItemStatus.PENDING,
+                        } as any);
+                        await claimItemRepo.save(item);
+                    }
+                    console.log(`✅ Seeded claim items for ${claimRows.length} existing claims.`);
+                }
             }
+        } else {
+            console.log("Seeding Claims...");
+            for (const staff of allStaff) {
+                const numClaims = faker.number.int({ min: 1, max: 4 });
+                for (let i = 0; i < numClaims; i++) {
+                    const claimType = FakerClaimType(claimTypes);
+                    const amount = faker.number.int({ min: 1000, max: 20000 });
+                    const status = faker.helpers.arrayElement([
+                        ClaimStatus.APPROVED,
+                        ClaimStatus.SUBMITTED,
+                        ClaimStatus.DRAFT
+                    ]);
+
+                    const claim = claimRepo.create({
+                        staff: staff,
+                        claim_number: `CLM-${faker.string.alphanumeric(8).toUpperCase()}`,
+                        claim_date: faker.date.past(),
+                        total_amount: amount,
+                        approved_amount: status === ClaimStatus.APPROVED ? amount : 0,
+                        paid_amount: 0,
+                        purpose: faker.lorem.sentence(),
+                        remarks: faker.lorem.sentence(),
+                        status: status,
+                        currency: 'KES',
+                    } as any);
+                    const savedClaim = await claimRepo.save(claim);
+
+                    // Add Item
+                    const item = claimItemRepo.create({
+                        claim: savedClaim,
+                        claimType: claimType,
+                        description: claimType.name,
+                        amount: amount,
+                        approved_amount: status === ClaimStatus.APPROVED ? amount : 0,
+                        quantity: 1,
+                        status: status === ClaimStatus.APPROVED ? ClaimItemStatus.APPROVED : ClaimItemStatus.PENDING,
+                    } as any);
+                    await claimItemRepo.save(item);
+                }
+            }
+            console.log("✅ Claims seeded.");
         }
-        console.log("✅ Claims seeded.");
 
         // SEED LOANS
-        console.log("Seeding Loans...");
-        for (const staff of allStaff.slice(0, Math.floor(allStaff.length / 2))) {
-            const amount = faker.number.int({ min: 50000, max: 500000 });
-            const status = faker.helpers.arrayElement([
-                LoanStatus.ACTIVE,
-                LoanStatus.PENDING,
-                LoanStatus.COMPLETED
-            ]);
+        if (existingLoanCount > 0) {
+            console.log(`Loans already exist (${existingLoanCount}). Skipping loans seeding.`);
+        } else {
+            console.log("Seeding Loans...");
+            for (const staff of allStaff.slice(0, Math.floor(allStaff.length / 2))) {
+                const amount = faker.number.int({ min: 50000, max: 500000 });
+                const status = faker.helpers.arrayElement([
+                    LoanStatus.ACTIVE,
+                    LoanStatus.PENDING,
+                    LoanStatus.COMPLETED
+                ]);
 
-            const loan = loanRepo.create({
-                staff: staff,
-                loan_number: `LN-${faker.string.numeric(6)}`,
-                loan_type: LoanType.STAFF_LOAN,
-                principal: amount,
-                total_payable: amount * 1.12, // Simple interest calc (approx)
-                total_paid: status === LoanStatus.COMPLETED ? amount * 1.12 : (status === LoanStatus.ACTIVE ? amount * 0.2 : 0),
-                outstanding_balance: status === LoanStatus.COMPLETED ? 0 : (status === LoanStatus.ACTIVE ? amount * 0.92 : amount * 1.12),
-                interest_rate: 12,
-                term_months: 12,
-                purpose: 'Personal Development',
-                status: status,
-                application_date: faker.date.past(),
-                disbursement_date: status === LoanStatus.ACTIVE || status === LoanStatus.COMPLETED ? faker.date.past() : null,
-            } as any);
-            await loanRepo.save(loan);
+                const loan = loanRepo.create({
+                    staff: staff,
+                    loan_number: `LN-${faker.string.numeric(6)}`,
+                    loan_type: LoanType.STAFF_LOAN,
+                    principal: amount,
+                    total_payable: amount * 1.12,
+                    total_paid: status === LoanStatus.COMPLETED ? amount * 1.12 : (status === LoanStatus.ACTIVE ? amount * 0.2 : 0),
+                    outstanding_balance: status === LoanStatus.COMPLETED ? 0 : (status === LoanStatus.ACTIVE ? amount * 0.92 : amount * 1.12),
+                    interest_rate: 12,
+                    term_months: 12,
+                    purpose: 'Personal Development',
+                    status: status,
+                    application_date: faker.date.past(),
+                    disbursement_date: status === LoanStatus.ACTIVE || status === LoanStatus.COMPLETED ? faker.date.past() : null,
+                } as any);
+                await loanRepo.save(loan);
+            }
+            console.log("✅ Loans seeded.");
         }
-        console.log("✅ Loans seeded.");
 
     } catch (err) {
         console.error("Error seeding transactions:", err);

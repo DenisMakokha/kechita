@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { useAuthStore } from '../store/auth.store';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -29,7 +30,7 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 
 // Add token to requests
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
+    const token = useAuthStore.getState().token;
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -67,7 +68,7 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             isRefreshing = true;
 
-            const refreshToken = localStorage.getItem('refresh_token');
+            const refreshToken = useAuthStore.getState().refreshToken;
 
             if (!refreshToken) {
                 isRefreshing = false;
@@ -82,8 +83,7 @@ api.interceptors.response.use(
 
                 const { access_token, refresh_token: newRefreshToken } = response.data;
 
-                localStorage.setItem('token', access_token);
-                localStorage.setItem('refresh_token', newRefreshToken);
+                useAuthStore.getState().setTokens(access_token, newRefreshToken);
 
                 api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
                 originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -105,9 +105,7 @@ api.interceptors.response.use(
 );
 
 function clearAuthAndRedirect() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('auth-storage');
+    useAuthStore.getState().logout();
     window.location.href = '/login';
 }
 

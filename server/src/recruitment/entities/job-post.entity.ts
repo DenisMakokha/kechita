@@ -4,6 +4,7 @@ import { Region } from '../../org/entities/region.entity';
 import { Branch } from '../../org/entities/branch.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 import { Position } from '../../org/entities/position.entity';
+import { EducationLevel } from './screening-criteria.entity';
 
 export enum JobStatus {
     DRAFT = 'draft',
@@ -134,6 +135,10 @@ export class JobPost {
     @Column({ default: false })
     is_hybrid: boolean;
 
+    // Internal job posting (only visible to current employees)
+    @Column({ default: false })
+    is_internal_only: boolean;
+
     // Urgency & priority
     @Column({ default: false })
     is_urgent: boolean;
@@ -150,6 +155,52 @@ export class JobPost {
 
     @Column('simple-array', { nullable: true })
     custom_questions: string[];
+
+    // ==================== ATS SCREENING CONFIGURATION ====================
+    
+    // Enable automatic screening
+    @Column({ default: true })
+    enable_auto_screening: boolean;
+
+    // Minimum score percentage to pass screening (0-100)
+    @Column({ type: 'int', default: 60 })
+    min_screening_score: number;
+
+    // Auto-reject applicants below minimum score
+    @Column({ default: false })
+    auto_reject_below_threshold: boolean;
+
+    // Auto-shortlist applicants above this score
+    @Column({ type: 'int', default: 80 })
+    auto_shortlist_threshold: number;
+
+    // Minimum education level required
+    @Column({ type: 'enum', enum: EducationLevel, default: EducationLevel.ANY })
+    min_education_level: EducationLevel;
+
+    // Required certifications (comma-separated)
+    @Column('simple-array', { nullable: true })
+    required_certifications: string[];
+
+    // Keywords to match in resume/cover letter
+    @Column('simple-array', { nullable: true })
+    screening_keywords: string[];
+
+    // Weight distribution for scoring (must sum to 100)
+    @Column({ type: 'int', default: 30 })
+    weight_experience: number;
+
+    @Column({ type: 'int', default: 15 })
+    weight_education: number;
+
+    @Column({ type: 'int', default: 30 })
+    weight_skills: number;
+
+    @Column({ type: 'int', default: 10 })
+    weight_certifications: number;
+
+    @Column({ type: 'int', default: 15 })
+    weight_keywords: number;
 
     // Stats
     @Column({ type: 'int', default: 0 })

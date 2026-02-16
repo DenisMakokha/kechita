@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuthStore } from '../store/auth.store';
 import { ApprovalTimeline } from '../components/ApprovalTimeline';
+import { InputDialog } from '../components/ui/InputDialog';
+import { useFormValidation, validators, fieldErrorClass } from '../hooks/useFormValidation';
+import type { ValidationRules } from '../hooks/useFormValidation';
+import { FieldError } from '../components/ui/FieldError';
 import {
     Plus, Receipt, DollarSign, CheckCircle, XCircle, Clock,
-    FileText, Eye, Calendar, Building2, User, CreditCard,
+    FileText, Eye, Building2, User, CreditCard,
     Filter, Search, ChevronDown, X, Upload, Trash2, AlertTriangle,
     TrendingUp, Wallet, BarChart3
 } from 'lucide-react';
@@ -76,14 +81,27 @@ interface ClaimFormItem {
     vendor_name: string;
 }
 
-export const ClaimsPage: React.FC = () => {
+const CLAIMS_MANAGER_ROLES = ['CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER'];
+
+const ClaimsPage: React.FC = () => {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'all' | 'my' | 'pending'>('all');
+    const { user } = useAuthStore();
+    const userRoles = user?.roles?.map((r: any) => r.code) || [];
+    const isManager = userRoles.some((role: string) => CLAIMS_MANAGER_ROLES.includes(role));
+    const [activeTab, setActiveTab] = useState<'all' | 'my' | 'pending'>(isManager ? 'all' : 'my');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
+    const [claimDialogType, setClaimDialogType] = useState<'reject' | 'payment' | null>(null);
+
+    // Toast state
+    const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 4000);
+    };
 
     // Form state
     const [formData, setFormData] = useState({
@@ -94,6 +112,14 @@ export const ClaimsPage: React.FC = () => {
         items: [] as ClaimFormItem[],
     });
 
+    const claimRules = useMemo<ValidationRules<typeof formData>>(() => ({
+        purpose: [v => validators.required(v, 'Purpose')],
+        period_start: [v => validators.required(v, 'Period start')],
+        period_end: [v => validators.required(v, 'Period end'), validators.dateAfter(formData.period_start, 'Period end', 'period start')],
+        items: [v => (!Array.isArray(v) || v.length === 0) ? 'At least one claim item is required' : null],
+    }), [formData.period_start]);
+    const claimValidation = useFormValidation(claimRules);
+
     // Queries
     const { data: claimTypes } = useQuery<ClaimType[]>({
         queryKey: ['claim-types'],
@@ -103,16 +129,20 @@ export const ClaimsPage: React.FC = () => {
     const { data: myClaims } = useQuery<Claim[]>({
         queryKey: ['my-claims'],
         queryFn: async () => (await api.get('/claims/my')).data,
+        refetchInterval: 60000,
     });
 
     const { data: allClaims, isLoading } = useQuery<Claim[]>({
         queryKey: ['all-claims'],
         queryFn: async () => (await api.get('/claims')).data,
+        enabled: isManager,
+        refetchInterval: 30000,
     });
 
     const { data: myStats } = useQuery({
         queryKey: ['my-claim-stats'],
         queryFn: async () => (await api.get('/claims/my/stats')).data,
+        refetchInterval: 60000,
     });
 
     const { data: approvalInstance } = useQuery({
@@ -133,12 +163,67 @@ export const ClaimsPage: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['my-claim-stats'] });
             setShowSubmitModal(false);
             resetForm();
+            showToast('Claim submitted successfully!');
+        },
+        onError: (error: any) => {
+            const msg = error?.response?.data?.message || 'Failed to submit claim';
+            showToast(msg, 'error');
         },
     });
 
     const cancelClaimMutation = useMutation({
         mutationFn: async (claimId: string) => {
             const response = await api.patch(`/claims/${claimId}/cancel`);
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-claims'] });
+            queryClient.invalidateQueries({ queryKey: ['all-claims'] });
+            setShowDetailModal(false);
+            showToast('Claim cancelled');
+        },
+        onError: (error: any) => {
+            const msg = error?.response?.data?.message || 'Failed to cancel claim';
+            showToast(msg, 'error');
+        },
+    });
+
+    const rejectClaimMutation = useMutation({
+        mutationFn: async ({ claimId, reason }: { claimId: string; reason: string }) => {
+            const response = await api.patch(`/claims/${claimId}/reject`, { reason });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-claims'] });
+            queryClient.invalidateQueries({ queryKey: ['all-claims'] });
+            setShowDetailModal(false);
+            showToast('Claim rejected');
+        },
+        onError: (error: any) => {
+            const msg = error?.response?.data?.message || 'Failed to reject claim';
+            showToast(msg, 'error');
+        },
+    });
+
+    const reviewItemsMutation = useMutation({
+        mutationFn: async ({ claimId, reviews }: { claimId: string; reviews: { itemId: string; status: string; approved_amount: number; comment?: string }[] }) => {
+            const response = await api.patch(`/claims/${claimId}/review`, { reviews });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-claims'] });
+            queryClient.invalidateQueries({ queryKey: ['all-claims'] });
+            showToast('Items reviewed successfully');
+        },
+        onError: (error: any) => {
+            const msg = error?.response?.data?.message || 'Failed to review items';
+            showToast(msg, 'error');
+        },
+    });
+
+    const recordPaymentMutation = useMutation({
+        mutationFn: async ({ claimId, amount, payment_reference, payment_method }: { claimId: string; amount: number; payment_reference: string; payment_method: string }) => {
+            const response = await api.patch(`/claims/${claimId}/payment`, { amount, payment_reference, payment_method });
             return response.data;
         },
         onSuccess: () => {
@@ -335,9 +420,9 @@ export const ClaimsPage: React.FC = () => {
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
                     {[
-                        { key: 'all', label: 'All Claims' },
+                        ...(isManager ? [{ key: 'all', label: 'All Claims' }] : []),
                         { key: 'my', label: 'My Claims' },
-                        { key: 'pending', label: 'Pending Review' },
+                        ...(isManager ? [{ key: 'pending', label: 'Pending Review' }] : []),
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -506,11 +591,13 @@ export const ClaimsPage: React.FC = () => {
                                     </label>
                                     <textarea
                                         value={formData.purpose}
-                                        onChange={(e) => setFormData(p => ({ ...p, purpose: e.target.value }))}
+                                        onChange={(e) => { setFormData(p => ({ ...p, purpose: e.target.value })); claimValidation.onChange('purpose', e.target.value); }}
+                                        onBlur={() => claimValidation.onBlur('purpose', formData.purpose)}
                                         rows={2}
                                         placeholder="Brief description of the expense claim..."
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${fieldErrorClass(claimValidation.getFieldError('purpose'))}`}
                                     />
+                                    <FieldError error={claimValidation.getFieldError('purpose')} />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -521,9 +608,11 @@ export const ClaimsPage: React.FC = () => {
                                         <input
                                             type="date"
                                             value={formData.period_start}
-                                            onChange={(e) => setFormData(p => ({ ...p, period_start: e.target.value }))}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                            onChange={(e) => { setFormData(p => ({ ...p, period_start: e.target.value })); claimValidation.onChange('period_start', e.target.value); }}
+                                            onBlur={() => claimValidation.onBlur('period_start', formData.period_start)}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${fieldErrorClass(claimValidation.getFieldError('period_start'))}`}
                                         />
+                                        <FieldError error={claimValidation.getFieldError('period_start')} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -532,9 +621,11 @@ export const ClaimsPage: React.FC = () => {
                                         <input
                                             type="date"
                                             value={formData.period_end}
-                                            onChange={(e) => setFormData(p => ({ ...p, period_end: e.target.value }))}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                            onChange={(e) => { setFormData(p => ({ ...p, period_end: e.target.value })); claimValidation.onChange('period_end', e.target.value); }}
+                                            onBlur={() => claimValidation.onBlur('period_end', formData.period_end)}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${fieldErrorClass(claimValidation.getFieldError('period_end'))}`}
                                         />
+                                        <FieldError error={claimValidation.getFieldError('period_end')} />
                                     </div>
                                 </div>
 
@@ -675,8 +766,8 @@ export const ClaimsPage: React.FC = () => {
                                 Cancel
                             </button>
                             <button
-                                onClick={() => submitClaimMutation.mutate(formData)}
-                                disabled={formData.items.length === 0 || submitClaimMutation.isPending}
+                                onClick={() => { if (claimValidation.validateAll(formData)) submitClaimMutation.mutate(formData); }}
+                                disabled={submitClaimMutation.isPending}
                                 className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {submitClaimMutation.isPending ? (
@@ -785,7 +876,26 @@ export const ClaimsPage: React.FC = () => {
 
                             {/* Items */}
                             <div className="mb-6">
-                                <h4 className="font-semibold text-slate-900 mb-3">Items ({selectedClaim.items?.length || 0})</h4>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-semibold text-slate-900">Items ({selectedClaim.items?.length || 0})</h4>
+                                    {(selectedClaim.status === 'submitted' || selectedClaim.status === 'under_review') && (
+                                        <button
+                                            onClick={() => {
+                                                const reviews = selectedClaim.items?.map(item => ({
+                                                    itemId: item.id,
+                                                    status: 'approved',
+                                                    approved_amount: Number(item.amount),
+                                                })) || [];
+                                                reviewItemsMutation.mutate({ claimId: selectedClaim.id, reviews });
+                                            }}
+                                            disabled={reviewItemsMutation.isPending}
+                                            className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-200 flex items-center gap-1"
+                                        >
+                                            <CheckCircle size={14} />
+                                            Approve All Items
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="space-y-2">
                                     {selectedClaim.items?.map((item) => (
                                         <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
@@ -802,15 +912,19 @@ export const ClaimsPage: React.FC = () => {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="font-semibold text-slate-900">
-                                                    KES {Number(item.amount).toLocaleString()}
-                                                </p>
-                                                {Number(item.approved_amount) > 0 && (
-                                                    <p className="text-xs text-emerald-600">
-                                                        Approved: {Number(item.approved_amount).toLocaleString()}
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <p className="font-semibold text-slate-900">
+                                                        KES {Number(item.amount).toLocaleString()}
                                                     </p>
-                                                )}
+                                                    {Number(item.approved_amount) > 0 && (
+                                                        <p className="text-xs text-emerald-600">
+                                                            Approved: {Number(item.approved_amount).toLocaleString()}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {item.status === 'approved' && <CheckCircle size={16} className="text-emerald-500" />}
+                                                {item.status === 'rejected' && <XCircle size={16} className="text-red-500" />}
                                             </div>
                                         </div>
                                     ))}
@@ -825,7 +939,7 @@ export const ClaimsPage: React.FC = () => {
                             )}
                         </div>
 
-                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
                             {selectedClaim.status === 'submitted' && (
                                 <button
                                     onClick={() => cancelClaimMutation.mutate(selectedClaim.id)}
@@ -834,6 +948,26 @@ export const ClaimsPage: React.FC = () => {
                                 >
                                     <XCircle size={18} />
                                     Cancel Claim
+                                </button>
+                            )}
+                            {isManager && (selectedClaim.status === 'submitted' || selectedClaim.status === 'under_review') && (
+                                <button
+                                    onClick={() => setClaimDialogType('reject')}
+                                    disabled={rejectClaimMutation.isPending}
+                                    className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg font-medium flex items-center gap-2"
+                                >
+                                    <XCircle size={18} />
+                                    Reject
+                                </button>
+                            )}
+                            {isManager && selectedClaim.status === 'approved' && Number(selectedClaim.paid_amount) < Number(selectedClaim.approved_amount) && (
+                                <button
+                                    onClick={() => setClaimDialogType('payment')}
+                                    disabled={recordPaymentMutation.isPending}
+                                    className="px-4 py-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-lg font-medium flex items-center gap-2"
+                                >
+                                    <CreditCard size={18} />
+                                    Record Payment
                                 </button>
                             )}
                             <div className="flex-1" />
@@ -847,6 +981,60 @@ export const ClaimsPage: React.FC = () => {
                     </div>
                 </div>
             )}
+            {/* Toast Notification */}
+            {toastMessage && (
+                <div className={`fixed bottom-6 right-6 z-[60] px-5 py-3 rounded-xl shadow-2xl text-white font-medium flex items-center gap-2 animate-slide-up ${
+                    toastMessage.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'
+                }`}>
+                    {toastMessage.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
+                    {toastMessage.text}
+                </div>
+            )}
+
+            {/* Reject Claim Dialog */}
+            <InputDialog
+                isOpen={claimDialogType === 'reject'}
+                title="Reject Claim"
+                message="Please provide a reason for rejecting this claim."
+                inputLabel="Rejection Reason"
+                inputType="textarea"
+                placeholder="Enter reason..."
+                confirmLabel="Reject"
+                onConfirm={(reason) => {
+                    if (selectedClaim) {
+                        rejectClaimMutation.mutate({ claimId: selectedClaim.id, reason });
+                    }
+                    setClaimDialogType(null);
+                }}
+                onCancel={() => setClaimDialogType(null)}
+                isLoading={rejectClaimMutation.isPending}
+            />
+
+            {/* Record Payment Dialog */}
+            <InputDialog
+                isOpen={claimDialogType === 'payment'}
+                title="Record Payment"
+                message={`Record payment for claim amount: ${selectedClaim?.approved_amount}`}
+                inputLabel="Payment Reference"
+                placeholder="Enter payment reference..."
+                confirmLabel="Record Payment"
+                onConfirm={(reference) => {
+                    if (selectedClaim) {
+                        recordPaymentMutation.mutate({
+                            claimId: selectedClaim.id,
+                            amount: Number(selectedClaim.approved_amount),
+                            payment_reference: reference,
+                            payment_method: 'bank_transfer',
+                        });
+                    }
+                    setClaimDialogType(null);
+                }}
+                onCancel={() => setClaimDialogType(null)}
+                isLoading={recordPaymentMutation.isPending}
+            />
         </div>
     );
 };
+
+export { ClaimsPage };
+export default ClaimsPage;

@@ -5,15 +5,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { NotificationGateway } from './notification.gateway';
+import { NotificationEventsListener } from './notification-events.listener';
 import { Notification } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { User } from '../auth/entities/user.entity';
+import { ApprovalInstance } from '../approval/entities/approval-instance.entity';
+import { Staff } from '../staff/entities/staff.entity';
 import { EmailModule } from '../email/email.module';
 import { SmsModule } from '../sms/sms.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Notification, NotificationPreference, User]),
+        TypeOrmModule.forFeature([Notification, NotificationPreference, User, ApprovalInstance, Staff]),
         EmailModule,
         SmsModule,
         JwtModule.registerAsync({
@@ -25,7 +28,7 @@ import { SmsModule } from '../sms/sms.module';
         }),
     ],
     controllers: [NotificationController],
-    providers: [NotificationService, NotificationGateway],
+    providers: [NotificationService, NotificationGateway, NotificationEventsListener],
     exports: [NotificationService, NotificationGateway],
 })
 export class NotificationModule { }

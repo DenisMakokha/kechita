@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Staff } from '../../staff/entities/staff.entity';
 import { LeaveType } from './leave-type.entity';
 
@@ -12,6 +12,9 @@ export enum LeaveRequestStatus {
 }
 
 @Entity('leave_requests')
+@Index(['staff', 'status'])
+@Index(['status'])
+@Index(['start_date', 'end_date'])
 export class LeaveRequest {
     @PrimaryGeneratedColumn('uuid')
     id: string;

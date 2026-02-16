@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Unique, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Unique, OneToMany, Index } from 'typeorm';
 import { Candidate } from './candidate.entity';
 import { JobPost } from './job-post.entity';
 import { PipelineStage } from './pipeline-stage.entity';
@@ -25,18 +25,22 @@ export class Application {
     @Column({ unique: true })
     application_number: string;
 
+    @Index()
     @ManyToOne(() => Candidate, { eager: true })
     @JoinColumn({ name: 'candidate_id' })
     candidate: Candidate;
 
+    @Index()
     @ManyToOne(() => JobPost, { eager: true })
     @JoinColumn({ name: 'job_post_id' })
     jobPost: JobPost;
 
+    @Index()
     @ManyToOne(() => PipelineStage, { nullable: true, eager: true })
     @JoinColumn({ name: 'stage_id' })
     stage: PipelineStage;
 
+    @Index()
     @Column({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.ACTIVE })
     status: ApplicationStatus;
 

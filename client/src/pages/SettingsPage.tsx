@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
     Plus, MapPin, Building, Briefcase, Users, Edit, Trash2,
     Settings, Receipt, Calendar, CalendarDays, GitBranch,
-    PiggyBank, X, DollarSign, ChevronRight, Save
+    PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle
 } from 'lucide-react';
 
 type Tab = 'organization' | 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings';
@@ -52,7 +53,34 @@ interface ApprovalFlow {
     target_type: string;
     priority: number;
     is_active: boolean;
-    steps?: { id: string; step_order: number; name: string; approver_type: string; approver_role_code?: string }[];
+    description?: string;
+    branch_id?: string;
+    region_id?: string;
+    department_id?: string;
+    position_id?: string;
+    steps?: ApprovalFlowStep[];
+}
+
+interface ApprovalFlowStep {
+    id?: string;
+    step_order: number;
+    name?: string;
+    approver_type: 'role' | 'manager' | 'skip_manager' | 'branch_manager' | 'regional_manager' | 'department_head' | 'specific_user';
+    approver_role_code?: string;
+    specific_approver_id?: string;
+    is_final?: boolean;
+    can_skip?: boolean;
+    auto_approve_hours?: number;
+    escalation_role_code?: string;
+    escalation_hours?: number;
+    instructions?: string;
+}
+
+interface Role {
+    id: string;
+    code: string;
+    name: string;
+    is_active: boolean;
 }
 
 interface PublicHoliday {
@@ -64,13 +92,26 @@ interface PublicHoliday {
     is_active: boolean;
 }
 
-export const SettingsPage: React.FC = () => {
+const SettingsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('organization');
     const [orgSubTab, setOrgSubTab] = useState<OrgSubTab>('regions');
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({});
+    const [approvalFlowOriginalStepIds, setApprovalFlowOriginalStepIds] = useState<string[]>([]);
+    const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const [loanSettings, setLoanSettings] = useState<Record<string, any>>({});
+    const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
     const queryClient = useQueryClient();
+
+    const askConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
+        setConfirmDialog({ title, message, onConfirm });
+    }, []);
+
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+        setToast({ text, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     // Organization queries
     const { data: regions } = useQuery({
@@ -111,68 +152,249 @@ export const SettingsPage: React.FC = () => {
         queryFn: async () => (await api.get('/approvals/flows')).data,
     });
 
+    const { data: roles } = useQuery<Role[]>({
+        queryKey: ['roles'],
+        queryFn: async () => (await api.get('/roles?include_inactive=true')).data,
+    });
+
     // Public holidays query
     const { data: holidays } = useQuery<PublicHoliday[]>({
         queryKey: ['holidays'],
         queryFn: async () => (await api.get('/leave/holidays')).data,
     });
 
-    // Mutations
+    // Loan settings query
+    const { data: loanSettingsData } = useQuery<Record<string, any>>({
+        queryKey: ['loan-settings'],
+        queryFn: async () => (await api.get('/settings/category/loans')).data,
+    });
+
+    useEffect(() => {
+        if (loanSettingsData) setLoanSettings(loanSettingsData);
+    }, [loanSettingsData]);
+
+    // Mutations — Claim Types
     const createClaimTypeMutation = useMutation({
         mutationFn: async (data: Partial<ClaimType>) => (await api.post('/claims/types', data)).data,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['claim-types'] });
-            setShowModal(false);
-            setFormData({});
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['claim-types'] }); setShowModal(false); setFormData({}); showToast('Claim type created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create claim type', 'error'),
     });
-
     const updateClaimTypeMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: Partial<ClaimType> }) =>
-            (await api.patch(`/claims/types/${id}`, data)).data,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['claim-types'] });
-            setShowModal(false);
-            setFormData({});
-            setEditItem(null);
-        },
+        mutationFn: async ({ id, data }: { id: string; data: Partial<ClaimType> }) => (await api.patch(`/claims/types/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['claim-types'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Claim type updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update claim type', 'error'),
+    });
+    const deleteClaimTypeMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/claims/types/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['claim-types'] }); showToast('Claim type deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete claim type', 'error'),
     });
 
+    // Mutations — Holidays
     const createHolidayMutation = useMutation({
         mutationFn: async (data: Partial<PublicHoliday>) => (await api.post('/leave/holidays', data)).data,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['holidays'] });
-            setShowModal(false);
-            setFormData({});
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); setShowModal(false); setFormData({}); showToast('Holiday created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create holiday', 'error'),
     });
-
+    const updateHolidayMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: Partial<PublicHoliday> }) => (await api.put(`/leave/holidays/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Holiday updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update holiday', 'error'),
+    });
     const deleteHolidayMutation = useMutation({
         mutationFn: async (id: string) => (await api.delete(`/leave/holidays/${id}`)).data,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['holidays'] });
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); showToast('Holiday deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete holiday', 'error'),
     });
 
-    // Leave type mutations
+    // Mutations — Leave Types
     const createLeaveTypeMutation = useMutation({
         mutationFn: async (data: Partial<LeaveType>) => (await api.post('/leave/types', data)).data,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['leave-types'] });
-            setShowModal(false);
-            setFormData({});
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leave-types'] }); setShowModal(false); setFormData({}); showToast('Leave type created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create leave type', 'error'),
+    });
+    const updateLeaveTypeMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: Partial<LeaveType> }) => (await api.put(`/leave/types/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leave-types'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Leave type updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update leave type', 'error'),
+    });
+    const deactivateLeaveTypeMutation = useMutation({
+        mutationFn: async (id: string) => (await api.patch(`/leave/types/${id}/deactivate`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leave-types'] }); showToast('Leave type deactivated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate leave type', 'error'),
     });
 
-    const updateLeaveTypeMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: Partial<LeaveType> }) =>
-            (await api.put(`/leave/types/${id}`, data)).data,
+    // Mutations — Organization
+    const createRegionMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/org/regions', data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['regions'] }); setShowModal(false); setFormData({}); showToast('Region created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create region', 'error'),
+    });
+    const updateRegionMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/regions/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['regions'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Region updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update region', 'error'),
+    });
+    const deleteRegionMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/org/regions/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['regions'] }); showToast('Region deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete region', 'error'),
+    });
+    const createBranchMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/org/branches', data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); setShowModal(false); setFormData({}); showToast('Branch created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create branch', 'error'),
+    });
+    const updateBranchMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/branches/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Branch updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update branch', 'error'),
+    });
+    const deleteBranchMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/org/branches/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); showToast('Branch deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete branch', 'error'),
+    });
+    const createDepartmentMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/org/departments', data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['departments'] }); setShowModal(false); setFormData({}); showToast('Department created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create department', 'error'),
+    });
+    const updateDepartmentMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/departments/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['departments'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Department updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update department', 'error'),
+    });
+    const deleteDepartmentMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/org/departments/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['departments'] }); showToast('Department deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete department', 'error'),
+    });
+    const createPositionMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/org/positions', data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['positions'] }); setShowModal(false); setFormData({}); showToast('Position created'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create position', 'error'),
+    });
+    const updatePositionMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/positions/${id}`, data)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['positions'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Position updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update position', 'error'),
+    });
+    const deletePositionMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/org/positions/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['positions'] }); showToast('Position deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete position', 'error'),
+    });
+
+    // Mutations — Loan Settings
+    const saveLoanSettingsMutation = useMutation({
+        mutationFn: async (settings: Record<string, any>) => {
+            const entries = Object.entries(settings).map(([key, value]) => ({
+                key, value, category: 'loans',
+            }));
+            return (await api.post('/settings/bulk', { entries })).data;
+        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['loan-settings'] }); showToast('Loan settings saved'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save loan settings', 'error'),
+    });
+
+    const saveApprovalFlowMutation = useMutation({
+        mutationFn: async (payload: {
+            flowId?: string;
+            flow: Partial<ApprovalFlow> & { steps?: ApprovalFlowStep[] };
+            originalStepIds: string[];
+        }) => {
+            const { flowId, flow, originalStepIds } = payload;
+
+            if (!flow.code || !flow.name || !flow.target_type) {
+                throw new Error('Flow code, name, and target type are required');
+            }
+
+            const flowBody: any = {
+                code: flow.code,
+                name: flow.name,
+                target_type: flow.target_type,
+                description: flow.description,
+                priority: flow.priority ?? 0,
+                is_active: flow.is_active !== false,
+                branch_id: flow.branch_id || null,
+                region_id: flow.region_id || null,
+                department_id: flow.department_id || null,
+                position_id: flow.position_id || null,
+            };
+
+            let savedFlow: ApprovalFlow;
+            if (flowId) {
+                savedFlow = (await api.put(`/approvals/flows/${flowId}`, flowBody)).data;
+            } else {
+                savedFlow = (await api.post('/approvals/flows', flowBody)).data;
+            }
+
+            const currentSteps: ApprovalFlowStep[] = (flow.steps || [])
+                .filter((s) => s.step_order)
+                .map((s) => ({
+                    ...s,
+                    step_order: Number(s.step_order),
+                    auto_approve_hours: Number(s.auto_approve_hours || 0),
+                    escalation_hours: Number(s.escalation_hours || 0),
+                    is_final: !!s.is_final,
+                    can_skip: !!s.can_skip,
+                }));
+
+            const currentStepIds = currentSteps.map((s) => s.id).filter(Boolean) as string[];
+            const removedStepIds = originalStepIds.filter((id) => !currentStepIds.includes(id));
+
+            await Promise.all(removedStepIds.map((id) => api.delete(`/approvals/flows/steps/${id}`)));
+
+            for (const step of currentSteps) {
+                const stepBody: any = {
+                    step_order: step.step_order,
+                    name: step.name,
+                    approver_type: step.approver_type,
+                    approver_role_code: step.approver_type === 'role' ? step.approver_role_code : undefined,
+                    specific_approver_id: step.approver_type === 'specific_user' ? step.specific_approver_id : undefined,
+                    is_final: step.is_final,
+                    can_skip: step.can_skip,
+                    auto_approve_hours: step.auto_approve_hours,
+                    escalation_role_code: step.escalation_role_code,
+                    escalation_hours: step.escalation_hours,
+                    instructions: step.instructions,
+                };
+
+                if (step.id) {
+                    await api.put(`/approvals/flows/steps/${step.id}`, stepBody);
+                } else {
+                    await api.post(`/approvals/flows/${savedFlow.id}/steps`, stepBody);
+                }
+            }
+
+            const reordered = currentSteps
+                .filter((s) => s.id)
+                .map((s) => ({ stepId: s.id as string, order: s.step_order }));
+            if (reordered.length > 0) {
+                await api.post(`/approvals/flows/${savedFlow.id}/reorder-steps`, { steps: reordered });
+            }
+
+            return savedFlow;
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['leave-types'] });
+            queryClient.invalidateQueries({ queryKey: ['approval-flows'] });
             setShowModal(false);
             setFormData({});
             setEditItem(null);
+            setApprovalFlowOriginalStepIds([]);
+            showToast('Approval flow saved');
         },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save approval flow', 'error'),
+    });
+
+    const deleteApprovalFlowMutation = useMutation({
+        mutationFn: async (flowId: string) => (await api.delete(`/approvals/flows/${flowId}`)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['approval-flows'] });
+            showToast('Approval flow deleted');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete approval flow', 'error'),
     });
 
     const mainTabs = [
@@ -193,22 +415,81 @@ export const SettingsPage: React.FC = () => {
 
     const openModal = (_type: string, item?: any) => {
         setEditItem(item);
-        setFormData(item || {});
+        if (item && activeTab === 'organization') {
+            const data = { ...item };
+            if (orgSubTab === 'branches' && item.region) data.region_id = item.region.id;
+            if (orgSubTab === 'departments' && item.parent) data.parent_id = item.parent.id;
+            if (orgSubTab === 'positions' && item.department) data.department_id = item.department.id;
+            setFormData(data);
+        } else {
+            setFormData(item || {});
+        }
+        setShowModal(true);
+    };
+
+    const openApprovalFlowModal = (flow?: ApprovalFlow) => {
+        setActiveTab('approval-flows');
+        const existingSteps = (flow?.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
+        setApprovalFlowOriginalStepIds(existingSteps.map((s) => s.id).filter(Boolean) as string[]);
+        setEditItem(flow || null);
+        setFormData({
+            ...(flow || {
+                code: '',
+                name: '',
+                target_type: 'leave',
+                description: '',
+                priority: 0,
+                is_active: true,
+            }),
+            steps: existingSteps.length > 0
+                ? existingSteps
+                : [
+                    {
+                        step_order: 1,
+                        name: 'Approval Step',
+                        approver_type: 'role',
+                        approver_role_code: 'HR_MANAGER',
+                        is_final: true,
+                        can_skip: false,
+                        auto_approve_hours: 0,
+                        escalation_hours: 0,
+                    } satisfies ApprovalFlowStep,
+                ],
+        });
         setShowModal(true);
     };
 
     const getModalTitle = () => {
         const isEdit = !!editItem;
+        if (activeTab === 'organization') {
+            const label = orgSubTab.slice(0, -1).charAt(0).toUpperCase() + orgSubTab.slice(1, -1);
+            return `${isEdit ? 'Edit' : 'Add'} ${label}`;
+        }
         switch (activeTab) {
             case 'claim-types': return `${isEdit ? 'Edit' : 'Add'} Claim Type`;
             case 'leave-types': return `${isEdit ? 'Edit' : 'Add'} Leave Type`;
             case 'holidays': return `${isEdit ? 'Edit' : 'Add'} Public Holiday`;
+            case 'approval-flows': return `${isEdit ? 'Edit' : 'Add'} Approval Flow`;
             default: return `${isEdit ? 'Edit' : 'Add'} Item`;
         }
     };
 
     const handleSave = () => {
-        if (activeTab === 'claim-types') {
+        if (activeTab === 'organization') {
+            if (orgSubTab === 'regions') {
+                if (editItem) updateRegionMutation.mutate({ id: editItem.id, data: formData });
+                else createRegionMutation.mutate(formData);
+            } else if (orgSubTab === 'branches') {
+                if (editItem) updateBranchMutation.mutate({ id: editItem.id, data: formData });
+                else createBranchMutation.mutate(formData);
+            } else if (orgSubTab === 'departments') {
+                if (editItem) updateDepartmentMutation.mutate({ id: editItem.id, data: formData });
+                else createDepartmentMutation.mutate(formData);
+            } else if (orgSubTab === 'positions') {
+                if (editItem) updatePositionMutation.mutate({ id: editItem.id, data: formData });
+                else createPositionMutation.mutate(formData);
+            }
+        } else if (activeTab === 'claim-types') {
             if (editItem) {
                 updateClaimTypeMutation.mutate({ id: editItem.id, data: formData });
             } else {
@@ -222,10 +503,16 @@ export const SettingsPage: React.FC = () => {
             }
         } else if (activeTab === 'holidays') {
             if (editItem) {
-                createHolidayMutation.mutate(formData); // Could add update if needed
+                updateHolidayMutation.mutate({ id: editItem.id, data: formData });
             } else {
                 createHolidayMutation.mutate(formData);
             }
+        } else if (activeTab === 'approval-flows') {
+            saveApprovalFlowMutation.mutate({
+                flowId: editItem?.id,
+                flow: formData,
+                originalStepIds: approvalFlowOriginalStepIds,
+            });
         }
     };
 
@@ -281,6 +568,13 @@ export const SettingsPage: React.FC = () => {
                             {orgSubTab === 'branches' && (
                                 <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Region</th>
                             )}
+                            {orgSubTab === 'departments' && (
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Parent</th>
+                            )}
+                            {orgSubTab === 'positions' && (
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Department</th>
+                            )}
+                            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Description</th>
                             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Actions</th>
                         </tr>
                     </thead>
@@ -297,12 +591,27 @@ export const SettingsPage: React.FC = () => {
                                 {orgSubTab === 'branches' && (
                                     <td className="px-6 py-4 text-slate-600">{item.region?.name || '-'}</td>
                                 )}
+                                {orgSubTab === 'departments' && (
+                                    <td className="px-6 py-4 text-slate-600">{item.parent?.name || '-'}</td>
+                                )}
+                                {orgSubTab === 'positions' && (
+                                    <td className="px-6 py-4 text-slate-600">{item.department?.name || '-'}</td>
+                                )}
+                                <td className="px-6 py-4 text-slate-500 text-sm max-w-[200px] truncate">{item.description || '-'}</td>
                                 <td className="px-6 py-4">
                                     <div className="flex gap-2">
-                                        <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600">
+                                        <button onClick={() => openModal(orgSubTab, item)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600">
                                             <Edit size={16} />
                                         </button>
-                                        <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600">
+                                        <button
+                                            onClick={() => askConfirm('Delete Item', `Delete "${item.name}"? This cannot be undone.`, () => {
+                                                if (orgSubTab === 'regions') deleteRegionMutation.mutate(item.id);
+                                                else if (orgSubTab === 'branches') deleteBranchMutation.mutate(item.id);
+                                                else if (orgSubTab === 'departments') deleteDepartmentMutation.mutate(item.id);
+                                                else if (orgSubTab === 'positions') deletePositionMutation.mutate(item.id);
+                                            })}
+                                            className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
+                                        >
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -385,6 +694,12 @@ export const SettingsPage: React.FC = () => {
                                 >
                                     <Edit size={18} />
                                 </button>
+                                <button
+                                    onClick={() => askConfirm('Delete Claim Type', `Delete claim type "${type.name}"? This cannot be undone.`, () => deleteClaimTypeMutation.mutate(type.id))}
+                                    className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
                             </div>
                         </div>
                     ))
@@ -452,6 +767,15 @@ export const SettingsPage: React.FC = () => {
                                 >
                                     <Edit size={18} />
                                 </button>
+                                {type.is_active && (
+                                    <button
+                                        onClick={() => askConfirm('Deactivate Leave Type', `Deactivate leave type "${type.name}"? Staff will no longer be able to request this type.`, () => deactivateLeaveTypeMutation.mutate(type.id))}
+                                        className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
+                                        title="Deactivate"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))
@@ -462,6 +786,19 @@ export const SettingsPage: React.FC = () => {
 
     const renderApprovalFlowsContent = () => (
         <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <h3 className="font-semibold text-slate-900">Approval Flows</h3>
+                    <p className="text-sm text-slate-500">Configure multi-step approval rules for leave, claims, loans, and more.</p>
+                </div>
+                <button
+                    onClick={() => openApprovalFlowModal()}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"
+                >
+                    <Plus size={18} />
+                    Add Flow
+                </button>
+            </div>
             <div className="grid gap-4">
                 {approvalFlows?.length === 0 ? (
                     <div className="text-center py-12 bg-slate-50 rounded-xl">
@@ -496,8 +833,17 @@ export const SettingsPage: React.FC = () => {
                                         }`}>
                                         {flow.is_active ? 'Active' : 'Inactive'}
                                     </span>
-                                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600">
+                                    <button
+                                        onClick={() => openApprovalFlowModal(flow)}
+                                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600"
+                                    >
                                         <Edit size={18} />
+                                    </button>
+                                    <button
+                                        onClick={() => askConfirm('Delete Approval Flow', `Delete flow "${flow.name}"? This cannot be undone.`, () => deleteApprovalFlowMutation.mutate(flow.id))}
+                                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600"
+                                    >
+                                        <Trash2 size={18} />
                                     </button>
                                 </div>
                             </div>
@@ -563,12 +909,20 @@ export const SettingsPage: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={() => deleteHolidayMutation.mutate(holiday.id)}
-                                        className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => openModal('holiday', holiday)}
+                                            className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600"
+                                        >
+                                            <Edit size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => askConfirm('Delete Holiday', `Delete holiday "${holiday.name}"? This cannot be undone.`, () => deleteHolidayMutation.mutate(holiday.id))}
+                                            className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -594,7 +948,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Max Advances Per Month</label>
                             <input
                                 type="number"
-                                defaultValue={1}
+                                value={loanSettings.advance_max_per_month ?? 1}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, advance_max_per_month: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -602,7 +957,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Max % of Salary</label>
                             <input
                                 type="number"
-                                defaultValue={50}
+                                value={loanSettings.advance_max_salary_percent ?? 50}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, advance_max_salary_percent: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -610,7 +966,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Interest Rate (%)</label>
                             <input
                                 type="number"
-                                defaultValue={0}
+                                value={loanSettings.advance_interest_rate ?? 0}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, advance_interest_rate: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -630,7 +987,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Max Loan Amount (KES)</label>
                             <input
                                 type="number"
-                                defaultValue={500000}
+                                value={loanSettings.loan_max_amount ?? 500000}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_max_amount: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -638,7 +996,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Max Term (months)</label>
                             <input
                                 type="number"
-                                defaultValue={24}
+                                value={loanSettings.loan_max_term_months ?? 24}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_max_term_months: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -646,7 +1005,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Interest Rate (% p.a.)</label>
                             <input
                                 type="number"
-                                defaultValue={12}
+                                value={loanSettings.loan_interest_rate ?? 12}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_interest_rate: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -654,7 +1014,8 @@ export const SettingsPage: React.FC = () => {
                             <label className="block text-sm text-slate-600 mb-1">Max Salary Deduction (%)</label>
                             <input
                                 type="number"
-                                defaultValue={33}
+                                value={loanSettings.loan_max_deduction_percent ?? 33}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_max_deduction_percent: Number(e.target.value) })}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                             />
                         </div>
@@ -666,24 +1027,49 @@ export const SettingsPage: React.FC = () => {
                     <h3 className="font-semibold text-slate-900 mb-4">General Policies</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 text-[#0066B3] rounded" />
+                            <input
+                                type="checkbox"
+                                checked={loanSettings.loan_require_guarantor ?? true}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_require_guarantor: e.target.checked })}
+                                className="w-4 h-4 text-[#0066B3] rounded"
+                            />
                             <span className="text-sm text-slate-700">Require guarantor for loans &gt; KES 100,000</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 text-[#0066B3] rounded" />
+                            <input
+                                type="checkbox"
+                                checked={loanSettings.loan_confirmed_only ?? true}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_confirmed_only: e.target.checked })}
+                                className="w-4 h-4 text-[#0066B3] rounded"
+                            />
                             <span className="text-sm text-slate-700">Only confirmed staff can apply</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 text-[#0066B3] rounded" />
+                            <input
+                                type="checkbox"
+                                checked={loanSettings.loan_auto_deduct ?? true}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_auto_deduct: e.target.checked })}
+                                className="w-4 h-4 text-[#0066B3] rounded"
+                            />
                             <span className="text-sm text-slate-700">Auto-deduct from payroll</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input type="checkbox" className="w-4 h-4 text-[#0066B3] rounded" />
+                            <input
+                                type="checkbox"
+                                checked={loanSettings.loan_allow_multiple ?? false}
+                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_allow_multiple: e.target.checked })}
+                                className="w-4 h-4 text-[#0066B3] rounded"
+                            />
                             <span className="text-sm text-slate-700">Allow multiple active loans</span>
                         </label>
                     </div>
-                    <button className="mt-4 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]">
-                        Save Settings
+                    <button
+                        onClick={() => saveLoanSettingsMutation.mutate(loanSettings)}
+                        disabled={saveLoanSettingsMutation.isPending}
+                        className="mt-4 flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
+                    >
+                        <Save size={18} />
+                        {saveLoanSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
                     </button>
                 </div>
             </div>
@@ -765,7 +1151,15 @@ export const SettingsPage: React.FC = () => {
                     <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
                             <h2 className="text-xl font-bold text-slate-900">{getModalTitle()}</h2>
-                            <button onClick={() => { setShowModal(false); setEditItem(null); setFormData({}); }} className="p-2 hover:bg-white rounded-lg">
+                            <button
+                                onClick={() => {
+                                    setShowModal(false);
+                                    setEditItem(null);
+                                    setFormData({});
+                                    setApprovalFlowOriginalStepIds([]);
+                                }}
+                                className="p-2 hover:bg-white rounded-lg"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
@@ -1000,6 +1394,355 @@ export const SettingsPage: React.FC = () => {
                                 </>
                             )}
 
+                            {activeTab === 'approval-flows' && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
+                                            <input
+                                                type="text"
+                                                value={formData.code || ''}
+                                                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                                                placeholder="e.g., LEAVE_DEFAULT"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                                            <input
+                                                type="text"
+                                                value={formData.name || ''}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                placeholder="e.g., Leave Approval Flow"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Target Type</label>
+                                            <select
+                                                value={formData.target_type || 'leave'}
+                                                onChange={(e) => setFormData({ ...formData, target_type: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            >
+                                                <option value="leave">Leave</option>
+                                                <option value="claim">Claim</option>
+                                                <option value="staff_loan">Staff Loan</option>
+                                                <option value="petty_cash_replenishment">Petty Cash Replenishment</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+                                            <input
+                                                type="number"
+                                                value={formData.priority ?? 0}
+                                                onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                                        <textarea
+                                            value={formData.description || ''}
+                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                            rows={2}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Scope: Region</label>
+                                            <select
+                                                value={formData.region_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, region_id: e.target.value || undefined })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                            >
+                                                <option value="">All Regions</option>
+                                                {(regions || []).map((r: any) => (
+                                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Scope: Branch</label>
+                                            <select
+                                                value={formData.branch_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, branch_id: e.target.value || undefined })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                            >
+                                                <option value="">All Branches</option>
+                                                {(branches || []).map((b: any) => (
+                                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Scope: Department</label>
+                                            <select
+                                                value={formData.department_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, department_id: e.target.value || undefined })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                            >
+                                                <option value="">All Departments</option>
+                                                {(departments || []).map((d: any) => (
+                                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Scope: Position</label>
+                                            <select
+                                                value={formData.position_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, position_id: e.target.value || undefined })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                            >
+                                                <option value="">All Positions</option>
+                                                {(positions || []).map((p: any) => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.is_active !== false}
+                                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                                            className="w-4 h-4 text-[#0066B3] rounded"
+                                        />
+                                        <span className="text-sm text-slate-700">Active</span>
+                                    </label>
+
+                                    <div className="pt-2 border-t border-slate-200">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-sm font-semibold text-slate-900">Steps</h3>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const steps: ApprovalFlowStep[] = Array.isArray(formData.steps) ? formData.steps : [];
+                                                    const nextOrder = steps.length > 0 ? Math.max(...steps.map((s) => Number(s.step_order || 0))) + 1 : 1;
+                                                    setFormData({
+                                                        ...formData,
+                                                        steps: [
+                                                            ...steps,
+                                                            {
+                                                                step_order: nextOrder,
+                                                                name: `Step ${nextOrder}`,
+                                                                approver_type: 'role',
+                                                                approver_role_code: 'HR_MANAGER',
+                                                                is_final: false,
+                                                                can_skip: false,
+                                                                auto_approve_hours: 0,
+                                                                escalation_hours: 0,
+                                                            } satisfies ApprovalFlowStep,
+                                                        ],
+                                                    });
+                                                }}
+                                                className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200"
+                                            >
+                                                <Plus size={16} />
+                                                Add Step
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {(Array.isArray(formData.steps) ? (formData.steps as ApprovalFlowStep[]) : []).map((step, idx) => (
+                                                <div key={step.id || idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-semibold text-slate-900">Step</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                setFormData({ ...formData, steps: steps.filter((_, i) => i !== idx) });
+                                                            }}
+                                                            className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-600"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Order</label>
+                                                            <input
+                                                                type="number"
+                                                                value={step.step_order}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], step_order: Number(e.target.value) };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Name</label>
+                                                            <input
+                                                                type="text"
+                                                                value={step.name || ''}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], name: e.target.value };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Approver Type</label>
+                                                            <select
+                                                                value={step.approver_type}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    const nextType = e.target.value as ApprovalFlowStep['approver_type'];
+                                                                    steps[idx] = { ...steps[idx], approver_type: nextType };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                            >
+                                                                <option value="role">Role</option>
+                                                                <option value="manager">Manager</option>
+                                                                <option value="skip_manager">Manager's Manager</option>
+                                                                <option value="branch_manager">Branch Manager</option>
+                                                                <option value="regional_manager">Regional Manager</option>
+                                                                <option value="department_head">Department Head</option>
+                                                                <option value="specific_user">Specific User</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Approver Role</label>
+                                                            <select
+                                                                value={step.approver_role_code || ''}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], approver_role_code: e.target.value || undefined };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                disabled={step.approver_type !== 'role'}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm disabled:bg-slate-100"
+                                                            >
+                                                                <option value="">Select role</option>
+                                                                {(roles || []).map((r) => (
+                                                                    <option key={r.id} value={r.code}>{r.name} ({r.code})</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <label className="flex items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!step.is_final}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], is_final: e.target.checked };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-4 h-4 text-[#0066B3] rounded"
+                                                            />
+                                                            <span className="text-sm text-slate-700">Final Step</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!step.can_skip}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], can_skip: e.target.checked };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-4 h-4 text-[#0066B3] rounded"
+                                                            />
+                                                            <span className="text-sm text-slate-700">Skippable</span>
+                                                        </label>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Auto-approve (hours)</label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={step.auto_approve_hours || 0}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], auto_approve_hours: Number(e.target.value) };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                                placeholder="0 = disabled"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Escalate after (hours)</label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={step.escalation_hours || 0}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], escalation_hours: Number(e.target.value) };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                                placeholder="0 = disabled"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {(step.escalation_hours || 0) > 0 && (
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-600 mb-1">Escalate to Role</label>
+                                                            <select
+                                                                value={step.escalation_role_code || ''}
+                                                                onChange={(e) => {
+                                                                    const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                    steps[idx] = { ...steps[idx], escalation_role_code: e.target.value || undefined };
+                                                                    setFormData({ ...formData, steps: [...steps] });
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                            >
+                                                                <option value="">Select role</option>
+                                                                {(roles || []).map((r) => (
+                                                                    <option key={r.id} value={r.code}>{r.name} ({r.code})</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
+
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-600 mb-1">Instructions for approver</label>
+                                                        <textarea
+                                                            value={step.instructions || ''}
+                                                            onChange={(e) => {
+                                                                const steps: ApprovalFlowStep[] = (formData.steps || []) as ApprovalFlowStep[];
+                                                                steps[idx] = { ...steps[idx], instructions: e.target.value };
+                                                                setFormData({ ...formData, steps: [...steps] });
+                                                            }}
+                                                            rows={2}
+                                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                            placeholder="Optional guidance for the approver..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             {activeTab === 'holidays' && (
                                 <>
                                     <div>
@@ -1034,19 +1777,107 @@ export const SettingsPage: React.FC = () => {
                                     </div>
                                 </>
                             )}
+
+                            {activeTab === 'organization' && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
+                                            <input
+                                                type="text"
+                                                value={formData.code || ''}
+                                                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                                                placeholder="e.g., NAIROBI"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                                            <input
+                                                type="text"
+                                                value={formData.name || ''}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                placeholder="e.g., Nairobi Region"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            />
+                                        </div>
+                                    </div>
+                                    {orgSubTab === 'branches' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Region</label>
+                                            <select
+                                                value={formData.region_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            >
+                                                <option value="">Select Region</option>
+                                                {regions?.map((r: any) => (
+                                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    {orgSubTab === 'departments' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Parent Department</label>
+                                            <select
+                                                value={formData.parent_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, parent_id: e.target.value || null })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            >
+                                                <option value="">None (Top Level)</option>
+                                                {departments?.filter((d: any) => d.id !== editItem?.id).map((d: any) => (
+                                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    {orgSubTab === 'positions' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                                            <select
+                                                value={formData.department_id || ''}
+                                                onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            >
+                                                <option value="">Select Department</option>
+                                                {departments?.map((d: any) => (
+                                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                                        <textarea
+                                            value={formData.description || ''}
+                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                            rows={2}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                            placeholder="Optional description..."
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </div>
 
-                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
                             <button
-                                onClick={() => { setShowModal(false); setEditItem(null); setFormData({}); }}
-                                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+                                type="button"
+                                onClick={() => {
+                                    setShowModal(false);
+                                    setEditItem(null);
+                                    setFormData({});
+                                    setApprovalFlowOriginalStepIds([]);
+                                }}
+                                className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-white"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={handleSave}
-                                disabled={createClaimTypeMutation.isPending || updateClaimTypeMutation.isPending || createHolidayMutation.isPending || createLeaveTypeMutation.isPending || updateLeaveTypeMutation.isPending}
-                                className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 flex items-center gap-2"
+                                className="flex items-center gap-2 px-5 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"
                             >
                                 <Save size={18} />
                                 Save
@@ -1055,6 +1886,35 @@ export const SettingsPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                isOpen={!!confirmDialog}
+                title={confirmDialog?.title || ''}
+                message={confirmDialog?.message || ''}
+                confirmLabel="Delete"
+                variant="danger"
+                onConfirm={() => { confirmDialog?.onConfirm(); setConfirmDialog(null); }}
+                onCancel={() => setConfirmDialog(null)}
+            />
+
+            {/* Toast Notification */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-[60] flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all animate-in slide-in-from-bottom-4 ${
+                    toast.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                    {toast.type === 'success' ? <CheckCircle size={18} className="text-emerald-500" /> : <AlertCircle size={18} className="text-red-500" />}
+                    {toast.text}
+                    <button onClick={() => setToast(null)} className="ml-2 p-0.5 hover:bg-white/50 rounded">
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
+
+export { SettingsPage };
+export default SettingsPage;

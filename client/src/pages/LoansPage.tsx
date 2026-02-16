@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuthStore } from '../store/auth.store';
 import { ApprovalTimeline } from '../components/ApprovalTimeline';
+import { InputDialog } from '../components/ui/InputDialog';
+import { useFormValidation, validators, fieldErrorClass } from '../hooks/useFormValidation';
+import type { ValidationRules } from '../hooks/useFormValidation';
+import { FieldError } from '../components/ui/FieldError';
 import {
     Plus, Wallet, TrendingUp, Calendar, AlertTriangle,
     DollarSign, Clock, CheckCircle, XCircle, Eye, Search,
-    Filter, ChevronDown, X, User, Building2, Briefcase,
-    CreditCard, Percent, Calculator, FileText, ArrowRight,
+    Filter, ChevronDown, X, Building2, Briefcase,
+    CreditCard, Percent, Calculator, FileText,
     BarChart3, PiggyBank, CircleDollarSign
 } from 'lucide-react';
 
@@ -57,15 +62,21 @@ interface StaffLoan {
     }[];
 }
 
-export const LoansPage: React.FC = () => {
+const LOANS_MANAGER_ROLES = ['CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER'];
+
+const LoansPage: React.FC = () => {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'all' | 'my' | 'pending' | 'overdue'>('all');
+    const { user } = useAuthStore();
+    const userRoles = user?.roles?.map((r: any) => r.code) || [];
+    const isManager = userRoles.some((role: string) => LOANS_MANAGER_ROLES.includes(role));
+    const [activeTab, setActiveTab] = useState<'all' | 'my' | 'pending' | 'overdue'>(isManager ? 'all' : 'my');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedLoan, setSelectedLoan] = useState<StaffLoan | null>(null);
+    const [loanDialogType, setLoanDialogType] = useState<'reject' | 'disburse' | 'payment' | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -80,25 +91,46 @@ export const LoansPage: React.FC = () => {
         guarantor_id: '',
     });
 
+    const loanRules = useMemo<ValidationRules<typeof formData>>(() => ({
+        principal: [v => validators.required(v, 'Loan amount'), validators.positiveNumber('Loan amount')],
+        term_months: [v => validators.required(v, 'Term'), validators.minValue(1, 'Term'), validators.maxValue(24, 'Term')],
+        purpose: [v => validators.required(v, 'Purpose'), validators.minLength(5, 'Purpose')],
+    }), []);
+    const loanValidation = useFormValidation(loanRules);
+
     // Queries
     const { data: myLoans } = useQuery<StaffLoan[]>({
         queryKey: ['my-loans'],
         queryFn: async () => (await api.get('/loans/my')).data,
+        refetchInterval: 60000,
     });
 
     const { data: allLoans, isLoading } = useQuery<StaffLoan[]>({
         queryKey: ['all-loans'],
         queryFn: async () => (await api.get('/loans')).data,
+        enabled: isManager,
+        refetchInterval: 30000,
     });
 
     const { data: myStats } = useQuery({
         queryKey: ['my-loan-stats'],
         queryFn: async () => (await api.get('/loans/my/stats')).data,
+        refetchInterval: 60000,
     });
 
     const { data: overdueLoans } = useQuery<StaffLoan[]>({
         queryKey: ['overdue-loans'],
         queryFn: async () => (await api.get('/loans/overdue')).data,
+        enabled: isManager,
+        refetchInterval: 60000,
+    });
+
+    const { data: staffForGuarantor } = useQuery<any[]>({
+        queryKey: ['staff-for-guarantor'],
+        queryFn: async () => {
+            const res = await api.get('/staff?limit=500');
+            return Array.isArray(res.data) ? res.data : res.data?.data || [];
+        },
     });
 
     const { data: approvalInstance } = useQuery({
@@ -128,8 +160,8 @@ export const LoansPage: React.FC = () => {
             resetForm();
             showToast('Loan application submitted successfully!');
         },
-        onError: () => {
-            showToast('Failed to submit loan application', 'error');
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to submit loan application', 'error');
         },
     });
 
@@ -144,8 +176,55 @@ export const LoansPage: React.FC = () => {
             setShowDetailModal(false);
             showToast('Loan application cancelled');
         },
-        onError: () => {
-            showToast('Failed to cancel loan', 'error');
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to cancel loan', 'error');
+        },
+    });
+
+    const rejectLoanMutation = useMutation({
+        mutationFn: async ({ loanId, reason }: { loanId: string; reason: string }) => {
+            const response = await api.patch(`/loans/${loanId}/reject`, { reason });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-loans'] });
+            queryClient.invalidateQueries({ queryKey: ['all-loans'] });
+            setShowDetailModal(false);
+            showToast('Loan application rejected');
+        },
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to reject loan', 'error');
+        },
+    });
+
+    const disburseLoanMutation = useMutation({
+        mutationFn: async ({ loanId, disbursement_reference, disbursement_method }: { loanId: string; disbursement_reference: string; disbursement_method: string }) => {
+            const response = await api.patch(`/loans/${loanId}/disburse`, { disbursement_reference, disbursement_method });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-loans'] });
+            queryClient.invalidateQueries({ queryKey: ['all-loans'] });
+            setShowDetailModal(false);
+            showToast('Loan disbursed successfully');
+        },
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to disburse loan', 'error');
+        },
+    });
+
+    const recordPaymentMutation = useMutation({
+        mutationFn: async ({ loanId, amount, payment_method, payment_reference }: { loanId: string; amount: number; payment_method: string; payment_reference: string }) => {
+            const response = await api.patch(`/loans/${loanId}/payment`, { amount, payment_method, payment_reference });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-loans'] });
+            queryClient.invalidateQueries({ queryKey: ['all-loans'] });
+            showToast('Payment recorded successfully');
+        },
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to record payment', 'error');
         },
     });
 
@@ -348,10 +427,12 @@ export const LoansPage: React.FC = () => {
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
                     {[
-                        { key: 'all', label: 'All Loans' },
+                        ...(isManager ? [{ key: 'all', label: 'All Loans' }] : []),
                         { key: 'my', label: 'My Loans' },
-                        { key: 'pending', label: 'Pending Approval' },
-                        { key: 'overdue', label: 'Overdue', badge: overdueLoans?.length },
+                        ...(isManager ? [
+                            { key: 'pending', label: 'Pending Approval' },
+                            { key: 'overdue', label: 'Overdue', badge: overdueLoans?.length },
+                        ] : []),
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -502,7 +583,7 @@ export const LoansPage: React.FC = () => {
                                             <div className="w-full h-1.5 bg-slate-200 rounded-full mt-1">
                                                 <div
                                                     className="h-full bg-emerald-500 rounded-full"
-                                                    style={{ width: `${(Number(loan.total_paid) / Number(loan.total_payable)) * 100}%` }}
+                                                    style={{ width: `${Number(loan.total_payable) > 0 ? (Number(loan.total_paid) / Number(loan.total_payable)) * 100 : 0}%` }}
                                                 />
                                             </div>
                                         )}
@@ -580,10 +661,12 @@ export const LoansPage: React.FC = () => {
                                     <input
                                         type="number"
                                         value={formData.principal || ''}
-                                        onChange={(e) => setFormData(p => ({ ...p, principal: parseFloat(e.target.value) || 0 }))}
+                                        onChange={(e) => { const v = parseFloat(e.target.value) || 0; setFormData(p => ({ ...p, principal: v })); loanValidation.onChange('principal', v); }}
+                                        onBlur={() => loanValidation.onBlur('principal', formData.principal)}
                                         placeholder="0"
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${fieldErrorClass(loanValidation.getFieldError('principal'))}`}
                                     />
+                                    <FieldError error={loanValidation.getFieldError('principal')} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -592,11 +675,13 @@ export const LoansPage: React.FC = () => {
                                     <input
                                         type="number"
                                         value={formData.term_months}
-                                        onChange={(e) => setFormData(p => ({ ...p, term_months: parseInt(e.target.value) || 1 }))}
+                                        onChange={(e) => { const v = parseInt(e.target.value) || 1; setFormData(p => ({ ...p, term_months: v })); loanValidation.onChange('term_months', v); }}
+                                        onBlur={() => loanValidation.onBlur('term_months', formData.term_months)}
                                         min={1}
                                         max={24}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${fieldErrorClass(loanValidation.getFieldError('term_months'))}`}
                                     />
+                                    <FieldError error={loanValidation.getFieldError('term_months')} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -633,12 +718,31 @@ export const LoansPage: React.FC = () => {
                                 </label>
                                 <textarea
                                     value={formData.purpose}
-                                    onChange={(e) => setFormData(p => ({ ...p, purpose: e.target.value }))}
+                                    onChange={(e) => { setFormData(p => ({ ...p, purpose: e.target.value })); loanValidation.onChange('purpose', e.target.value); }}
+                                    onBlur={() => loanValidation.onBlur('purpose', formData.purpose)}
                                     rows={3}
                                     placeholder="Brief description of why you need this loan..."
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${fieldErrorClass(loanValidation.getFieldError('purpose'))}`}
                                 />
+                                <FieldError error={loanValidation.getFieldError('purpose')} />
                             </div>
+
+                            {/* Guarantor */}
+                            {formData.loan_type === 'staff_loan' && (
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Guarantor (optional)</label>
+                                    <select
+                                        value={formData.guarantor_id}
+                                        onChange={(e) => setFormData(p => ({ ...p, guarantor_id: e.target.value }))}
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    >
+                                        <option value="">Select guarantor...</option>
+                                        {staffForGuarantor?.map((s: any) => (
+                                            <option key={s.id} value={s.id}>{s.full_name || `${s.first_name} ${s.last_name}`}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             {/* Options */}
                             <div className="space-y-3 mb-6">
@@ -711,8 +815,8 @@ export const LoansPage: React.FC = () => {
                                 Cancel
                             </button>
                             <button
-                                onClick={() => applyLoanMutation.mutate(formData)}
-                                disabled={formData.principal <= 0 || applyLoanMutation.isPending}
+                                onClick={() => { if (loanValidation.validateAll(formData)) applyLoanMutation.mutate(formData); }}
+                                disabled={applyLoanMutation.isPending}
                                 className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {applyLoanMutation.isPending ? (
@@ -845,12 +949,12 @@ export const LoansPage: React.FC = () => {
                                             <div className="mt-4">
                                                 <div className="flex justify-between text-sm text-slate-600 mb-1">
                                                     <span>Repayment Progress</span>
-                                                    <span>{Math.round((Number(selectedLoan.total_paid) / Number(selectedLoan.total_payable)) * 100)}%</span>
+                                                    <span>{Number(selectedLoan.total_payable) > 0 ? Math.round((Number(selectedLoan.total_paid) / Number(selectedLoan.total_payable)) * 100) : 0}%</span>
                                                 </div>
                                                 <div className="w-full h-3 bg-white rounded-full">
                                                     <div
                                                         className="h-full bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"
-                                                        style={{ width: `${(Number(selectedLoan.total_paid) / Number(selectedLoan.total_payable)) * 100}%` }}
+                                                        style={{ width: `${Number(selectedLoan.total_payable) > 0 ? (Number(selectedLoan.total_paid) / Number(selectedLoan.total_payable)) * 100 : 0}%` }}
                                                     />
                                                 </div>
                                             </div>
@@ -991,15 +1095,47 @@ export const LoansPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
                             {selectedLoan.status === 'pending' && (
+                                <>
+                                    <button
+                                        onClick={() => cancelLoanMutation.mutate(selectedLoan.id)}
+                                        disabled={cancelLoanMutation.isPending}
+                                        className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center gap-2"
+                                    >
+                                        <XCircle size={18} />
+                                        Cancel
+                                    </button>
+                                    {isManager && (
+                                    <button
+                                        onClick={() => setLoanDialogType('reject')}
+                                        disabled={rejectLoanMutation.isPending}
+                                        className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg font-medium flex items-center gap-2"
+                                    >
+                                        <XCircle size={18} />
+                                        Reject
+                                    </button>
+                                    )}
+                                </>
+                            )}
+                            {isManager && selectedLoan.status === 'approved' && (
                                 <button
-                                    onClick={() => cancelLoanMutation.mutate(selectedLoan.id)}
-                                    disabled={cancelLoanMutation.isPending}
-                                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center gap-2"
+                                    onClick={() => setLoanDialogType('disburse')}
+                                    disabled={disburseLoanMutation.isPending}
+                                    className="px-4 py-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-lg font-medium flex items-center gap-2"
                                 >
-                                    <XCircle size={18} />
-                                    Cancel Application
+                                    <DollarSign size={18} />
+                                    Disburse Loan
+                                </button>
+                            )}
+                            {isManager && (selectedLoan.status === 'active' || selectedLoan.status === 'disbursed') && Number(selectedLoan.outstanding_balance) > 0 && (
+                                <button
+                                    onClick={() => setLoanDialogType('payment')}
+                                    disabled={recordPaymentMutation.isPending}
+                                    className="px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-medium flex items-center gap-2"
+                                >
+                                    <CreditCard size={18} />
+                                    Record Payment
                                 </button>
                             )}
                             <div className="flex-1" />
@@ -1013,6 +1149,73 @@ export const LoansPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Reject Loan Dialog */}
+            <InputDialog
+                isOpen={loanDialogType === 'reject'}
+                title="Reject Loan"
+                message="Please provide a reason for rejecting this loan."
+                inputLabel="Rejection Reason"
+                inputType="textarea"
+                placeholder="Enter reason..."
+                confirmLabel="Reject"
+                onConfirm={(reason) => {
+                    if (selectedLoan) {
+                        rejectLoanMutation.mutate({ loanId: selectedLoan.id, reason });
+                    }
+                    setLoanDialogType(null);
+                }}
+                onCancel={() => setLoanDialogType(null)}
+                isLoading={rejectLoanMutation.isPending}
+            />
+
+            {/* Disburse Loan Dialog */}
+            <InputDialog
+                isOpen={loanDialogType === 'disburse'}
+                title="Disburse Loan"
+                message="Enter the disbursement reference for this loan."
+                inputLabel="Disbursement Reference"
+                placeholder="Enter reference..."
+                confirmLabel="Disburse"
+                onConfirm={(reference) => {
+                    if (selectedLoan) {
+                        disburseLoanMutation.mutate({
+                            loanId: selectedLoan.id,
+                            disbursement_reference: reference,
+                            disbursement_method: 'bank_transfer',
+                        });
+                    }
+                    setLoanDialogType(null);
+                }}
+                onCancel={() => setLoanDialogType(null)}
+                isLoading={disburseLoanMutation.isPending}
+            />
+
+            {/* Record Payment Dialog */}
+            <InputDialog
+                isOpen={loanDialogType === 'payment'}
+                title="Record Loan Payment"
+                message={`Enter payment reference. Outstanding balance: ${selectedLoan?.outstanding_balance}`}
+                inputLabel="Payment Reference"
+                placeholder="Enter payment reference..."
+                confirmLabel="Record Payment"
+                onConfirm={(reference) => {
+                    if (selectedLoan) {
+                        recordPaymentMutation.mutate({
+                            loanId: selectedLoan.id,
+                            amount: Number(selectedLoan.outstanding_balance),
+                            payment_method: 'bank_transfer',
+                            payment_reference: reference,
+                        });
+                    }
+                    setLoanDialogType(null);
+                }}
+                onCancel={() => setLoanDialogType(null)}
+                isLoading={recordPaymentMutation.isPending}
+            />
         </div>
     );
 };
+
+export { LoansPage };
+export default LoansPage;

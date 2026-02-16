@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { PipelineStage } from './pipeline-stage.entity';
 import { CandidateNote } from './candidate-note.entity';
+import { EducationLevel } from './screening-criteria.entity';
 
 export enum CandidateSource {
     CAREER_PAGE = 'career_page',
@@ -68,11 +69,21 @@ export class Candidate {
     @Column('simple-array', { nullable: true })
     skills: string[];
 
+    @Column('simple-array', { nullable: true })
+    certifications: string[];
+
     @Column({ type: 'text', nullable: true })
     education: string;
 
+    @Column({ type: 'enum', enum: EducationLevel, default: EducationLevel.ANY })
+    education_level: EducationLevel;
+
     @Column({ nullable: true })
     highest_qualification: string;
+
+    // Work authorization
+    @Column({ nullable: true })
+    work_authorization: string;
 
     // Documents
     @Column({ nullable: true })

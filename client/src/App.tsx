@@ -1,35 +1,61 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth.store';
 import { ProtectedRoute, UnauthorizedPage, ROLES, ROLE_GROUPS } from './components/auth/ProtectedRoute';
-import { LoginPage } from './pages/LoginPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
-import { RoleBasedDashboard } from './pages/dashboards';
-import { StaffPage } from './pages/StaffPage';
-import { LeavePage } from './pages/LeavePage';
-import { ClaimsPage } from './pages/ClaimsPage';
-import { LoansPage } from './pages/LoansPage';
-import { RecruitmentPage } from './pages/RecruitmentPage';
-import { ReportsPage } from './pages/ReportsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ApprovalsPage } from './pages/ApprovalsPage';
-import { ApprovalHistoryPage } from './pages/ApprovalHistoryPage';
-import OnboardingPage from './pages/OnboardingPage';
-import { PettyCashPage } from './pages/PettyCashPage';
-import { AnnouncementsPage } from './pages/AnnouncementsPage';
-import { PublicLayout } from './layouts/PublicLayout';
-import { CareersPage } from './pages/public/CareersPage';
-import { JobDetailPage } from './pages/public/JobDetailPage';
-import { OfferSigningPage } from './pages/public/OfferSigningPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './components/ui/Toast';
+
+// Lazy-loaded pages — each becomes its own chunk
+const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
+const RoleBasedDashboard = React.lazy(() => import('./pages/dashboards'));
+const ClaimsPage = React.lazy(() => import('./pages/ClaimsPage'));
+const LoansPage = React.lazy(() => import('./pages/LoansPage'));
+const RecruitmentPage = React.lazy(() => import('./pages/RecruitmentPage'));
+const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const ApprovalsPage = React.lazy(() => import('./pages/ApprovalsPage'));
+const ApprovalHistoryPage = React.lazy(() => import('./pages/ApprovalHistoryPage'));
+const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage'));
+const PettyCashPage = React.lazy(() => import('./pages/PettyCashPage'));
+const AnnouncementsPage = React.lazy(() => import('./pages/AnnouncementsPage'));
+const UsersPage = React.lazy(() => import('./pages/UsersPage'));
+const RolesPage = React.lazy(() => import('./pages/RolesPage'));
+const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
+const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
+const StaffProfilePage = React.lazy(() => import('./pages/StaffProfilePage'));
+const MyProfilePage = React.lazy(() => import('./pages/MyProfilePage'));
+const LeaveAdminPage = React.lazy(() => import('./pages/LeaveAdminPage'));
+const NotificationsPage = React.lazy(() => import('./pages/NotificationsPage'));
+const AuditPage = React.lazy(() => import('./pages/AuditPage'));
+const PublicLayout = React.lazy(() => import('./layouts/PublicLayout'));
+const CareersPage = React.lazy(() => import('./pages/public/CareersPage'));
+const JobDetailPage = React.lazy(() => import('./pages/public/JobDetailPage'));
+const OfferSigningPage = React.lazy(() => import('./pages/public/OfferSigningPage'));
+const StaffManagementPage = React.lazy(() => import('./pages/StaffManagementPage'));
+const LeaveManagementPage = React.lazy(() => import('./pages/LeaveManagementPage'));
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
+
+// Page loading skeleton
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-3 border-slate-200 border-t-[#0066B3] rounded-full animate-spin" />
+      <p className="text-sm text-slate-400">Loading...</p>
+    </div>
+  </div>
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
     },
   },
 });
@@ -47,8 +73,11 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   return (
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
+      <ToastProvider>
       <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
@@ -81,16 +110,34 @@ function App() {
 
             {/* Staff Management - HR and Management only */}
             <Route
-              path="staff"
+              path="staff-management"
               element={
                 <ProtectedRoute allowedRoles={ROLE_GROUPS.HR}>
-                  <StaffPage />
+                  <StaffManagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="staff" element={<Navigate to="/staff-management" replace />} />
+            <Route
+              path="staff/:id"
+              element={
+                <ProtectedRoute allowedRoles={ROLE_GROUPS.HR}>
+                  <StaffProfilePage />
                 </ProtectedRoute>
               }
             />
 
-            {/* Leave - accessible to all staff */}
-            <Route path="leave" element={<LeavePage />} />
+            {/* Leave Management - accessible to all staff */}
+            <Route path="leave-management" element={<LeaveManagementPage />} />
+            <Route path="leave" element={<Navigate to="/leave-management" replace />} />
+            <Route
+              path="leave-admin"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER]}>
+                  <LeaveAdminPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Claims - accessible to all staff */}
             <Route path="claims" element={<ClaimsPage />} />
@@ -112,8 +159,21 @@ function App() {
             <Route
               path="reports"
               element={
-                <ProtectedRoute allowedRoles={ROLE_GROUPS.MANAGEMENT}>
+                <ProtectedRoute allowedRoles={[...ROLE_GROUPS.MANAGEMENT, ROLES.ACCOUNTANT, ROLES.BRANCH_MANAGER, ROLES.RELATIONSHIP_OFFICER]}>
                   <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Notifications - All authenticated users */}
+            <Route path="notifications" element={<NotificationsPage />} />
+
+            {/* Audit - CEO and HR only */}
+            <Route
+              path="audit"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER]}>
+                  <AuditPage />
                 </ProtectedRoute>
               }
             />
@@ -128,24 +188,9 @@ function App() {
               }
             />
 
-            {/* Approvals - Management only */}
-            <Route
-              path="approvals"
-              element={
-                <ProtectedRoute allowedRoles={ROLE_GROUPS.MANAGEMENT}>
-                  <ApprovalsPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="approvals/history"
-              element={
-                <ProtectedRoute allowedRoles={ROLE_GROUPS.MANAGEMENT}>
-                  <ApprovalHistoryPage />
-                </ProtectedRoute>
-              }
-            />
+            {/* Approvals - accessible to all staff (non-approvers see My Submissions) */}
+            <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="approvals/history" element={<ApprovalHistoryPage />} />
 
             {/* Onboarding - HR only */}
             <Route
@@ -169,13 +214,52 @@ function App() {
 
             {/* Announcements - accessible to all staff */}
             <Route path="announcements" element={<AnnouncementsPage />} />
+
+            {/* User Management - CEO and HR only */}
+            <Route
+              path="users"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER]}>
+                  <UsersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Role Management - CEO only */}
+            <Route
+              path="roles"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO]}>
+                  <RolesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Security Settings - accessible to all authenticated users */}
+            <Route path="security" element={<SecuritySettingsPage />} />
+
+            {/* My Profile - accessible to all authenticated users */}
+            <Route path="my-profile" element={<MyProfilePage />} />
+
+            {/* Organization Management - CEO and HR only */}
+            <Route
+              path="organization"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER, ROLES.REGIONAL_MANAGER]}>
+                  <OrganizationPage />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
-          {/* Catch-all route */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* 404 - Not Found */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

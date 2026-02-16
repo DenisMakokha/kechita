@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { ApprovalInstance } from './approval-instance.entity';
 import { ApprovalFlowStep } from './approval-flow-step.entity';
 import { Staff } from '../../staff/entities/staff.entity';
@@ -28,6 +28,7 @@ export class ApprovalAction {
     @Column({ type: 'int' })
     step_order: number;
 
+    @Index()
     @ManyToOne(() => Staff, { nullable: true })
     @JoinColumn({ name: 'approver_staff_id' })
     approver?: Staff;

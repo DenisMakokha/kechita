@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
-    FileText, PenTool, Type, Upload, Check, X, Clock, AlertCircle,
+    FileText, PenTool, Type, Check, X, Clock, AlertCircle,
     Building2, Calendar, DollarSign, Briefcase
 } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -33,7 +33,6 @@ interface SignatureRequest {
 
 export const OfferSigningPage: React.FC = () => {
     const { token } = useParams<{ token: string }>();
-    const navigate = useNavigate();
     const [signatureType, setSignatureType] = useState<'drawn' | 'typed' | 'uploaded'>('drawn');
     const [signatureData, setSignatureData] = useState<string>('');
     const [typedName, setTypedName] = useState('');

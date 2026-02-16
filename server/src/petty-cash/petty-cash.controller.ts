@@ -24,31 +24,31 @@ export class PettyCashController {
     // ==================== FLOATS ====================
 
     @Get('floats')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getAllFloats() {
         return this.pettyCashService.getAllFloats();
     }
 
     @Get('floats/needing-replenishment')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     getFloatsNeedingReplenishment() {
         return this.pettyCashService.getFloatsNeedingReplenishment();
     }
 
     @Get('floats/:id')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getFloat(@Param('id', ParseUUIDPipe) id: string) {
         return this.pettyCashService.getFloat(id);
     }
 
     @Get('floats/branch/:branchId')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getFloatByBranch(@Param('branchId', ParseUUIDPipe) branchId: string) {
         return this.pettyCashService.getFloatsByBranch(branchId);
     }
 
     @Post('floats')
-    @Roles('CEO', 'FINANCE_MANAGER')
+    @Roles('CEO', 'HR_MANAGER')
     createFloat(@Body() data: CreateFloatDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
@@ -56,7 +56,7 @@ export class PettyCashController {
     }
 
     @Patch('floats/:id/custodian')
-    @Roles('CEO', 'FINANCE_MANAGER', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'BRANCH_MANAGER')
     updateCustodian(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCustodianDto) {
         return this.pettyCashService.updateFloatCustodian(id, dto.custodian_id);
     }
@@ -64,7 +64,7 @@ export class PettyCashController {
     // ==================== TRANSACTIONS ====================
 
     @Get('transactions')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getTransactions(
         @Query('float_id') floatId?: string,
         @Query('type') type?: TransactionType,
@@ -84,7 +84,7 @@ export class PettyCashController {
     }
 
     @Post('transactions/expense')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     recordExpense(@Body() data: RecordExpenseDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
@@ -93,7 +93,7 @@ export class PettyCashController {
 
     // Alias for frontend compatibility
     @Post('expenses')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     recordExpenseAlias(@Body() data: RecordExpenseDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
@@ -101,7 +101,7 @@ export class PettyCashController {
     }
 
     @Get('ledger/:floatId')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getLedger(
         @Param('floatId', ParseUUIDPipe) floatId: string,
         @Query('start_date') startDate?: string,
@@ -113,13 +113,13 @@ export class PettyCashController {
     // ==================== REPLENISHMENTS ====================
 
     @Get('replenishments/pending')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     getPendingReplenishments() {
         return this.pettyCashService.getPendingReplenishments();
     }
 
     @Post('replenishments')
-    @Roles('CEO', 'FINANCE_MANAGER', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'BRANCH_MANAGER')
     requestReplenishment(@Body() data: RequestReplenishmentDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
@@ -127,7 +127,7 @@ export class PettyCashController {
     }
 
     @Patch('replenishments/:id/approve')
-    @Roles('CEO', 'FINANCE_MANAGER')
+    @Roles('CEO', 'HR_MANAGER')
     approveReplenishment(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: ApproveReplenishmentDto,
@@ -139,7 +139,7 @@ export class PettyCashController {
     }
 
     @Patch('replenishments/:id/disburse')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     disburseReplenishment(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: DisburseReplenishmentDto,
@@ -153,7 +153,7 @@ export class PettyCashController {
     // ==================== RECONCILIATION ====================
 
     @Post('reconciliations/cash-count')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     performCashCount(@Body() data: CashCountDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
@@ -161,7 +161,7 @@ export class PettyCashController {
     }
 
     @Patch('reconciliations/:id/verify')
-    @Roles('CEO', 'FINANCE_MANAGER')
+    @Roles('CEO', 'HR_MANAGER')
     verifyReconciliation(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: VerifyReconciliationDto,
@@ -175,7 +175,7 @@ export class PettyCashController {
     // ==================== REPORTS ====================
 
     @Get('reports/monthly/:floatId')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getMonthlyReport(
         @Param('floatId', ParseUUIDPipe) floatId: string,
         @Query('year') year: string,
@@ -185,7 +185,7 @@ export class PettyCashController {
     }
 
     @Get('dashboard')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     getDashboardStats() {
         return this.pettyCashService.getDashboardStats();
     }
@@ -193,7 +193,7 @@ export class PettyCashController {
     // ==================== CATEGORY LIST ====================
 
     @Get('categories')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getCategories() {
         return Object.values(ExpenseCategory).map(cat => ({
             code: cat,
@@ -204,7 +204,7 @@ export class PettyCashController {
     // ==================== REJECT REPLENISHMENT ====================
 
     @Patch('replenishments/:id/reject')
-    @Roles('CEO', 'FINANCE_MANAGER')
+    @Roles('CEO', 'HR_MANAGER')
     rejectReplenishment(
         @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason: string,
@@ -216,7 +216,7 @@ export class PettyCashController {
     // ==================== CANCEL TRANSACTION ====================
 
     @Patch('transactions/:id/cancel')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     cancelTransaction(
         @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason: string,
@@ -228,13 +228,13 @@ export class PettyCashController {
     // ==================== FLOAT ACTIVATION ====================
 
     @Patch('floats/:id/deactivate')
-    @Roles('CEO', 'FINANCE_MANAGER')
+    @Roles('CEO', 'HR_MANAGER')
     deactivateFloat(@Param('id', ParseUUIDPipe) id: string) {
         return this.pettyCashService.deactivateFloat(id);
     }
 
     @Patch('floats/:id/activate')
-    @Roles('CEO', 'FINANCE_MANAGER')
+    @Roles('CEO', 'HR_MANAGER')
     activateFloat(@Param('id', ParseUUIDPipe) id: string) {
         return this.pettyCashService.activateFloat(id);
     }
@@ -242,7 +242,7 @@ export class PettyCashController {
     // ==================== RECONCILIATION HISTORY ====================
 
     @Get('reconciliations/:floatId/history')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     getReconciliationHistory(@Param('floatId', ParseUUIDPipe) floatId: string) {
         return this.pettyCashService.getReconciliationHistory(floatId);
     }
@@ -250,7 +250,7 @@ export class PettyCashController {
     // ==================== DELETE PENDING TRANSACTION ====================
 
     @Delete('transactions/:id')
-    @Roles('CEO', 'FINANCE_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'BRANCH_MANAGER')
     deletePendingTransaction(
         @Param('id', ParseUUIDPipe) id: string,
         @Req() req: AuthenticatedRequest,

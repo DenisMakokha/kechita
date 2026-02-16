@@ -6,16 +6,19 @@ import { RegionalManagerDashboard } from './RegionalManagerDashboard';
 import { BranchManagerDashboard } from './BranchManagerDashboard';
 import { StaffDashboard } from './StaffDashboard';
 import AccountantDashboard from './AccountantDashboard';
+import { HRAssistantDashboard } from './HRAssistantDashboard';
+import { RelationshipOfficerDashboard } from './RelationshipOfficerDashboard';
 
 /**
  * Role-Based Dashboard Router
  * Displays the appropriate dashboard based on user's role
+ * Priority order determines which dashboard is shown for users with multiple roles
  */
 export const RoleBasedDashboard: React.FC = () => {
     const { user } = useAuthStore();
     const userRoles = user?.roles?.map((r) => r.code) || [];
 
-    // Priority-based role routing
+    // Priority-based role routing (highest privilege first)
     if (userRoles.includes('CEO')) {
         return <CEODashboard />;
     }
@@ -24,7 +27,7 @@ export const RoleBasedDashboard: React.FC = () => {
         return <HRDashboard />;
     }
 
-    if (userRoles.includes('REGIONAL_MANAGER')) {
+    if (userRoles.includes('REGIONAL_MANAGER') || userRoles.includes('REGIONAL_ADMIN')) {
         return <RegionalManagerDashboard />;
     }
 
@@ -34,6 +37,19 @@ export const RoleBasedDashboard: React.FC = () => {
 
     if (userRoles.includes('ACCOUNTANT')) {
         return <AccountantDashboard />;
+    }
+
+    if (userRoles.includes('HR_ASSISTANT')) {
+        return <HRAssistantDashboard />;
+    }
+
+    if (userRoles.includes('BDM')) {
+        // BDM is a field staff role similar to RO
+        return <RelationshipOfficerDashboard />;
+    }
+
+    if (userRoles.includes('RELATIONSHIP_OFFICER')) {
+        return <RelationshipOfficerDashboard />;
     }
 
     // Default staff dashboard for all other roles

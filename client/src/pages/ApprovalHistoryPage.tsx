@@ -5,7 +5,7 @@ import { ApprovalTimeline } from '../components/ApprovalTimeline';
 import {
     History, Calendar, DollarSign, Briefcase, CheckCircle,
     XCircle, Clock, Search, Filter, ChevronDown, X,
-    FileText, User, Building2, ArrowRight
+    FileText, User, ArrowRight
 } from 'lucide-react';
 
 interface ApprovalHistoryItem {

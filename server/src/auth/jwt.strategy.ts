@@ -41,6 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             staff_id: staff?.id,
             email: payload.email,
             roles: (payload.roles || []).map((code: string) => ({ code })),
+            permissions: payload.permissions || [],
         };
     }
 }

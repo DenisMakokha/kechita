@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { X, Calendar, Clock, MapPin, Video, Users, CheckCircle } from 'lucide-react';
+import { X, Video, Users, CheckCircle } from 'lucide-react';
 import api from '../../lib/api';
 
 interface InterviewModalProps {
@@ -40,7 +40,8 @@ export const InterviewModal: React.FC<InterviewModalProps> = ({ applicationId, c
             queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
             queryClient.invalidateQueries({ queryKey: ['recruitment-dashboard'] });
             onClose();
-        }
+        },
+        onError: (e: any) => console.error('Failed to schedule interview:', e),
     });
 
     const handleSubmit = (e: React.FormEvent) => {

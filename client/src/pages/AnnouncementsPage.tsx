@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
     Megaphone, Plus, Send, Clock, Eye, Users, Bell, CheckCircle,
     Calendar, Mail, MessageSquare, X, Edit, Archive, AlertCircle, Globe
@@ -29,69 +30,21 @@ interface Announcement {
     author?: { first_name: string; last_name: string };
 }
 
-// Demo announcements for UI preview
-const demoAnnouncements: Announcement[] = [
-    {
-        id: '1',
-        title: '🎉 Q4 Performance Bonus Announcement',
-        content: 'We are pleased to announce that due to excellent company performance in Q4, all eligible employees will receive a performance bonus. Details will be shared with your respective branch managers.',
-        priority: 'high',
-        status: 'published',
-        channels: ['portal', 'email'],
-        target_audience: { all_staff: true },
-        published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        requires_acknowledgment: true,
-        view_count: 142,
-        acknowledgment_count: 89,
-        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        author: { first_name: 'Grace', last_name: 'Mwangi' }
-    },
-    {
-        id: '2',
-        title: 'System Maintenance - Saturday 10PM',
-        content: 'The HR Portal will undergo scheduled maintenance this Saturday from 10 PM to 2 AM. Please save your work before this time. Mobile app access will remain available.',
-        priority: 'normal',
-        status: 'published',
-        channels: ['portal'],
-        target_audience: { all_staff: true },
-        published_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        requires_acknowledgment: false,
-        view_count: 98,
-        acknowledgment_count: 0,
-        created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        author: { first_name: 'IT', last_name: 'Support' }
-    },
-    {
-        id: '3',
-        title: 'New Leave Policy Updates for 2026',
-        content: 'Please review the updated leave policy document which includes changes to annual leave carry-over limits and new parental leave benefits. All staff must acknowledge by end of month.',
-        priority: 'urgent',
-        status: 'published',
-        channels: ['portal', 'email', 'sms'],
-        target_audience: { all_staff: true },
-        published_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        requires_acknowledgment: true,
-        view_count: 156,
-        acknowledgment_count: 134,
-        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        author: { first_name: 'HR', last_name: 'Department' }
-    }
-];
 
 export const AnnouncementsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'feed' | 'manage'>('feed');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
     const [statusFilter, setStatusFilter] = useState<string>('');
-    const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const [deleteAnnId, setDeleteAnnId] = useState<string | null>(null);
     const queryClient = useQueryClient();
     const user = useAuthStore(state => state.user);
     const isAdmin = user?.roles?.some(r => ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'].includes(r.code)) || false;
 
     // Show toast message
-    const showToast = (message: string) => {
-        setToastMessage(message);
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToastMessage({ text: message, type });
         setTimeout(() => setToastMessage(null), 3000);
     };
 
@@ -99,6 +52,7 @@ export const AnnouncementsPage: React.FC = () => {
     const { data: myAnnouncements = [] } = useQuery<Announcement[]>({
         queryKey: ['my-announcements'],
         queryFn: () => api.get('/communications/announcements/my').then(r => r.data),
+        refetchInterval: 60000,
     });
 
     // Admin announcements (for management)
@@ -106,6 +60,7 @@ export const AnnouncementsPage: React.FC = () => {
         queryKey: ['all-announcements', statusFilter],
         queryFn: () => api.get('/communications/announcements', { params: { status: statusFilter || undefined } }).then(r => r.data),
         enabled: isAdmin,
+        refetchInterval: 60000,
     });
 
     const acknowledgeMutation = useMutation({
@@ -119,15 +74,44 @@ export const AnnouncementsPage: React.FC = () => {
         }
     });
 
-    // Handle acknowledge - works for both real and demo data
-    const handleAcknowledge = (id: string, isDemo: boolean = false) => {
-        if (isDemo) {
-            // For demo data, just track locally
-            setAcknowledgedIds(prev => new Set([...prev, id]));
-            showToast('Announcement acknowledged successfully!');
-        } else {
-            acknowledgeMutation.mutate(id);
-        }
+    const publishMutation = useMutation({
+        mutationFn: (id: string) => api.patch(`/communications/announcements/${id}/publish`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['all-announcements'] });
+            showToast('Announcement published!');
+        },
+        onError: (error: any) => showToast(error?.response?.data?.message || 'Failed to publish announcement', 'error'),
+    });
+
+    const archiveMutation = useMutation({
+        mutationFn: (id: string) => api.patch(`/communications/announcements/${id}/archive`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['all-announcements'] });
+            showToast('Announcement archived');
+        },
+        onError: (error: any) => showToast(error?.response?.data?.message || 'Failed to archive announcement', 'error'),
+    });
+
+    const unarchiveMutation = useMutation({
+        mutationFn: (id: string) => api.patch(`/communications/announcements/${id}/unarchive`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['all-announcements'] });
+            showToast('Announcement restored');
+        },
+        onError: (error: any) => showToast(error?.response?.data?.message || 'Failed to restore announcement', 'error'),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => api.delete(`/communications/announcements/${id}`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['all-announcements'] });
+            showToast('Announcement deleted');
+        },
+        onError: (error: any) => showToast(error?.response?.data?.message || 'Failed to delete announcement', 'error'),
+    });
+
+    const handleAcknowledge = (id: string) => {
+        acknowledgeMutation.mutate(id);
     };
 
     const getPriorityStyles = (priority: string) => {
@@ -162,20 +146,17 @@ export const AnnouncementsPage: React.FC = () => {
         return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     };
 
-    // Use demo data if no real announcements
-    const isUsingDemoData = myAnnouncements.length === 0;
-    const baseAnnouncements = isUsingDemoData ? demoAnnouncements : myAnnouncements;
-    const displayAnnouncements = baseAnnouncements.filter(a => !acknowledgedIds.has(a.id));
-    const displayAllAnnouncements = allAnnouncements.length > 0 ? allAnnouncements : demoAnnouncements;
+    const displayAnnouncements = myAnnouncements;
+    const displayAllAnnouncements = allAnnouncements;
 
     return (
         <div className="space-y-6">
             {/* Toast Notification */}
             {toastMessage && (
                 <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-                    <div className="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3">
-                        <CheckCircle size={18} className="text-emerald-400" />
-                        <span className="font-medium">{toastMessage}</span>
+                    <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${toastMessage.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
+                        <CheckCircle size={18} className={toastMessage.type === 'error' ? 'text-white' : 'text-emerald-400'} />
+                        <span className="font-medium">{toastMessage.text}</span>
                     </div>
                 </div>
             )}
@@ -324,7 +305,7 @@ export const AnnouncementsPage: React.FC = () => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleAcknowledge(ann.id, isUsingDemoData);
+                                                        handleAcknowledge(ann.id);
                                                     }}
                                                     className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors text-sm whitespace-nowrap"
                                                 >
@@ -437,15 +418,40 @@ export const AnnouncementsPage: React.FC = () => {
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
                                                     {ann.status === 'draft' && (
-                                                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Publish">
+                                                        <button
+                                                            onClick={() => publishMutation.mutate(ann.id)}
+                                                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                            title="Publish"
+                                                        >
                                                             <Send size={16} />
                                                         </button>
                                                     )}
                                                     <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
                                                         <Edit size={16} />
                                                     </button>
-                                                    <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors" title="Archive">
-                                                        <Archive size={16} />
+                                                    {ann.status !== 'archived' ? (
+                                                        <button
+                                                            onClick={() => archiveMutation.mutate(ann.id)}
+                                                            className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            title="Archive"
+                                                        >
+                                                            <Archive size={16} />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => unarchiveMutation.mutate(ann.id)}
+                                                            className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="Restore"
+                                                        >
+                                                            <CheckCircle size={16} />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setDeleteAnnId(ann.id)}
+                                                        className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <X size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -494,7 +500,7 @@ export const AnnouncementsPage: React.FC = () => {
                             {selectedAnnouncement.requires_acknowledgment && (
                                 <button
                                     onClick={() => {
-                                        handleAcknowledge(selectedAnnouncement.id, isUsingDemoData);
+                                        handleAcknowledge(selectedAnnouncement.id);
                                         setSelectedAnnouncement(null);
                                     }}
                                     className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-colors"
@@ -524,6 +530,18 @@ export const AnnouncementsPage: React.FC = () => {
                     }}
                 />
             )}
+
+            {/* Delete Announcement Dialog */}
+            <ConfirmDialog
+                isOpen={!!deleteAnnId}
+                title="Delete Announcement"
+                message="Are you sure you want to delete this announcement? This action cannot be undone."
+                confirmLabel="Delete"
+                variant="danger"
+                onConfirm={() => { if (deleteAnnId) deleteMutation.mutate(deleteAnnId); setDeleteAnnId(null); }}
+                onCancel={() => setDeleteAnnId(null)}
+                isLoading={deleteMutation.isPending}
+            />
         </div>
     );
 };

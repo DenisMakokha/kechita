@@ -3,16 +3,19 @@ import {
     UseGuards, UseInterceptors, UploadedFile, Req, Res, BadRequestException,
     ParseFilePipeBuilder, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StaffService } from './staff.service';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
+import { ContractService } from './services/contract.service';
 import { CreateTemplateDto, CreateTaskDto } from './dto/onboarding.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { StaffStatus, ProbationStatus } from './entities/staff.entity';
+import { ContractType } from './entities/staff-contract.entity';
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('staff')
@@ -22,6 +25,7 @@ export class StaffController {
         private readonly staffService: StaffService,
         private readonly documentService: DocumentService,
         private readonly onboardingService: OnboardingService,
+        private readonly contractService: ContractService,
     ) { }
 
     // ==================== STAFF CRUD ====================
@@ -49,8 +53,35 @@ export class StaffController {
         return this.staffService.findAll(filter);
     }
 
+    // ==================== HIRE CANDIDATE ====================
+
+    @Post('hire-candidate')
+    @Roles('CEO', 'HR_MANAGER')
+    hireCandidate(
+        @Body() data: {
+            candidate_first_name: string;
+            candidate_last_name: string;
+            candidate_email: string;
+            candidate_phone?: string;
+            position_id: string;
+            role_id: string;
+            branch_id?: string;
+            region_id?: string;
+            department_id?: string;
+            manager_id?: string;
+            basic_salary?: number;
+            hire_date?: string;
+            probation_months?: number;
+        },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.staffService.hireCandidate(data, req.user.id);
+    }
+
     @Get('stats')
     @Roles('CEO', 'HR_MANAGER')
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(60000)
     getStats() {
         return this.staffService.getStaffStats();
     }
@@ -321,6 +352,8 @@ export class StaffController {
 
     @Get('onboarding/stats')
     @Roles('CEO', 'HR_MANAGER')
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(60000)
     getOnboardingStats() {
         return this.onboardingService.getOnboardingStats();
     }
@@ -387,6 +420,32 @@ export class StaffController {
             start_date: new Date(data.start_date),
             end_date: data.end_date ? new Date(data.end_date) : undefined,
         });
+    }
+
+    // ==================== PROMOTION ====================
+
+    @Post(':id/promote')
+    @Roles('CEO', 'HR_MANAGER')
+    promoteStaff(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: {
+            new_position_id: string;
+            new_salary?: number;
+            new_department_id?: string;
+            new_branch_id?: string;
+            effective_date?: string;
+            reason?: string;
+        },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.staffService.promoteStaff(
+            id,
+            {
+                ...data,
+                effective_date: data.effective_date ? new Date(data.effective_date) : undefined,
+            },
+            req.user.id,
+        );
     }
 
     // ==================== TRANSFER ====================
@@ -513,5 +572,132 @@ export class StaffController {
             last_working_date: new Date(data.last_working_date),
             notice_period_days: data.notice_period_days,
         });
+    }
+
+    // ==================== CONTRACTS ====================
+
+    @Get('contracts/expiring')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getExpiringContracts(@Query('days') days?: string) {
+        return this.contractService.getExpiringContracts(days ? parseInt(days) : 30);
+    }
+
+    @Get(':staffId/contracts')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getStaffContracts(@Param('staffId', ParseUUIDPipe) staffId: string) {
+        return this.contractService.findByStaff(staffId);
+    }
+
+    @Get(':staffId/contracts/active')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getActiveContract(@Param('staffId', ParseUUIDPipe) staffId: string) {
+        return this.contractService.getActiveContract(staffId);
+    }
+
+    @Post(':staffId/contracts')
+    @Roles('CEO', 'HR_MANAGER')
+    createContract(
+        @Param('staffId', ParseUUIDPipe) staffId: string,
+        @Body() data: {
+            contract_type: ContractType;
+            start_date: string;
+            end_date?: string;
+            salary?: number;
+            salary_currency?: string;
+            job_title?: string;
+            title?: string;
+            terms?: string;
+            special_conditions?: string;
+            notice_period_days?: number;
+        },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.contractService.create(
+            staffId,
+            {
+                ...data,
+                start_date: new Date(data.start_date),
+                end_date: data.end_date ? new Date(data.end_date) : undefined,
+            },
+            req.user.id,
+        );
+    }
+
+    @Put('contracts/:contractId')
+    @Roles('CEO', 'HR_MANAGER')
+    updateContract(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: any,
+    ) {
+        return this.contractService.update(contractId, data);
+    }
+
+    @Patch('contracts/:contractId/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    activateContract(@Param('contractId', ParseUUIDPipe) contractId: string) {
+        return this.contractService.activate(contractId);
+    }
+
+    @Patch('contracts/:contractId/terminate')
+    @Roles('CEO', 'HR_MANAGER')
+    terminateContract(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: { reason: string; termination_date?: string },
+    ) {
+        return this.contractService.terminate(
+            contractId,
+            data.reason,
+            data.termination_date ? new Date(data.termination_date) : undefined,
+        );
+    }
+
+    @Post('contracts/:contractId/renew')
+    @Roles('CEO', 'HR_MANAGER')
+    renewContract(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: { new_end_date: string; new_salary?: number; new_terms?: string },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.contractService.renew(
+            contractId,
+            {
+                new_end_date: new Date(data.new_end_date),
+                new_salary: data.new_salary,
+                new_terms: data.new_terms,
+            },
+            req.user.id,
+        );
+    }
+
+    @Delete('contracts/:contractId')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteContract(@Param('contractId', ParseUUIDPipe) contractId: string) {
+        return this.contractService.delete(contractId);
+    }
+
+    @Get('contracts/:contractId/pdf')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    async downloadContractPDF(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Res() res: any,
+    ) {
+        const { buffer, fileName } = await this.contractService.generateContractPDF(contractId);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.end(buffer);
+    }
+
+    @Get('contracts/:contractId/pdf/preview')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    async previewContractPDF(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Res() res: any,
+    ) {
+        const { buffer, fileName } = await this.contractService.generateContractPDF(contractId);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.end(buffer);
     }
 }

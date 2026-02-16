@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
+import { useFormValidation, validators, fieldErrorClass } from '../hooks/useFormValidation';
+import type { ValidationRules } from '../hooks/useFormValidation';
+import { FieldError } from '../components/ui/FieldError';
 import { Mail, KeyRound, ArrowLeft, CheckCircle, Shield } from 'lucide-react';
 import LogoHeader from '../assets/LogoHeader.svg';
 
@@ -10,9 +13,15 @@ export const ForgotPasswordPage: React.FC = () => {
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
 
+    const rules = useMemo<ValidationRules<{ email: string }>>(() => ({
+        email: [v => validators.required(v, 'Email'), validators.email],
+    }), []);
+    const { validateAll, onBlur, onChange, getFieldError } = useFormValidation(rules);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        if (!validateAll({ email })) return;
         setLoading(true);
 
         try {
@@ -91,13 +100,14 @@ export const ForgotPasswordPage: React.FC = () => {
                                 <input
                                     type="email"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent focus:bg-white transition-all"
+                                    onChange={(e) => { setEmail(e.target.value); onChange('email', e.target.value); }}
+                                    onBlur={() => onBlur('email', email)}
+                                    className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white transition-all ${fieldErrorClass(getFieldError('email'))}`}
                                     placeholder="you@company.com"
-                                    required
                                     autoFocus
                                 />
                             </div>
+                            <FieldError error={getFieldError('email')} />
                         </div>
 
                         <button
@@ -134,3 +144,5 @@ export const ForgotPasswordPage: React.FC = () => {
         </div>
     );
 };
+
+export default ForgotPasswordPage;

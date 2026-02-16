@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Role } from './entities/role.entity';
+import { Permission } from './entities/permission.entity';
 import { CreateRoleDto, UpdateRoleDto } from './dto/create-role.dto';
 
 @Injectable()
@@ -9,6 +10,8 @@ export class RoleService {
     constructor(
         @InjectRepository(Role)
         private roleRepository: Repository<Role>,
+        @InjectRepository(Permission)
+        private permissionRepository: Repository<Permission>,
     ) {}
 
     async findAll(includeInactive = false): Promise<Role[]> {
@@ -118,5 +121,86 @@ export class RoleService {
             name: role.name,
             userCount: role.users?.length || 0,
         }));
+    }
+
+    // ==================== PERMISSIONS ====================
+
+    async findAllPermissions(): Promise<Permission[]> {
+        return this.permissionRepository.find({ order: { module: 'ASC', code: 'ASC' } });
+    }
+
+    async getPermissionsByModule(): Promise<Record<string, Permission[]>> {
+        const permissions = await this.findAllPermissions();
+        const grouped: Record<string, Permission[]> = {};
+        for (const p of permissions) {
+            if (!grouped[p.module]) grouped[p.module] = [];
+            grouped[p.module].push(p);
+        }
+        return grouped;
+    }
+
+    async getRolePermissions(roleId: string): Promise<Permission[]> {
+        const role = await this.roleRepository.findOne({
+            where: { id: roleId },
+            relations: ['permissions'],
+        });
+        if (!role) throw new NotFoundException('Role not found');
+        return role.permissions || [];
+    }
+
+    async setRolePermissions(roleId: string, permissionIds: string[]): Promise<Role> {
+        const role = await this.roleRepository.findOne({
+            where: { id: roleId },
+            relations: ['permissions'],
+        });
+        if (!role) throw new NotFoundException('Role not found');
+
+        if (permissionIds.length === 0) {
+            role.permissions = [];
+        } else {
+            const permissions = await this.permissionRepository.find({
+                where: { id: In(permissionIds) },
+            });
+            if (permissions.length !== permissionIds.length) {
+                throw new BadRequestException('One or more permission IDs are invalid');
+            }
+            role.permissions = permissions;
+        }
+
+        return this.roleRepository.save(role);
+    }
+
+    async addPermissionsToRole(roleId: string, permissionIds: string[]): Promise<Role> {
+        const role = await this.roleRepository.findOne({
+            where: { id: roleId },
+            relations: ['permissions'],
+        });
+        if (!role) throw new NotFoundException('Role not found');
+
+        const newPerms = await this.permissionRepository.find({
+            where: { id: In(permissionIds) },
+        });
+
+        const existingIds = new Set(role.permissions.map(p => p.id));
+        for (const p of newPerms) {
+            if (!existingIds.has(p.id)) {
+                role.permissions.push(p);
+            }
+        }
+
+        return this.roleRepository.save(role);
+    }
+
+    async removePermissionsFromRole(roleId: string, permissionIds: string[]): Promise<Role> {
+        const role = await this.roleRepository.findOne({
+            where: { id: roleId },
+            relations: ['permissions'],
+        });
+        if (!role) throw new NotFoundException('Role not found');
+
+        const removeSet = new Set(permissionIds);
+        role.permissions = role.permissions.filter(p => !removeSet.has(p.id));
+
+        return this.roleRepository.save(role);
     }
 }

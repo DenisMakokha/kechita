@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { OnboardingInstance } from './onboarding-instance.entity';
 import { OnboardingTask } from './onboarding-task.entity';
 import { Staff } from './staff.entity';
@@ -20,6 +20,7 @@ export class OnboardingTaskStatus {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @Index()
     @ManyToOne(() => OnboardingInstance, (instance) => instance.taskStatuses, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'instance_id' })
     instance: OnboardingInstance;

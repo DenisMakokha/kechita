@@ -22,6 +22,8 @@ import {
     Briefcase,
     FileText,
     Wallet,
+    ScrollText,
+    ClipboardList,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -73,6 +75,7 @@ export const CEODashboard: React.FC = () => {
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
+        refetchInterval: 120000,
     });
 
     // Fetch pending approvals
@@ -91,6 +94,25 @@ export const CEODashboard: React.FC = () => {
             const response = await api.get('/recruitment/stats');
             return response.data;
         },
+    });
+
+    // Fetch petty cash dashboard
+    const { data: pettyCashStats } = useQuery({
+        queryKey: ['ceo-petty-cash'],
+        queryFn: () => api.get('/petty-cash/dashboard').then(r => r.data).catch(() => null),
+        refetchInterval: 60000,
+    });
+
+    // Expiring contracts
+    const { data: expiringContracts } = useQuery({
+        queryKey: ['ceo-expiring-contracts'],
+        queryFn: () => api.get('/staff/contracts/expiring?days=30').then(r => r.data).catch(() => []),
+    });
+
+    // Onboarding stats
+    const { data: onboardingStats } = useQuery({
+        queryKey: ['ceo-onboarding-stats'],
+        queryFn: () => api.get('/staff/onboarding/stats').then(r => r.data).catch(() => null),
     });
 
     // Refresh all dashboard data
@@ -314,7 +336,7 @@ export const CEODashboard: React.FC = () => {
                     subtitle={`${staffStats.active} active, ${staffStats.onLeave} on leave`}
                     icon={<Users className="text-white" size={24} />}
                     color="bg-gradient-to-br from-cyan-400 to-blue-600"
-                    link="/staff"
+                    link="/staff-management"
                 />
                 <StatCard
                     title="Outstanding Loans"
@@ -422,97 +444,95 @@ export const CEODashboard: React.FC = () => {
                 </div>
             </div>
 
+            {/* Operational Alerts Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Petty Cash */}
+                <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl p-5 text-white">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold flex items-center gap-2"><Wallet size={18} /> Petty Cash</h3>
+                        <Link to="/petty-cash" className="text-xs text-purple-200 hover:text-white">Manage</Link>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><p className="text-purple-200 text-xs">Total Balance</p><p className="text-xl font-bold">KES {((pettyCashStats?.total_balance || 0) / 1000).toFixed(0)}K</p></div>
+                        <div><p className="text-purple-200 text-xs">Active Floats</p><p className="text-xl font-bold">{pettyCashStats?.total_floats || 0}</p></div>
+                        <div><p className="text-purple-200 text-xs">Month Expenses</p><p className="text-xl font-bold">KES {((pettyCashStats?.total_expenses_this_month || 0) / 1000).toFixed(0)}K</p></div>
+                        <div><p className="text-purple-200 text-xs">Pending Replenish</p><p className="text-xl font-bold">{pettyCashStats?.pending_replenishments || 0}</p></div>
+                    </div>
+                </div>
+
+                {/* Expiring Contracts */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><ScrollText size={18} className="text-amber-600" /> Contract Alerts</h3>
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">{expiringContracts?.length || 0}</span>
+                    </div>
+                    {!expiringContracts || expiringContracts.length === 0 ? (
+                        <div className="text-center py-4"><CheckCircle className="mx-auto text-emerald-500 mb-2" size={32} /><p className="text-sm text-slate-500">No contracts expiring in 30 days</p></div>
+                    ) : (
+                        <div className="space-y-2">
+                            {expiringContracts.slice(0, 4).map((c: any) => (
+                                <div key={c.id} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
+                                    <div><p className="text-sm font-medium text-slate-900">{c.staff?.first_name} {c.staff?.last_name}</p><p className="text-xs text-slate-500">{c.contract_type}</p></div>
+                                    <p className="text-xs font-medium text-amber-600">{c.end_date ? new Date(c.end_date).toLocaleDateString() : '--'}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Onboarding */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><ClipboardList size={18} className="text-emerald-600" /> Onboarding</h3>
+                        <Link to="/staff-management" className="text-sm text-[#0066B3]">View</Link>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-emerald-50 rounded-lg text-center"><p className="text-2xl font-bold text-emerald-700">{onboardingStats?.activeCount || onboardingStats?.inProgress || 0}</p><p className="text-xs text-emerald-600">In Progress</p></div>
+                        <div className="p-3 bg-amber-50 rounded-lg text-center"><p className="text-2xl font-bold text-amber-700">{onboardingStats?.pendingTasks || 0}</p><p className="text-xs text-amber-600">Pending Tasks</p></div>
+                        <div className="p-3 bg-blue-50 rounded-lg text-center"><p className="text-2xl font-bold text-blue-700">{onboardingStats?.completedThisMonth || 0}</p><p className="text-xs text-blue-600">Completed</p></div>
+                        <div className="p-3 bg-slate-50 rounded-lg text-center"><p className="text-2xl font-bold text-slate-700">{staffStats.probation || 0}</p><p className="text-xs text-slate-600">On Probation</p></div>
+                    </div>
+                </div>
+            </div>
+
             {/* HR & Staff Loans Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2">
-                            <FileText size={18} />
-                            Leave Summary
-                        </h3>
-                        <Link to="/leave" className="text-xs text-blue-200 hover:text-white">View all</Link>
+                        <h3 className="font-semibold flex items-center gap-2"><FileText size={18} /> Leave Summary</h3>
+                        <Link to="/leave-management" className="text-xs text-blue-200 hover:text-white">View all</Link>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-blue-200 text-xs">Total Requests</p>
-                            <p className="text-2xl font-bold">{leaveStats.total}</p>
-                        </div>
-                        <div>
-                            <p className="text-blue-200 text-xs">Pending</p>
-                            <p className="text-2xl font-bold">{leaveStats.pending}</p>
-                        </div>
-                        <div>
-                            <p className="text-blue-200 text-xs">Approved</p>
-                            <p className="text-2xl font-bold">{leaveStats.approved}</p>
-                        </div>
-                        <div>
-                            <p className="text-blue-200 text-xs">Days Taken</p>
-                            <p className="text-2xl font-bold">{leaveStats.totalDays}</p>
-                        </div>
+                        <div><p className="text-blue-200 text-xs">Total Requests</p><p className="text-2xl font-bold">{leaveStats.total}</p></div>
+                        <div><p className="text-blue-200 text-xs">Pending</p><p className="text-2xl font-bold">{leaveStats.pending}</p></div>
+                        <div><p className="text-blue-200 text-xs">Approved</p><p className="text-2xl font-bold">{leaveStats.approved}</p></div>
+                        <div><p className="text-blue-200 text-xs">Days Taken</p><p className="text-2xl font-bold">{leaveStats.totalDays}</p></div>
                     </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2">
-                            <Wallet size={18} />
-                            Claims Summary
-                        </h3>
+                        <h3 className="font-semibold flex items-center gap-2"><Wallet size={18} /> Claims Summary</h3>
                         <Link to="/claims" className="text-xs text-emerald-200 hover:text-white">View all</Link>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-emerald-200 text-xs">Total Claims</p>
-                            <p className="text-2xl font-bold">{claimsStats.total}</p>
-                        </div>
-                        <div>
-                            <p className="text-emerald-200 text-xs">Pending</p>
-                            <p className="text-2xl font-bold">{claimsStats.pendingCount}</p>
-                        </div>
-                        <div>
-                            <p className="text-emerald-200 text-xs">Total Amount</p>
-                            <p className="text-lg font-bold">
-                                KES {((claimsStats.totalAmount || 0) / 1000).toFixed(0)}K
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-emerald-200 text-xs">Approved</p>
-                            <p className="text-lg font-bold">
-                                KES {((claimsStats.approvedAmount || 0) / 1000).toFixed(0)}K
-                            </p>
-                        </div>
+                        <div><p className="text-emerald-200 text-xs">Total Claims</p><p className="text-2xl font-bold">{claimsStats.total}</p></div>
+                        <div><p className="text-emerald-200 text-xs">Pending</p><p className="text-2xl font-bold">{claimsStats.pendingCount}</p></div>
+                        <div><p className="text-emerald-200 text-xs">Total Amount</p><p className="text-lg font-bold">KES {((claimsStats.totalAmount || 0) / 1000).toFixed(0)}K</p></div>
+                        <div><p className="text-emerald-200 text-xs">Approved</p><p className="text-lg font-bold">KES {((claimsStats.approvedAmount || 0) / 1000).toFixed(0)}K</p></div>
                     </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-[#0066B3] to-[#00AEEF] rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2">
-                            <Briefcase size={18} />
-                            Staff Loans
-                        </h3>
+                        <h3 className="font-semibold flex items-center gap-2"><Briefcase size={18} /> Staff Loans</h3>
                         <Link to="/loans" className="text-xs text-blue-100 hover:text-white">View all</Link>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-blue-100 text-xs">Total Loans</p>
-                            <p className="text-2xl font-bold">{loanStats.total}</p>
-                        </div>
-                        <div>
-                            <p className="text-blue-100 text-xs">Pending Approval</p>
-                            <p className="text-2xl font-bold">{loanStats.pending}</p>
-                        </div>
-                        <div>
-                            <p className="text-blue-100 text-xs">Disbursed</p>
-                            <p className="text-lg font-bold">
-                                KES {((loanStats.totalDisbursed || 0) / 1000000).toFixed(1)}M
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-blue-100 text-xs">Outstanding</p>
-                            <p className="text-lg font-bold">
-                                KES {((loanStats.totalOutstanding || 0) / 1000000).toFixed(1)}M
-                            </p>
-                        </div>
+                        <div><p className="text-blue-100 text-xs">Total Loans</p><p className="text-2xl font-bold">{loanStats.total}</p></div>
+                        <div><p className="text-blue-100 text-xs">Pending Approval</p><p className="text-2xl font-bold">{loanStats.pending}</p></div>
+                        <div><p className="text-blue-100 text-xs">Disbursed</p><p className="text-lg font-bold">KES {((loanStats.totalDisbursed || 0) / 1000000).toFixed(1)}M</p></div>
+                        <div><p className="text-blue-100 text-xs">Outstanding</p><p className="text-lg font-bold">KES {((loanStats.totalOutstanding || 0) / 1000000).toFixed(1)}M</p></div>
                     </div>
                 </div>
             </div>

@@ -41,6 +41,10 @@ export class ClaimType {
     @Column('simple-array', { nullable: true })
     eligible_role_codes?: string[];
 
+    // Frequency restrictions
+    @Column({ default: false })
+    once_per_month: boolean;
+
     // Display settings
     @Column({ nullable: true })
     icon?: string;

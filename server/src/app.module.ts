@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
+import { CacheModule } from '@nestjs/cache-manager';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -22,9 +23,12 @@ import { AuditModule } from './audit/audit.module';
 import { EmailModule } from './email/email.module';
 import { PettyCashModule } from './petty-cash/petty-cash.module';
 import { CommunicationsModule } from './communications/communications.module';
+import { SmsModule } from './sms/sms.module';
+import { SettingsModule } from './settings/settings.module';
 // Auth Entities
 import { User } from './auth/entities/user.entity';
 import { Role } from './auth/entities/role.entity';
+import { Permission } from './auth/entities/permission.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
 // Org Entities
@@ -85,13 +89,10 @@ import { PettyCashReplenishment } from './petty-cash/entities/petty-cash-repleni
 import { PettyCashReconciliation } from './petty-cash/entities/petty-cash-reconciliation.entity';
 // Communications Entities
 import { Announcement, AnnouncementRead } from './communications/entities/announcement.entity';
+// Settings Entities
+import { SystemSetting } from './auth/entities/system-setting.entity';
 
-const shouldSynchronize = (() => {
-  const fromEnv = process.env.DB_SYNCHRONIZE;
-  if (fromEnv === 'true') return true;
-  if (fromEnv === 'false') return false;
-  return process.env.NODE_ENV !== 'production';
-})();
+const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ const shouldSynchronize = (() => {
       serveRoot: '/uploads',
     }),
     ConfigModule.forRoot({ isGlobal: true }),
+    CacheModule.register({ isGlobal: true, ttl: 60000, max: 100 }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
@@ -111,7 +113,7 @@ const shouldSynchronize = (() => {
       database: process.env.DB_DATABASE,
       entities: [
         // Auth
-        User, Role, PasswordResetToken, RefreshToken,
+        User, Role, Permission, PasswordResetToken, RefreshToken,
         // Org
         Region, Branch, Department, Position,
         // Staff
@@ -139,8 +141,16 @@ const shouldSynchronize = (() => {
         PettyCashFloat, PettyCashTransaction, PettyCashReplenishment, PettyCashReconciliation,
         // Communications
         Announcement, AnnouncementRead,
+        // Settings
+        SystemSetting,
       ],
       synchronize: shouldSynchronize,
+      logging: process.env.NODE_ENV !== 'production',
+      extra: {
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      },
     }),
     AuthModule,
     OrgModule,
@@ -156,6 +166,8 @@ const shouldSynchronize = (() => {
     EmailModule,
     PettyCashModule,
     CommunicationsModule,
+    SmsModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

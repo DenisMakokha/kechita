@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Staff } from './staff.entity';
 import { Document } from './document.entity';
 import { DocumentType } from './document-type.entity';
@@ -17,6 +17,7 @@ export class StaffDocument {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @Index()
     @ManyToOne(() => Staff, (staff) => staff.documents)
     @JoinColumn({ name: 'staff_id' })
     staff: Staff;
@@ -36,6 +37,7 @@ export class StaffDocument {
     @Column({ type: 'enum', enum: StaffDocumentStatus, default: StaffDocumentStatus.PENDING })
     status: StaffDocumentStatus;
 
+    @Index()
     @Column({ type: 'date', nullable: true })
     expiry_date?: Date;
 

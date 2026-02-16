@@ -6,18 +6,23 @@ import { useAuthStore } from '../../store/auth.store';
 import {
     Users,
     UserPlus,
-    UserX,
     Calendar,
     FileText,
     AlertTriangle,
     CheckCircle,
     Clock,
-    ChevronRight,
     Briefcase,
     FileCheck,
     UserCheck,
     TrendingUp,
     ArrowUpRight,
+    ClipboardList,
+    Video,
+    MapPin,
+    ChevronRight,
+    FileWarning,
+    ScrollText,
+    Megaphone,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -56,87 +61,120 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
 };
 
 export const HRDashboard: React.FC = () => {
-    const { user } = useAuthStore();
+    useAuthStore();
 
-    // Fetch leave stats
+    // Staff stats (proper endpoint)
+    const { data: staffStats } = useQuery({
+        queryKey: ['staff-stats'],
+        queryFn: () => api.get('/staff/stats').then(r => r.data).catch(() => null),
+        refetchInterval: 60000,
+    });
+
+    // Leave stats
     const { data: leaveStats } = useQuery({
         queryKey: ['leave-stats-hr'],
-        queryFn: async () => {
-            const response = await api.get('/leave/stats');
-            return response.data;
-        },
+        queryFn: () => api.get('/leave/stats').then(r => r.data),
+        refetchInterval: 60000,
     });
 
-    // Fetch staff on leave today
+    // Staff on leave today
     const { data: staffOnLeave } = useQuery({
         queryKey: ['staff-on-leave-today'],
-        queryFn: async () => {
-            const response = await api.get('/leave/on-leave-today');
-            return response.data;
-        },
+        queryFn: () => api.get('/leave/on-leave-today').then(r => r.data),
+        refetchInterval: 60000,
     });
 
-    // Fetch pending approvals
+    // Pending approvals
     const { data: pendingApprovals } = useQuery({
         queryKey: ['pending-approvals'],
-        queryFn: async () => {
-            const response = await api.get('/approvals/pending');
-            return response.data;
-        },
+        queryFn: () => api.get('/approvals/pending').then(r => r.data),
+        refetchInterval: 30000,
     });
 
-    // Fetch recruitment stats
+    // Approval stats
+    const { data: approvalStats } = useQuery({
+        queryKey: ['approval-stats-hr'],
+        queryFn: () => api.get('/approvals/stats?all=true').then(r => r.data).catch(() => null),
+    });
+
+    // Recruitment stats
     const { data: recruitmentStats } = useQuery({
         queryKey: ['recruitment-stats'],
-        queryFn: async () => {
-            const response = await api.get('/recruitment/stats');
-            return response.data;
-        },
+        queryFn: () => api.get('/recruitment/stats').then(r => r.data),
+        refetchInterval: 60000,
     });
 
-    // Fetch claims stats
+    // Claims stats
     const { data: claimsStats } = useQuery({
         queryKey: ['claims-stats'],
-        queryFn: async () => {
-            const response = await api.get('/claims/stats');
-            return response.data;
-        },
+        queryFn: () => api.get('/claims/stats').then(r => r.data),
+        refetchInterval: 120000,
     });
 
-    // Fetch loan stats
+    // Loan stats
     const { data: loanStats } = useQuery({
         queryKey: ['loan-stats'],
-        queryFn: async () => {
-            const response = await api.get('/loans/stats');
-            return response.data;
-        },
+        queryFn: () => api.get('/loans/stats').then(r => r.data),
+        refetchInterval: 120000,
     });
 
-    // Fetch staff with expiring documents
+    // Expiring documents (30 days)
     const { data: expiringDocs } = useQuery({
         queryKey: ['expiring-documents'],
-        queryFn: async () => {
-            try {
-                const response = await api.get('/documents/expiring?days=30');
-                return response.data;
-            } catch {
-                return [];
-            }
-        },
+        queryFn: () => api.get('/staff/documents/expiring?days=30').then(r => r.data).catch(() => []),
+        refetchInterval: 120000,
     });
 
-    // Fetch probation reviews
-    const { data: probationReviews } = useQuery({
-        queryKey: ['probation-reviews'],
-        queryFn: async () => {
-            try {
-                const response = await api.get('/staff?status=probation');
-                return response.data;
-            } catch {
-                return [];
-            }
-        },
+    // Expired documents
+    const { data: expiredDocs } = useQuery({
+        queryKey: ['expired-documents'],
+        queryFn: () => api.get('/staff/documents/expired').then(r => r.data).catch(() => []),
+        refetchInterval: 120000,
     });
+
+    // Expiring contracts (30 days)
+    const { data: expiringContracts } = useQuery({
+        queryKey: ['expiring-contracts'],
+        queryFn: () => api.get('/staff/contracts/expiring?days=30').then(r => r.data).catch(() => []),
+        refetchInterval: 120000,
+    });
+
+    // Upcoming probation reviews
+    const { data: upcomingProbation } = useQuery({
+        queryKey: ['probation-upcoming'],
+        queryFn: () => api.get('/staff/probation/upcoming?days=30').then(r => r.data).catch(() => []),
+        refetchInterval: 120000,
+    });
+
+    // Overdue probation reviews
+    const { data: overdueProbation } = useQuery({
+        queryKey: ['probation-overdue'],
+        queryFn: () => api.get('/staff/probation/overdue').then(r => r.data).catch(() => []),
+        refetchInterval: 120000,
+    });
+
+    // Onboarding stats
+    const { data: onboardingStats } = useQuery({
+        queryKey: ['onboarding-stats-hr'],
+        queryFn: () => api.get('/staff/onboarding/stats').then(r => r.data).catch(() => null),
+        refetchInterval: 60000,
+    });
+
+    // Overdue onboarding
+    const { data: overdueOnboarding } = useQuery({
+        queryKey: ['overdue-onboarding'],
+        queryFn: () => api.get('/staff/onboarding/instances/overdue').then(r => r.data).catch(() => []),
+        refetchInterval: 60000,
+    });
+
+    // Upcoming interviews
+    const { data: interviews } = useQuery({
+        queryKey: ['hr-interviews'],
+        queryFn: () => api.get('/recruitment/interviews').then(r => r.data).catch(() => []),
+        refetchInterval: 60000,
+    });
+
+    const upcomingInterviews = (interviews || []).filter((i: any) => new Date(i.scheduled_at) >= new Date()).slice(0, 5);
 
     return (
         <div className="space-y-6">
@@ -147,12 +185,11 @@ export const HRDashboard: React.FC = () => {
                     <p className="text-slate-500">Staff management, recruitment, and HR analytics</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Link
-                        to="/staff"
-                        className="px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-colors font-medium flex items-center gap-2"
-                    >
-                        <UserPlus size={18} />
-                        New Staff
+                    <Link to="/recruitment" className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium flex items-center gap-2">
+                        <Briefcase size={18} /> Post Job
+                    </Link>
+                    <Link to="/staff-management" className="px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-colors font-medium flex items-center gap-2">
+                        <UserPlus size={18} /> New Staff
                     </Link>
                 </div>
             </div>
@@ -165,57 +202,56 @@ export const HRDashboard: React.FC = () => {
                     subtitle="Staff members away"
                     icon={<Calendar className="text-white" size={24} />}
                     color="bg-gradient-to-br from-blue-500 to-blue-600"
-                    link="/leave"
+                    link="/leave-management"
                 />
                 <StatCard
                     title="Pending Approvals"
                     value={pendingApprovals?.length || 0}
-                    subtitle="Requires your action"
+                    subtitle={approvalStats ? `Avg ${approvalStats.avgApprovalTimeHours || 0}h response` : 'Requires your action'}
                     icon={<Clock className="text-white" size={24} />}
                     color="bg-gradient-to-br from-amber-500 to-orange-600"
                     link="/approvals"
                 />
                 <StatCard
                     title="Open Positions"
-                    value={recruitmentStats?.openPositions || 0}
-                    subtitle={`${recruitmentStats?.applicationsThisMonth || 0} applications this month`}
+                    value={recruitmentStats?.activeJobs || 0}
+                    subtitle={`${recruitmentStats?.newThisWeek || 0} new applications this week`}
                     icon={<Briefcase className="text-white" size={24} />}
                     color="bg-[#0066B3]"
                     link="/recruitment"
                 />
                 <StatCard
-                    title="Document Expiries"
-                    value={expiringDocs?.length || 0}
-                    subtitle="Expiring in 30 days"
+                    title="Document Alerts"
+                    value={(expiringDocs?.length || 0) + (expiredDocs?.length || 0)}
+                    subtitle={`${expiredDocs?.length || 0} expired, ${expiringDocs?.length || 0} expiring`}
                     icon={<FileCheck className="text-white" size={24} />}
-                    color={expiringDocs?.length > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-emerald-500 to-green-600"}
+                    color={(expiringDocs?.length || 0) + (expiredDocs?.length || 0) > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-emerald-500 to-green-600"}
                 />
             </div>
 
-            {/* Staff Overview */}
+            {/* Staff Overview Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Headcount Summary */}
+                {/* Headcount Summary — using /staff/stats */}
                 <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <Users size={20} />
-                        Headcount Summary
+                        <Users size={20} /> Headcount Summary
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white/10 backdrop-blur rounded-xl p-4">
                             <p className="text-slate-400 text-sm">Total Staff</p>
-                            <p className="text-2xl font-bold mt-1">{probationReviews?.total || '--'}</p>
+                            <p className="text-2xl font-bold mt-1">{staffStats?.total ?? '--'}</p>
                         </div>
                         <div className="bg-white/10 backdrop-blur rounded-xl p-4">
                             <p className="text-slate-400 text-sm">Active</p>
-                            <p className="text-2xl font-bold mt-1 text-emerald-400">{probationReviews?.active || '--'}</p>
+                            <p className="text-2xl font-bold mt-1 text-emerald-400">{staffStats?.byStatus?.active ?? '--'}</p>
                         </div>
                         <div className="bg-white/10 backdrop-blur rounded-xl p-4">
                             <p className="text-slate-400 text-sm">On Probation</p>
-                            <p className="text-2xl font-bold mt-1 text-amber-400">{Array.isArray(probationReviews) ? probationReviews.length : 0}</p>
+                            <p className="text-2xl font-bold mt-1 text-amber-400">{staffStats?.byProbationStatus?.on_probation ?? staffStats?.upcomingProbationReviews ?? 0}</p>
                         </div>
                         <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-                            <p className="text-slate-400 text-sm">Turnover</p>
-                            <p className="text-2xl font-bold mt-1">2.3%</p>
+                            <p className="text-slate-400 text-sm">On Leave Today</p>
+                            <p className="text-2xl font-bold mt-1 text-blue-400">{staffOnLeave?.length || 0}</p>
                         </div>
                     </div>
                 </div>
@@ -224,34 +260,26 @@ export const HRDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-slate-900">Leave Overview</h3>
-                        <Link to="/leave" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium">
-                            View all
-                        </Link>
+                        <Link to="/leave-management" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium">View all</Link>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Calendar className="text-blue-600" size={18} />
-                                </div>
+                                <div className="p-2 bg-blue-100 rounded-lg"><Calendar className="text-blue-600" size={18} /></div>
                                 <span className="font-medium text-slate-900">Total Requests</span>
                             </div>
                             <span className="text-xl font-bold text-slate-900">{leaveStats?.totalRequests || 0}</span>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-100 rounded-lg">
-                                    <Clock className="text-amber-600" size={18} />
-                                </div>
+                                <div className="p-2 bg-amber-100 rounded-lg"><Clock className="text-amber-600" size={18} /></div>
                                 <span className="font-medium text-slate-900">Pending</span>
                             </div>
                             <span className="text-xl font-bold text-amber-600">{leaveStats?.pendingRequests || 0}</span>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-100 rounded-lg">
-                                    <CheckCircle className="text-emerald-600" size={18} />
-                                </div>
+                                <div className="p-2 bg-emerald-100 rounded-lg"><CheckCircle className="text-emerald-600" size={18} /></div>
                                 <span className="font-medium text-slate-900">Approved</span>
                             </div>
                             <span className="text-xl font-bold text-emerald-600">{leaveStats?.approvedRequests || 0}</span>
@@ -263,51 +291,146 @@ export const HRDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-slate-900">Recruitment</h3>
-                        <Link to="/recruitment" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium">
-                            View all
-                        </Link>
+                        <Link to="/recruitment" className="text-sm text-[#0066B3] hover:text-[#005299] font-medium">View all</Link>
                     </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-slate-600">Open Positions</span>
-                            <span className="font-bold text-slate-900">{recruitmentStats?.openPositions || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-slate-600">Total Applications</span>
-                            <span className="font-bold text-slate-900">{recruitmentStats?.totalApplications || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-slate-600">Interviews Scheduled</span>
-                            <span className="font-bold text-slate-900">{recruitmentStats?.scheduledInterviews || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-slate-600">Hired This Month</span>
-                            <span className="font-bold text-emerald-600">{recruitmentStats?.hiredThisMonth || 0}</span>
-                        </div>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between"><span className="text-slate-600">Open Positions</span><span className="font-bold text-slate-900">{recruitmentStats?.activeJobs || 0}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-slate-600">Total Applications</span><span className="font-bold text-slate-900">{recruitmentStats?.totalApplications || 0}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-slate-600">Interviews This Week</span><span className="font-bold text-slate-900">{recruitmentStats?.interviewsThisWeek || 0}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-slate-600">Total Hired</span><span className="font-bold text-emerald-600">{recruitmentStats?.hiredCount || 0}</span></div>
                         <div className="pt-3 border-t border-slate-100">
-                            <Link
-                                to="/recruitment"
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-[#0066B3] rounded-lg hover:bg-blue-100 transition-colors font-medium"
-                            >
-                                <Briefcase size={16} />
-                                Manage Recruitment
+                            <Link to="/recruitment" className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-[#0066B3] rounded-lg hover:bg-blue-100 transition-colors font-medium">
+                                <Briefcase size={16} /> Manage Recruitment
                             </Link>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Bottom Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Probation Reviews Due */}
+            {/* Alerts Row — Onboarding, Contracts, Upcoming Interviews */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Onboarding */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                        <h3 className="text-lg font-semibold text-slate-900">Probation Reviews Due</h3>
-                        <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-                            {Array.isArray(probationReviews) ? probationReviews.length : 0}
-                        </span>
+                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><ClipboardList size={18} className="text-emerald-600" /> Onboarding</h3>
+                        <Link to="/staff-management" className="text-sm text-[#0066B3] flex items-center gap-1">View <ChevronRight size={14} /></Link>
                     </div>
-                    {!probationReviews || probationReviews.length === 0 ? (
+                    <div className="p-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-600 text-sm">Active Onboardings</span>
+                            <span className="font-bold text-slate-900">{onboardingStats?.inProgress || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-600 text-sm">Overdue</span>
+                            <span className="font-bold text-amber-600">{onboardingStats?.overdue || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-600 text-sm">Completed</span>
+                            <span className="font-bold text-emerald-600">{onboardingStats?.completed || 0}</span>
+                        </div>
+                        {(overdueOnboarding?.length || 0) > 0 && (
+                            <div className="p-3 bg-red-50 rounded-lg border border-red-200 flex items-center gap-2">
+                                <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
+                                <span className="text-sm text-red-700 font-medium">{overdueOnboarding.length} overdue onboarding{overdueOnboarding.length > 1 ? 's' : ''}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Expiring Contracts */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><ScrollText size={18} className="text-amber-600" /> Contract Alerts</h3>
+                        <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">{expiringContracts?.length || 0}</span>
+                    </div>
+                    {!expiringContracts || expiringContracts.length === 0 ? (
+                        <div className="p-8 text-center">
+                            <CheckCircle className="mx-auto text-emerald-500 mb-3" size={40} />
+                            <p className="font-medium text-slate-900">All contracts current</p>
+                            <p className="text-sm text-slate-500">No contracts expiring in 30 days</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                            {expiringContracts.slice(0, 5).map((c: any) => (
+                                <div key={c.id} className="p-4 hover:bg-slate-50">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm">
+                                                {c.staff?.first_name?.charAt(0) || '?'}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-slate-900 text-sm">{c.staff?.first_name} {c.staff?.last_name}</p>
+                                                <p className="text-xs text-slate-500">{c.contract_type} • {c.title || c.job_title}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-medium text-amber-600">{c.end_date ? new Date(c.end_date).toLocaleDateString() : '--'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Upcoming Interviews */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><Video size={18} className="text-blue-600" /> Upcoming Interviews</h3>
+                        <Link to="/recruitment" className="text-sm text-[#0066B3] flex items-center gap-1">View <ChevronRight size={14} /></Link>
+                    </div>
+                    {upcomingInterviews.length === 0 ? (
+                        <div className="p-8 text-center">
+                            <Calendar className="mx-auto text-slate-300 mb-3" size={40} />
+                            <p className="text-slate-500 text-sm">No upcoming interviews</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                            {upcomingInterviews.map((i: any) => {
+                                const isToday = new Date(i.scheduled_at).toDateString() === new Date().toDateString();
+                                return (
+                                    <div key={i.id} className="p-4 hover:bg-slate-50">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="font-medium text-slate-900 text-sm">{i.application?.candidate?.first_name} {i.application?.candidate?.last_name}</p>
+                                                <p className="text-xs text-slate-500">{i.title} • {i.application?.jobPost?.title}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
+                                                    {isToday ? 'TODAY' : new Date(i.scheduled_at).toLocaleDateString()}
+                                                </p>
+                                                <p className="text-xs text-slate-400 flex items-center gap-1 justify-end">
+                                                    {i.type === 'video' ? <Video size={10} /> : <MapPin size={10} />}
+                                                    {new Date(i.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Bottom Row — Probation + Financial */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Probation Reviews */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                        <h3 className="text-lg font-semibold text-slate-900">Probation Reviews</h3>
+                        <div className="flex items-center gap-2">
+                            {(overdueProbation?.length || 0) > 0 && (
+                                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full flex items-center gap-1">
+                                    <AlertTriangle size={10} /> {overdueProbation.length} overdue
+                                </span>
+                            )}
+                            <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                                {upcomingProbation?.length || 0} upcoming
+                            </span>
+                        </div>
+                    </div>
+                    {(!upcomingProbation || upcomingProbation.length === 0) && (!overdueProbation || overdueProbation.length === 0) ? (
                         <div className="p-8 text-center">
                             <UserCheck className="mx-auto text-emerald-500 mb-4" size={48} />
                             <p className="font-medium text-slate-900">No pending reviews</p>
@@ -315,22 +438,32 @@ export const HRDashboard: React.FC = () => {
                         </div>
                     ) : (
                         <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                            {(Array.isArray(probationReviews) ? probationReviews : []).slice(0, 5).map((staff: any) => (
+                            {(overdueProbation || []).slice(0, 3).map((staff: any) => (
+                                <div key={staff.id} className="p-4 bg-red-50/50 hover:bg-red-50">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white font-bold">{staff.first_name?.charAt(0)}</div>
+                                            <div>
+                                                <p className="font-medium text-slate-900">{staff.full_name || `${staff.first_name} ${staff.last_name}`}</p>
+                                                <p className="text-xs text-slate-500">{staff.position?.name}</p>
+                                            </div>
+                                        </div>
+                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">Overdue</span>
+                                    </div>
+                                </div>
+                            ))}
+                            {(upcomingProbation || []).slice(0, 5).map((staff: any) => (
                                 <div key={staff.id} className="p-4 hover:bg-slate-50">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">
-                                                {staff.first_name?.charAt(0)}
-                                            </div>
+                                            <div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">{staff.first_name?.charAt(0)}</div>
                                             <div>
                                                 <p className="font-medium text-slate-900">{staff.full_name || `${staff.first_name} ${staff.last_name}`}</p>
                                                 <p className="text-xs text-slate-500">{staff.position?.name}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-sm font-medium text-slate-900">
-                                                {staff.probation_end_date ? new Date(staff.probation_end_date).toLocaleDateString() : 'TBD'}
-                                            </p>
+                                            <p className="text-sm font-medium text-slate-900">{staff.probation_end_date ? new Date(staff.probation_end_date).toLocaleDateString() : 'TBD'}</p>
                                             <p className="text-xs text-amber-600">Review due</p>
                                         </div>
                                     </div>
@@ -344,28 +477,28 @@ export const HRDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4">Financial Requests</h3>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                        <Link to="/loans" className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all">
                             <div className="flex items-center gap-2 mb-2">
                                 <Briefcase className="text-blue-600" size={18} />
                                 <span className="font-medium text-blue-900">Staff Loans</span>
                             </div>
                             <p className="text-2xl font-bold text-blue-900">{loanStats?.pending || 0}</p>
                             <p className="text-xs text-blue-600">Pending approval</p>
-                        </div>
-                        <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+                        </Link>
+                        <Link to="/claims" className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl hover:shadow-md transition-all">
                             <div className="flex items-center gap-2 mb-2">
                                 <FileText className="text-emerald-600" size={18} />
                                 <span className="font-medium text-emerald-900">Claims</span>
                             </div>
-                            <p className="text-2xl font-bold text-emerald-900">{claimsStats?.pending || 0}</p>
+                            <p className="text-2xl font-bold text-emerald-900">{claimsStats?.pending || claimsStats?.pendingClaims || 0}</p>
                             <p className="text-xs text-emerald-600">Pending review</p>
-                        </div>
+                        </Link>
                         <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
                             <div className="flex items-center gap-2 mb-2">
                                 <TrendingUp className="text-[#0066B3]" size={18} />
                                 <span className="font-medium text-slate-900">Active Loans</span>
                             </div>
-                            <p className="text-2xl font-bold text-slate-900">{loanStats?.active || 0}</p>
+                            <p className="text-2xl font-bold text-slate-900">{loanStats?.active || loanStats?.activeLoans || 0}</p>
                             <p className="text-xs text-[#0066B3]">Currently running</p>
                         </div>
                         <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
@@ -379,6 +512,31 @@ export const HRDashboard: React.FC = () => {
                             <p className="text-xs text-amber-600">Total balance</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                    <Link to="/leave-management" className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 hover:text-[#0066B3] transition-colors">
+                        <Calendar size={22} /><span className="text-sm font-medium">Review Leave</span>
+                    </Link>
+                    <Link to="/approvals" className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 hover:text-[#0066B3] transition-colors">
+                        <ClipboardList size={22} /><span className="text-sm font-medium">Approvals</span>
+                    </Link>
+                    <Link to="/recruitment" className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 hover:text-[#0066B3] transition-colors">
+                        <UserPlus size={22} /><span className="text-sm font-medium">Recruitment</span>
+                    </Link>
+                    <Link to="/staff-management" className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 hover:text-[#0066B3] transition-colors">
+                        <Users size={22} /><span className="text-sm font-medium">Staff Directory</span>
+                    </Link>
+                    <Link to="/announcements" className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 hover:text-[#0066B3] transition-colors">
+                        <Megaphone size={22} /><span className="text-sm font-medium">Announcements</span>
+                    </Link>
+                    <Link to="/reports" className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 hover:text-[#0066B3] transition-colors">
+                        <FileWarning size={22} /><span className="text-sm font-medium">Reports</span>
+                    </Link>
                 </div>
             </div>
         </div>

@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { InputDialog } from '../components/ui/InputDialog';
 import {
     Plus, Calendar as CalendarIcon, Clock, CheckCircle, XCircle,
-    ChevronDown, Filter, Download, Umbrella, Users, AlertTriangle,
-    TrendingUp, X, CalendarDays, User, ChevronLeft, ChevronRight,
+    Umbrella, Users, AlertTriangle,
+    TrendingUp, X, CalendarDays, ChevronLeft, ChevronRight,
     Sun, Moon, Sunrise
 } from 'lucide-react';
 
@@ -55,6 +56,8 @@ interface CalendarEntry {
 
 export const LeavePage: React.FC = () => {
     const queryClient = useQueryClient();
+    const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'my-leave' | 'team' | 'calendar'>('my-leave');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -78,6 +81,7 @@ export const LeavePage: React.FC = () => {
             const response = await api.get('/leave/my-balance');
             return response.data;
         },
+        refetchInterval: 60000,
     });
 
     const { data: myRequests, isLoading: loadingMyRequests } = useQuery<LeaveRequest[]>({
@@ -86,6 +90,7 @@ export const LeavePage: React.FC = () => {
             const response = await api.get('/leave/my-requests');
             return response.data;
         },
+        refetchInterval: 60000,
     });
 
     const { data: allRequests, isLoading: loadingAll } = useQuery<LeaveRequest[]>({
@@ -95,6 +100,7 @@ export const LeavePage: React.FC = () => {
             const response = await api.get('/leave/requests', { params });
             return response.data;
         },
+        refetchInterval: 30000,
     });
 
     const { data: holidays } = useQuery({
@@ -105,12 +111,13 @@ export const LeavePage: React.FC = () => {
         },
     });
 
-    const { data: leaveStats } = useQuery({
+    const { data: _leaveStats } = useQuery({
         queryKey: ['leave-stats'],
         queryFn: async () => {
             const response = await api.get('/leave/stats');
             return response.data;
         },
+        refetchInterval: 60000,
     });
 
     const { data: staffOnLeave } = useQuery({
@@ -119,6 +126,7 @@ export const LeavePage: React.FC = () => {
             const response = await api.get('/leave/on-leave-today');
             return response.data;
         },
+        refetchInterval: 60000,
     });
 
     // Calendar data query
@@ -147,7 +155,28 @@ export const LeavePage: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['my-leave-requests'] });
             queryClient.invalidateQueries({ queryKey: ['my-leave-balance'] });
         },
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to cancel leave request', 'error');
+        },
     });
+
+    const recallMutation = useMutation({
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) => 
+            api.patch(`/leave/requests/${id}/recall`, { reason }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-leave-requests'] });
+            queryClient.invalidateQueries({ queryKey: ['my-leave-balance'] });
+        },
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to recall leave', 'error');
+        },
+    });
+
+    const [recallLeaveId, setRecallLeaveId] = useState<string | null>(null);
+
+    const handleRecall = (leave: LeaveRequest) => {
+        setRecallLeaveId(leave.id);
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -161,6 +190,7 @@ export const LeavePage: React.FC = () => {
     };
 
     const getBalanceColor = (balance: number, total: number) => {
+        if (total <= 0) return 'bg-slate-400';
         const percentage = (balance / total) * 100;
         if (percentage > 50) return 'bg-emerald-500';
         if (percentage > 20) return 'bg-amber-500';
@@ -169,6 +199,14 @@ export const LeavePage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* Toast */}
+            {toast && (
+                <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+                    <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
+                        <span className="font-medium">{toast.text}</span>
+                    </div>
+                </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -264,7 +302,7 @@ export const LeavePage: React.FC = () => {
                             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                                 <div
                                     className={`h-full transition-all ${getBalanceColor(Number(balance.balance_days), Number(balance.entitled_days))}`}
-                                    style={{ width: `${Math.min(100, (Number(balance.balance_days) / Number(balance.entitled_days)) * 100)}%` }}
+                                    style={{ width: `${Number(balance.entitled_days) > 0 ? Math.min(100, (Number(balance.balance_days) / Number(balance.entitled_days)) * 100) : 0}%` }}
                                 />
                             </div>
                             <div className="flex justify-between mt-2 text-xs text-slate-500">
@@ -360,14 +398,24 @@ export const LeavePage: React.FC = () => {
                                             {new Date(leave.requested_at).toLocaleDateString()}
                                         </td>
                                         <td className="px-6 py-4">
-                                            {leave.status === 'pending' && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); cancelMutation.mutate(leave.id); }}
-                                                    className="text-red-600 hover:text-red-700 text-sm font-medium"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                {leave.status === 'pending' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); cancelMutation.mutate(leave.id); }}
+                                                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                                {leave.status === 'approved' && new Date(leave.start_date) > new Date() && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleRecall(leave); }}
+                                                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                    >
+                                                        Recall
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -483,6 +531,20 @@ export const LeavePage: React.FC = () => {
                     onClose={() => setSelectedLeaveDetail(null)}
                 />
             )}
+
+            {/* Recall Leave Dialog */}
+            <InputDialog
+                isOpen={!!recallLeaveId}
+                title="Recall Leave"
+                message="Please provide a reason for recalling this leave."
+                inputLabel="Reason"
+                inputType="textarea"
+                placeholder="Enter reason..."
+                confirmLabel="Recall"
+                onConfirm={(reason) => { if (recallLeaveId) recallMutation.mutate({ id: recallLeaveId, reason }); setRecallLeaveId(null); }}
+                onCancel={() => setRecallLeaveId(null)}
+                isLoading={recallMutation.isPending}
+            />
         </div>
     );
 };
@@ -886,7 +948,7 @@ const ApprovalTimeline: React.FC<{ instance: any }> = ({ instance }) => {
                 </div>
 
                 {/* Actions taken */}
-                {actions.map((action: any, idx: number) => (
+                {actions.map((action: any) => (
                     <div key={action.id} className="relative flex gap-4">
                         <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${action.action === 'approved' ? 'bg-emerald-100' :
                                 action.action === 'rejected' ? 'bg-red-100' :

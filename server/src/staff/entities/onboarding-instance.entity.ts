@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { Staff } from './staff.entity';
 import { OnboardingTemplate } from './onboarding-template.entity';
 import { OnboardingTaskStatus } from './onboarding-task-status.entity';
@@ -19,6 +19,7 @@ export class OnboardingInstance {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @Index()
     @ManyToOne(() => Staff)
     @JoinColumn({ name: 'staff_id' })
     staff: Staff;
@@ -27,6 +28,7 @@ export class OnboardingInstance {
     @JoinColumn({ name: 'template_id' })
     template: OnboardingTemplate;
 
+    @Index()
     @Column({ type: 'enum', enum: OnboardingInstanceStatus, default: OnboardingInstanceStatus.NOT_STARTED })
     status: OnboardingInstanceStatus;
 

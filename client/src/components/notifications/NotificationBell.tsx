@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import {
-    Bell, Check, CheckCheck, Trash2, X, Clock, AlertTriangle,
+    Bell, Check, CheckCheck, X, Clock,
     FileText, Calendar, DollarSign, Users, Briefcase, Settings
 } from 'lucide-react';
 
@@ -74,6 +75,7 @@ export const NotificationBell: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     // Fetch unread count
     const { data: countData } = useQuery({
@@ -104,6 +106,7 @@ export const NotificationBell: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
             queryClient.invalidateQueries({ queryKey: ['notifications-count'] });
         },
+        onError: (e: any) => console.error('Failed to mark as read:', e),
     });
 
     // Mark all as read mutation
@@ -115,6 +118,7 @@ export const NotificationBell: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
             queryClient.invalidateQueries({ queryKey: ['notifications-count'] });
         },
+        onError: (e: any) => console.error('Failed to mark all as read:', e),
     });
 
     // Close dropdown when clicking outside
@@ -138,7 +142,13 @@ export const NotificationBell: React.FC = () => {
         }
         // Handle navigation based on payload
         if (notification.payload?.url) {
-            window.location.href = notification.payload.url;
+            const url = notification.payload.url;
+            if (url.startsWith('/')) {
+                navigate(url);
+                setIsOpen(false);
+            } else {
+                window.location.href = url;
+            }
         }
     };
 
@@ -222,7 +232,14 @@ export const NotificationBell: React.FC = () => {
                                                             key={idx}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (action.url) window.location.href = action.url;
+                                                                if (action.url) {
+                                                                    if (action.url.startsWith('/')) {
+                                                                        navigate(action.url);
+                                                                        setIsOpen(false);
+                                                                    } else {
+                                                                        window.location.href = action.url;
+                                                                    }
+                                                                }
                                                             }}
                                                             className={`px-2 py-1 text-xs rounded font-medium ${action.style === 'primary'
                                                                 ? 'bg-[#0066B3] text-white hover:bg-[#005599]'
@@ -245,12 +262,12 @@ export const NotificationBell: React.FC = () => {
 
                     {/* Footer */}
                     <div className="px-4 py-2 border-t border-slate-200 bg-slate-50">
-                        <a
-                            href="/notifications"
+                        <button
+                            onClick={() => { navigate('/notifications'); setIsOpen(false); }}
                             className="text-sm text-[#0066B3] hover:text-[#003366] font-medium"
                         >
                             View all notifications →
-                        </a>
+                        </button>
                     </div>
                 </div>
             )}

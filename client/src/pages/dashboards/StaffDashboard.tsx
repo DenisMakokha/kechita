@@ -14,6 +14,7 @@ import {
     ArrowUpRight,
     Umbrella,
     AlertTriangle,
+    Megaphone,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -52,51 +53,43 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
 };
 
 export const StaffDashboard: React.FC = () => {
-    const { user } = useAuthStore();
+    useAuthStore();
 
     // Fetch my leave balance
     const { data: myBalance } = useQuery({
         queryKey: ['my-leave-balance'],
-        queryFn: async () => {
-            const response = await api.get('/leave/my-balance');
-            return response.data;
-        },
+        queryFn: () => api.get('/leave/my-balance').then(r => r.data),
     });
 
     // Fetch my leave requests
     const { data: myLeaveRequests } = useQuery({
         queryKey: ['my-leave-requests'],
-        queryFn: async () => {
-            const response = await api.get('/leave/my-requests');
-            return response.data;
-        },
+        queryFn: () => api.get('/leave/my-requests').then(r => r.data),
+        refetchInterval: 60000,
     });
 
     // Fetch my loans
     const { data: myLoans } = useQuery({
         queryKey: ['my-loans'],
-        queryFn: async () => {
-            const response = await api.get('/loans/my');
-            return response.data;
-        },
+        queryFn: () => api.get('/loans/my').then(r => r.data),
     });
 
     // Fetch my claims
     const { data: myClaims } = useQuery({
         queryKey: ['my-claims'],
-        queryFn: async () => {
-            const response = await api.get('/claims/my');
-            return response.data;
-        },
+        queryFn: () => api.get('/claims/my').then(r => r.data),
     });
 
     // Fetch upcoming holidays
     const { data: holidays } = useQuery({
         queryKey: ['public-holidays'],
-        queryFn: async () => {
-            const response = await api.get('/leave/holidays');
-            return response.data;
-        },
+        queryFn: () => api.get('/leave/holidays').then(r => r.data),
+    });
+
+    // Announcements
+    const { data: announcements } = useQuery({
+        queryKey: ['staff-announcements'],
+        queryFn: () => api.get('/communications/my-announcements?limit=3').then(r => r.data).catch(() => []),
     });
 
     const totalLeaveBalance = myBalance?.reduce((acc: number, b: any) => acc + Number(b.balance_days), 0) || 0;
@@ -346,11 +339,31 @@ export const StaffDashboard: React.FC = () => {
                         )}
                     </div>
 
+                    {/* Announcements */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+                            <h3 className="font-semibold text-slate-900 flex items-center gap-2"><Megaphone size={16} className="text-blue-600" /> Announcements</h3>
+                            <Link to="/announcements" className="text-sm text-[#0066B3]">View all</Link>
+                        </div>
+                        {announcements?.length > 0 ? (
+                            <div className="divide-y divide-slate-100">
+                                {announcements.slice(0, 3).map((a: any) => (
+                                    <div key={a.id} className="p-4 hover:bg-slate-50">
+                                        <p className="font-medium text-slate-900 text-sm line-clamp-2">{a.title}</p>
+                                        <p className="text-xs text-slate-400 mt-1">{new Date(a.published_at || a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-6 text-center text-slate-500 text-sm">No recent announcements</div>
+                        )}
+                    </div>
+
                     {/* Upcoming Holidays */}
                     <div className="bg-gradient-to-br from-[#003366] to-[#005599] rounded-xl p-5 text-white">
                         <h3 className="font-semibold mb-4">Upcoming Holidays</h3>
                         <div className="space-y-3">
-                            {holidays?.slice(0, 3).filter((h: any) => new Date(h.date) >= new Date()).map((holiday: any) => (
+                            {holidays?.filter((h: any) => new Date(h.date) >= new Date()).slice(0, 3).map((holiday: any) => (
                                 <div key={holiday.id} className="flex items-center justify-between bg-white/10 backdrop-blur rounded-lg p-3">
                                     <div>
                                         <p className="font-medium text-sm">{holiday.name}</p>

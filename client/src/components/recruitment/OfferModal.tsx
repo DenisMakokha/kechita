@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, FileText, Check, Calendar, DollarSign, AlertCircle } from 'lucide-react';
+import { X, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import api from '../../lib/api';
 
 interface OfferModalProps {

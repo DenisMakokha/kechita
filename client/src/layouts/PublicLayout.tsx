@@ -55,3 +55,5 @@ export const PublicLayout: React.FC = () => {
         </div>
     );
 };
+
+export default PublicLayout;

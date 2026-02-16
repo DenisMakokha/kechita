@@ -35,14 +35,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         }
     }
 
-    // TODO: Implement permission-based access when permissions are added
-    // if (requiredPermissions && requiredPermissions.length > 0) {
-    //     const userPermissions = user.permissions || [];
-    //     const hasAllPermissions = requiredPermissions.every(p => userPermissions.includes(p));
-    //     if (!hasAllPermissions) {
-    //         return <Navigate to={redirectTo} replace />;
-    //     }
-    // }
+    // Check permission-based access
+    if (requiredPermissions && requiredPermissions.length > 0) {
+        const userPermissions = user.permissions || [];
+        const hasAllPermissions = requiredPermissions.every(p => userPermissions.includes(p));
+        if (!hasAllPermissions) {
+            return <Navigate to={redirectTo} replace />;
+        }
+    }
 
     return <>{children}</>;
 };
@@ -87,6 +87,20 @@ export const useAuthorization = () => {
         return roles.every((role) => userRoles.includes(role));
     };
 
+    const userPermissions = user?.permissions || [];
+
+    const hasPermission = (permission: string): boolean => {
+        return userPermissions.includes(permission);
+    };
+
+    const hasAnyPermission = (permissions: readonly string[]): boolean => {
+        return permissions.some((p) => userPermissions.includes(p));
+    };
+
+    const hasAllPermissions = (permissions: readonly string[]): boolean => {
+        return permissions.every((p) => userPermissions.includes(p));
+    };
+
     const isCEO = (): boolean => hasRole(ROLES.CEO);
     const isHR = (): boolean => hasAnyRole([ROLES.HR_MANAGER, ROLES.HR_ASSISTANT]);
     const isManager = (): boolean => hasAnyRole([ROLES.CEO, ROLES.REGIONAL_MANAGER, ROLES.BRANCH_MANAGER]);
@@ -94,9 +108,13 @@ export const useAuthorization = () => {
 
     return {
         userRoles,
+        userPermissions,
         hasRole,
         hasAnyRole,
         hasAllRoles,
+        hasPermission,
+        hasAnyPermission,
+        hasAllPermissions,
         isCEO,
         isHR,
         isManager,
@@ -194,3 +212,124 @@ export const RoleBasedContent: React.FC<RoleBasedContentProps> = ({
     if (staff) return <>{staff}</>;
     return <>{defaultContent || null}</>;
 };
+
+// PermissionGate: conditionally render based on permissions
+interface PermissionGateProps {
+    children: React.ReactNode;
+    permissions: readonly string[];
+    requireAll?: boolean;
+    fallback?: React.ReactNode;
+}
+
+export const PermissionGate: React.FC<PermissionGateProps> = ({
+    children,
+    permissions,
+    requireAll = false,
+    fallback = null,
+}) => {
+    const { hasAnyPermission, hasAllPermissions } = useAuthorization();
+
+    const hasAccess = requireAll
+        ? hasAllPermissions(permissions)
+        : hasAnyPermission(permissions);
+
+    if (!hasAccess) {
+        return <>{fallback}</>;
+    }
+
+    return <>{children}</>;
+};
+
+// All permission codes as constants for type-safe usage
+export const PERMISSIONS = {
+    // Staff
+    STAFF_CREATE: 'staff.create',
+    STAFF_READ: 'staff.read',
+    STAFF_UPDATE: 'staff.update',
+    STAFF_DELETE: 'staff.delete',
+    STAFF_DEACTIVATE: 'staff.deactivate',
+    STAFF_TRANSFER: 'staff.transfer',
+    STAFF_DOCUMENTS: 'staff.documents',
+    STAFF_EXPORT: 'staff.export',
+
+    // Leave
+    LEAVE_REQUEST: 'leave.request',
+    LEAVE_READ: 'leave.read',
+    LEAVE_APPROVE: 'leave.approve',
+    LEAVE_RECALL: 'leave.recall',
+    LEAVE_ADMIN: 'leave.admin',
+    LEAVE_TYPES_MANAGE: 'leave.types.manage',
+
+    // Claims
+    CLAIMS_CREATE: 'claims.create',
+    CLAIMS_READ: 'claims.read',
+    CLAIMS_APPROVE: 'claims.approve',
+    CLAIMS_PROCESS: 'claims.process',
+    CLAIMS_CATEGORIES_MANAGE: 'claims.categories.manage',
+
+    // Loans
+    LOANS_APPLY: 'loans.apply',
+    LOANS_READ: 'loans.read',
+    LOANS_APPROVE: 'loans.approve',
+    LOANS_DISBURSE: 'loans.disburse',
+    LOANS_REPAYMENT: 'loans.repayment',
+    LOANS_EXPORT: 'loans.export',
+
+    // Petty Cash
+    PETTY_CASH_EXPENSE: 'petty_cash.expense',
+    PETTY_CASH_READ: 'petty_cash.read',
+    PETTY_CASH_REPLENISH: 'petty_cash.replenish',
+    PETTY_CASH_APPROVE: 'petty_cash.approve',
+    PETTY_CASH_DISBURSE: 'petty_cash.disburse',
+    PETTY_CASH_FLOATS_MANAGE: 'petty_cash.floats.manage',
+
+    // Recruitment
+    RECRUITMENT_JOBS_MANAGE: 'recruitment.jobs.manage',
+    RECRUITMENT_READ: 'recruitment.read',
+    RECRUITMENT_APPLICATIONS_MANAGE: 'recruitment.applications.manage',
+    RECRUITMENT_INTERVIEWS_MANAGE: 'recruitment.interviews.manage',
+    RECRUITMENT_OFFERS_MANAGE: 'recruitment.offers.manage',
+    RECRUITMENT_BACKGROUND_CHECKS: 'recruitment.background_checks',
+
+    // Organization
+    ORG_READ: 'org.read',
+    ORG_MANAGE: 'org.manage',
+
+    // Users & Roles
+    USERS_READ: 'users.read',
+    USERS_MANAGE: 'users.manage',
+    USERS_RESET_PASSWORD: 'users.reset_password',
+    ROLES_READ: 'roles.read',
+    ROLES_MANAGE: 'roles.manage',
+
+    // Approvals
+    APPROVALS_READ: 'approvals.read',
+    APPROVALS_MANAGE: 'approvals.manage',
+
+    // Announcements
+    ANNOUNCEMENTS_READ: 'announcements.read',
+    ANNOUNCEMENTS_MANAGE: 'announcements.manage',
+
+    // Reports
+    REPORTS_READ: 'reports.read',
+    REPORTS_EXPORT: 'reports.export',
+    REPORTS_SUBMIT: 'reports.submit',
+    REPORTS_APPROVE: 'reports.approve',
+    REPORTS_KPI_IMPORT: 'reports.kpi.import',
+
+    // Audit
+    AUDIT_READ: 'audit.read',
+    AUDIT_EXPORT: 'audit.export',
+    AUDIT_CLEANUP: 'audit.cleanup',
+
+    // Notifications
+    NOTIFICATIONS_READ: 'notifications.read',
+
+    // Settings
+    SETTINGS_READ: 'settings.read',
+    SETTINGS_MANAGE: 'settings.manage',
+
+    // Security
+    SECURITY_SESSIONS: 'security.sessions',
+    SECURITY_2FA: 'security.2fa',
+} as const;

@@ -417,6 +417,7 @@ const AddBackgroundCheckModal: React.FC<{
     const mutation = useMutation({
         mutationFn: (data: any) => api.post('/recruitment/background-checks', data),
         onSuccess,
+        onError: (e: any) => console.error('Background check failed:', e),
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -518,6 +519,7 @@ const AddReferenceModal: React.FC<{
     const mutation = useMutation({
         mutationFn: (data: any) => api.post('/recruitment/reference-checks', data),
         onSuccess,
+        onError: (e: any) => console.error('Reference check failed:', e),
     });
 
     const handleSubmit = (e: React.FormEvent) => {

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Branch } from '../../org/entities/branch.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
@@ -7,9 +7,11 @@ export class BranchDailyReport {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @Index('IDX_report_branch_date', ['report_date', 'branch'])
     @Column({ type: 'date' })
     report_date: Date;
 
+    @Index()
     @ManyToOne(() => Branch)
     @JoinColumn({ name: 'branch_id' })
     branch: Branch;

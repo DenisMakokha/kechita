@@ -32,6 +32,13 @@ import { StaffLoanRepayment } from '../loans/entities/staff-loan-repayment.entit
 import { JobPost } from '../recruitment/entities/job-post.entity';
 import { PipelineStage } from '../recruitment/entities/pipeline-stage.entity';
 import { Candidate } from '../recruitment/entities/candidate.entity';
+import { CandidateNote } from '../recruitment/entities/candidate-note.entity';
+import { BackgroundCheck } from '../recruitment/entities/background-check.entity';
+import { ReferenceCheck } from '../recruitment/entities/reference-check.entity';
+import { OfferSignature } from '../recruitment/entities/offer-signature.entity';
+import { ScreeningCriteria } from '../recruitment/entities/screening-criteria.entity';
+import { ScreeningResult } from '../recruitment/entities/screening-result.entity';
+import { KnockoutQuestion } from '../recruitment/entities/knockout-question.entity';
 import { Application } from '../recruitment/entities/application.entity';
 import { Interview } from '../recruitment/entities/interview.entity';
 import { Offer } from '../recruitment/entities/offer.entity';
@@ -59,7 +66,9 @@ const AppDataSource = new DataSource({
         ApprovalFlow, ApprovalFlowStep, ApprovalInstance, ApprovalAction,
         ClaimType, Claim, ClaimItem,
         StaffLoan, StaffLoanRepayment,
-        JobPost, PipelineStage, Candidate, Application, Interview, Offer,
+        JobPost, PipelineStage, Candidate, CandidateNote, Application, Interview, Offer,
+        BackgroundCheck, ReferenceCheck, OfferSignature,
+        ScreeningCriteria, ScreeningResult, KnockoutQuestion,
         BranchDailyReport,
         Notification, NotificationPreference,
     ],

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { Staff } from '../../staff/entities/staff.entity';
 import { ClaimItem } from './claim-item.entity';
 
@@ -14,6 +14,8 @@ export enum ClaimStatus {
 }
 
 @Entity('claims')
+@Index(['staff', 'status'])
+@Index(['status'])
 export class Claim {
     @PrimaryGeneratedColumn('uuid')
     id: string;

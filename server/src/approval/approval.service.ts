@@ -1,13 +1,16 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, LessThan } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { ApprovalFlow } from './entities/approval-flow.entity';
 import { ApprovalFlowStep, ApproverType } from './entities/approval-flow-step.entity';
 import { ApprovalInstance, ApprovalInstanceStatus } from './entities/approval-instance.entity';
 import { ApprovalAction, ApprovalActionType } from './entities/approval-action.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { Role } from '../auth/entities/role.entity';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 
 export interface PendingApproval {
     instance: ApprovalInstance;
@@ -39,6 +42,8 @@ export class ApprovalCompletedEvent {
 
 @Injectable()
 export class ApprovalService {
+    private readonly logger = new Logger(ApprovalService.name);
+
     constructor(
         @InjectRepository(ApprovalFlow)
         private flowRepo: Repository<ApprovalFlow>,
@@ -52,6 +57,7 @@ export class ApprovalService {
         private staffRepo: Repository<Staff>,
         private dataSource: DataSource,
         private eventEmitter: EventEmitter2,
+        private auditService: AuditService,
     ) { }
 
     // ==================== APPROVAL FLOWS ====================
@@ -134,15 +140,29 @@ export class ApprovalService {
         requesterId?: string,
         isUrgent = false,
     ): Promise<ApprovalInstance> {
-        let flow: ApprovalFlow | null;
+        let flow: ApprovalFlow | null = null;
 
+        // 1. Try explicit flow code first
         if (flowCode) {
             flow = await this.flowRepo.findOne({
                 where: { code: flowCode, is_active: true },
-                relations: ['steps']
+                relations: ['steps'],
             });
-        } else {
-            // Try to find by target type with default
+        }
+
+        // 2. If no flow yet and we have a requester, use smart scoping (findBestFlow)
+        if (!flow && requesterId) {
+            const staff = await this.staffRepo.findOne({
+                where: { id: requesterId },
+                relations: ['branch', 'region', 'department', 'position'],
+            });
+            if (staff) {
+                flow = await this.findBestFlow(targetType, staff);
+            }
+        }
+
+        // 3. Fallback: find any active flow for this target type
+        if (!flow) {
             flow = await this.flowRepo.findOne({
                 where: { target_type: targetType, is_active: true },
                 relations: ['steps'],
@@ -176,7 +196,19 @@ export class ApprovalService {
             if (requester) instance.requester = requester;
         }
 
-        return this.instanceRepo.save(instance);
+        const saved = await this.instanceRepo.save(instance);
+
+        // Notify first step approver
+        this.eventEmitter.emit('approval.step.pending', {
+            instanceId: saved.id,
+            targetType: targetType,
+            targetId: targetId,
+            approverRoleCode: firstStep.approver_role_code,
+            approverUserId: firstStep.specific_approver_id || undefined,
+            stepName: firstStep.name,
+        });
+
+        return saved;
     }
 
     async approveStep(
@@ -251,6 +283,8 @@ export class ApprovalService {
             const updatedInstance = await queryRunner.manager.save(instance);
             await queryRunner.commitTransaction();
 
+            this.auditService.logAction(undefined, AuditAction.APPROVE, 'ApprovalInstance', instance.id, `Step approved for ${instance.target_type} ${instance.target_id}`, { targetType: instance.target_type, targetId: instance.target_id, approverId, stepOrder: instance.current_step_order }).catch(() => {});
+
             // Emit event if approval is fully completed
             if (isFullyApproved) {
                 this.eventEmitter.emit(
@@ -263,6 +297,19 @@ export class ApprovalService {
                         comment,
                     ),
                 );
+            } else {
+                // Notify next step approver
+                const nextStep = sortedSteps.find(s => s.step_order === instance.current_step_order);
+                if (nextStep) {
+                    this.eventEmitter.emit('approval.step.pending', {
+                        instanceId: instance.id,
+                        targetType: instance.target_type,
+                        targetId: instance.target_id,
+                        approverRoleCode: nextStep.approver_role_code,
+                        approverUserId: nextStep.specific_approver_id || undefined,
+                        stepName: nextStep.name,
+                    });
+                }
             }
 
             return updatedInstance;
@@ -326,6 +373,8 @@ export class ApprovalService {
 
             const updatedInstance = await queryRunner.manager.save(instance);
             await queryRunner.commitTransaction();
+
+            this.auditService.logAction(undefined, AuditAction.REJECT, 'ApprovalInstance', instance.id, `Rejected ${instance.target_type} ${instance.target_id}: ${comment}`, { targetType: instance.target_type, targetId: instance.target_id, approverId }).catch(() => {});
 
             // Emit rejection event
             this.eventEmitter.emit(
@@ -431,7 +480,7 @@ export class ApprovalService {
     async getMySubmittedApprovals(requesterId: string): Promise<ApprovalInstance[]> {
         return this.instanceRepo.find({
             where: { requester: { id: requesterId } },
-            relations: ['flow', 'actions', 'actions.approver'],
+            relations: ['flow', 'flow.steps', 'actions', 'actions.approver'],
             order: { created_at: 'DESC' },
         });
     }
@@ -672,6 +721,104 @@ export class ApprovalService {
                 if (step.approver_role_code && !approverRoles.includes(step.approver_role_code)) {
                     throw new ForbiddenException('You are not authorized to approve this request');
                 }
+        }
+    }
+
+    // ==================== SCHEDULED: AUTO-APPROVE & ESCALATION ====================
+
+    @Cron(CronExpression.EVERY_30_MINUTES)
+    async processAutoApprovalsAndEscalations() {
+        const pendingInstances = await this.instanceRepo.find({
+            where: { status: ApprovalInstanceStatus.PENDING },
+            relations: ['flow', 'flow.steps', 'actions'],
+        });
+
+        for (const instance of pendingInstances) {
+            try {
+                const sortedSteps = (instance.flow?.steps || []).sort((a, b) => a.step_order - b.step_order);
+                const currentStep = sortedSteps.find(s => s.step_order === instance.current_step_order);
+                if (!currentStep) continue;
+
+                // Determine how long this step has been pending
+                const lastAction = (instance.actions || [])
+                    .filter(a => a.step_order === currentStep.step_order - 1 || a.step_order === 0)
+                    .sort((a, b) => new Date(b.acted_at).getTime() - new Date(a.acted_at).getTime())[0];
+                const stepStartTime = lastAction ? new Date(lastAction.acted_at) : new Date(instance.created_at);
+                const hoursPending = (Date.now() - stepStartTime.getTime()) / (1000 * 60 * 60);
+
+                // Auto-approve if configured
+                if (currentStep.auto_approve_hours > 0 && hoursPending >= currentStep.auto_approve_hours) {
+                    this.logger.log(`Auto-approving instance ${instance.id} at step ${currentStep.step_order} (${hoursPending.toFixed(1)}h elapsed)`);
+
+                    const action = this.actionRepo.create({
+                        instance,
+                        step: currentStep,
+                        step_order: currentStep.step_order,
+                        action: ApprovalActionType.AUTO_APPROVED,
+                        comment: `Auto-approved after ${currentStep.auto_approve_hours} hours without action`,
+                    });
+                    await this.actionRepo.save(action);
+
+                    if (currentStep.is_final) {
+                        instance.status = ApprovalInstanceStatus.APPROVED;
+                        instance.resolved_at = new Date();
+                        instance.final_comment = `Auto-approved at step ${currentStep.step_order}`;
+                        await this.instanceRepo.save(instance);
+                        this.eventEmitter.emit('approval.completed', new ApprovalCompletedEvent(
+                            instance.target_type, instance.target_id, 'approved', 'system',
+                            `Auto-approved after ${currentStep.auto_approve_hours}h timeout`,
+                        ));
+                    } else {
+                        const nextStep = sortedSteps.find(s => s.step_order > currentStep.step_order);
+                        if (nextStep) {
+                            instance.current_step_order = nextStep.step_order;
+                            instance.current_approver_role = nextStep.approver_role_code;
+                        } else {
+                            instance.status = ApprovalInstanceStatus.APPROVED;
+                            instance.resolved_at = new Date();
+                            this.eventEmitter.emit('approval.completed', new ApprovalCompletedEvent(
+                                instance.target_type, instance.target_id, 'approved', 'system',
+                            ));
+                        }
+                        await this.instanceRepo.save(instance);
+                    }
+                    continue;
+                }
+
+                // Escalation if configured
+                if (currentStep.escalation_hours > 0 && currentStep.escalation_role_code && hoursPending >= currentStep.escalation_hours) {
+                    // Check if already escalated for this step
+                    const alreadyEscalated = (instance.actions || []).some(
+                        a => a.step_order === currentStep.step_order && a.action === ApprovalActionType.ESCALATED,
+                    );
+                    if (alreadyEscalated) continue;
+
+                    this.logger.log(`Escalating instance ${instance.id} at step ${currentStep.step_order} to ${currentStep.escalation_role_code}`);
+
+                    const action = this.actionRepo.create({
+                        instance,
+                        step: currentStep,
+                        step_order: currentStep.step_order,
+                        action: ApprovalActionType.ESCALATED,
+                        comment: `Escalated to ${currentStep.escalation_role_code} after ${currentStep.escalation_hours} hours without action`,
+                    });
+                    await this.actionRepo.save(action);
+
+                    // Update current approver role to escalation target
+                    instance.current_approver_role = currentStep.escalation_role_code;
+                    await this.instanceRepo.save(instance);
+
+                    this.eventEmitter.emit('approval.escalated', {
+                        instanceId: instance.id,
+                        targetType: instance.target_type,
+                        targetId: instance.target_id,
+                        escalatedToRole: currentStep.escalation_role_code,
+                        hoursPending: Math.round(hoursPending),
+                    });
+                }
+            } catch (err) {
+                this.logger.error(`Error processing auto-approve/escalation for instance ${instance.id}: ${err.message}`);
+            }
         }
     }
 }

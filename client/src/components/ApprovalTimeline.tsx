@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    CheckCircle, XCircle, Clock, Calendar, FileText,
+    CheckCircle, XCircle, Clock, FileText,
     AlertTriangle, User, ArrowRight, RotateCcw, MessageSquare
 } from 'lucide-react';
 
@@ -114,7 +114,7 @@ const FullTimeline: React.FC<{ instance: ApprovalInstanceData; showHeader: boole
                     />
 
                     {/* Workflow Steps */}
-                    {steps.map((step, idx) => {
+                    {steps.map((step) => {
                         const status = getStepStatus(step);
                         const action = actionsMap.get(step.step_order);
 
@@ -281,20 +281,19 @@ interface TimelineStepProps {
     finalStatus?: string;
 }
 
-const TimelineStep: React.FC<TimelineStepProps> = ({
-    icon,
-    iconBg,
-    title,
-    subtitle,
-    timestamp,
-    comment,
-    status,
-    isFirst,
-    isLast,
-    isActive,
-    isFinal,
-    finalStatus,
-}) => {
+const TimelineStep: React.FC<TimelineStepProps> = (props) => {
+    const {
+        icon,
+        iconBg,
+        title,
+        subtitle,
+        timestamp,
+        comment,
+        status,
+        isActive,
+        isFinal,
+        finalStatus,
+    } = props;
     return (
         <div className={`relative flex gap-4 py-3 ${status === 'pending' ? 'opacity-50' : ''}`}>
             {/* Icon */}
