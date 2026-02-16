@@ -11,6 +11,20 @@ import { seedApprovalFlows } from './seed-approval-flows';
 import { ApprovalFlow } from '../approval/entities/approval-flow.entity';
 import { ApprovalFlowStep } from '../approval/entities/approval-flow-step.entity';
 import { SystemSetting } from '../auth/entities/system-setting.entity';
+import { Staff } from '../staff/entities/staff.entity';
+import { Region } from '../org/entities/region.entity';
+import { Branch } from '../org/entities/branch.entity';
+import { Department } from '../org/entities/department.entity';
+import { Position } from '../org/entities/position.entity';
+import { Document } from '../staff/entities/document.entity';
+import { DocumentType } from '../staff/entities/document-type.entity';
+import { StaffDocument } from '../staff/entities/staff-document.entity';
+import { EmploymentHistory } from '../staff/entities/employment-history.entity';
+import { OnboardingTemplate } from '../staff/entities/onboarding-template.entity';
+import { OnboardingTask } from '../staff/entities/onboarding-task.entity';
+import { OnboardingInstance } from '../staff/entities/onboarding-instance.entity';
+import { OnboardingTaskStatus } from '../staff/entities/onboarding-task-status.entity';
+import { StaffContract } from '../staff/entities/staff-contract.entity';
 
 dotenv.config();
 
@@ -21,7 +35,11 @@ const AppDataSource = new DataSource({
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    entities: [Role, User, Permission, LeaveType, ClaimType, ApprovalFlow, ApprovalFlowStep, SystemSetting],
+    entities: [
+        Role, User, Permission, LeaveType, ClaimType, ApprovalFlow, ApprovalFlowStep, SystemSetting,
+        Staff, Region, Branch, Department, Position, Document, DocumentType, StaffDocument,
+        EmploymentHistory, OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus, StaffContract,
+    ],
     synchronize: false,
 });
 
