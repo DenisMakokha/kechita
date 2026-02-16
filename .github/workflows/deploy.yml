@@ -72,10 +72,10 @@ jobs:
 
             cd /opt/kechita
 
-            # Preserve .env files, reset everything else, pull
+            # Preserve server .env, reset everything else, pull
             echo "📥 Pulling latest code..."
             git reset --hard HEAD
-            git clean -fd -e server/.env -e client/.env.production
+            git clean -fd -e server/.env
             git pull origin main
 
             # ── Server ──
