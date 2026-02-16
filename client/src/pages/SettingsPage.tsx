@@ -6,10 +6,10 @@ import {
     Plus, Edit, Trash2,
     Settings, Receipt, Calendar, CalendarDays, GitBranch,
     PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle,
-    Mail, Send, Wifi, WifiOff, Loader2
+    Mail, Send, Wifi, WifiOff, Loader2, MessageSquare, Smartphone
 } from 'lucide-react';
 
-type Tab = 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings';
+type Tab = 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings' | 'sms-settings';
 
 interface ClaimType {
     id: string;
@@ -356,6 +356,34 @@ const SettingsPage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to send test email', 'error'),
     });
 
+    // SMS settings state
+    const [smsConfig, setSmsConfig] = useState<Record<string, string>>({});
+    const [testSmsTo, setTestSmsTo] = useState('');
+
+    const { data: smsConfigData } = useQuery<Record<string, string>>({
+        queryKey: ['sms-config'],
+        queryFn: async () => (await api.get('/settings/sms/config')).data,
+    });
+
+    useEffect(() => {
+        if (smsConfigData) setSmsConfig(smsConfigData);
+    }, [smsConfigData]);
+
+    const saveSmsConfigMutation = useMutation({
+        mutationFn: async (config: Record<string, string>) => (await api.put('/settings/sms/config', config)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['sms-config'] }); showToast('SMS settings saved and applied'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save SMS settings', 'error'),
+    });
+
+    const sendTestSmsMutation = useMutation({
+        mutationFn: async (to: string) => (await api.post('/settings/sms/send-test', { to })).data,
+        onSuccess: (data: any) => {
+            if (data.success) showToast(`Test SMS sent to ${testSmsTo}`);
+            else showToast(`Send failed: ${data.error}`, 'error');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to send test SMS', 'error'),
+    });
+
     const mainTabs = [
         { key: 'claim-types' as Tab, label: 'Claim Types', icon: Receipt },
         { key: 'leave-types' as Tab, label: 'Leave Types', icon: Calendar },
@@ -363,6 +391,7 @@ const SettingsPage: React.FC = () => {
         { key: 'holidays' as Tab, label: 'Public Holidays', icon: CalendarDays },
         { key: 'loan-settings' as Tab, label: 'Loan Settings', icon: PiggyBank },
         { key: 'email-settings' as Tab, label: 'Email / SMTP', icon: Mail },
+        { key: 'sms-settings' as Tab, label: 'Bulk SMS', icon: MessageSquare },
     ];
 
     const openModal = (_type: string, item?: any) => {
@@ -1036,6 +1065,277 @@ const SettingsPage: React.FC = () => {
         </div>
     );
 
+    const renderSmsSettingsContent = () => {
+        const provider = smsConfig.sms_provider || 'africastalking';
+        const enabled = smsConfig.sms_enabled === 'true';
+
+        return (
+            <div className="p-6 space-y-6">
+                {/* Status Banner */}
+                <div className={`flex items-center gap-3 p-4 rounded-xl border ${enabled && (smsConfig as any).configured
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : !enabled
+                        ? 'bg-slate-50 border-slate-200 text-slate-600'
+                        : 'bg-amber-50 border-amber-200 text-amber-800'
+                }`}>
+                    {enabled && (smsConfig as any).configured
+                        ? <><Smartphone size={20} /><span className="font-medium">SMS is enabled and configured</span></>
+                        : !enabled
+                            ? <><WifiOff size={20} /><span className="font-medium">SMS is disabled</span></>
+                            : <><AlertCircle size={20} /><span className="font-medium">SMS enabled but missing credentials</span></>
+                    }
+                </div>
+
+                {/* Enable Toggle + Provider */}
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-white border border-slate-200 rounded-xl">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={enabled}
+                                onChange={(e) => setSmsConfig({ ...smsConfig, sms_enabled: e.target.checked ? 'true' : 'false' })}
+                                className="w-5 h-5 text-[#0066B3] rounded"
+                            />
+                            <div>
+                                <span className="font-medium text-slate-900">Enable SMS Notifications</span>
+                                <p className="text-sm text-slate-500">Send SMS alerts for critical notifications</p>
+                            </div>
+                        </label>
+                    </div>
+                    <div className="p-4 bg-white border border-slate-200 rounded-xl">
+                        <label className="block text-sm font-medium text-slate-700 mb-2">SMS Provider</label>
+                        <select
+                            value={provider}
+                            onChange={(e) => setSmsConfig({ ...smsConfig, sms_provider: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                        >
+                            <option value="africastalking">Africa's Talking</option>
+                            <option value="twilio">Twilio</option>
+                            <option value="custom">Custom HTTP API</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Provider-specific fields */}
+                <div className="grid md:grid-cols-2 gap-6">
+                    {provider === 'africastalking' && (
+                        <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                <MessageSquare size={18} className="text-green-600" />
+                                Africa's Talking
+                            </h3>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                                <input
+                                    type="text"
+                                    value={smsConfig.at_username || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, at_username: e.target.value })}
+                                    placeholder="sandbox or your username"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">API Key</label>
+                                <input
+                                    type="password"
+                                    value={smsConfig.at_api_key || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, at_api_key: e.target.value })}
+                                    placeholder="••••••••"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Sender ID <span className="text-slate-400">(optional)</span></label>
+                                <input
+                                    type="text"
+                                    value={smsConfig.at_from || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, at_from: e.target.value })}
+                                    placeholder="e.g., KECHITA"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">API Endpoint</label>
+                                <input
+                                    type="text"
+                                    value={smsConfig.at_endpoint || 'https://api.africastalking.com/version1/messaging'}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, at_endpoint: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">Use sandbox URL for testing: https://api.sandbox.africastalking.com/version1/messaging</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {provider === 'twilio' && (
+                        <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                <MessageSquare size={18} className="text-red-500" />
+                                Twilio
+                            </h3>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Account SID</label>
+                                <input
+                                    type="text"
+                                    value={smsConfig.twilio_sid || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, twilio_sid: e.target.value })}
+                                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Auth Token</label>
+                                <input
+                                    type="password"
+                                    value={smsConfig.twilio_auth_token || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, twilio_auth_token: e.target.value })}
+                                    placeholder="••••••••"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">From Number</label>
+                                <input
+                                    type="text"
+                                    value={smsConfig.twilio_from || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, twilio_from: e.target.value })}
+                                    placeholder="+1234567890"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {provider === 'custom' && (
+                        <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                <MessageSquare size={18} className="text-purple-600" />
+                                Custom HTTP API
+                            </h3>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">API Endpoint</label>
+                                <input
+                                    type="text"
+                                    value={smsConfig.custom_endpoint || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, custom_endpoint: e.target.value })}
+                                    placeholder="https://api.yourprovider.com/sms/send"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">API Key / Bearer Token <span className="text-slate-400">(optional)</span></label>
+                                <input
+                                    type="password"
+                                    value={smsConfig.custom_api_key || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, custom_api_key: e.target.value })}
+                                    placeholder="••••••••"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">HTTP Method</label>
+                                    <select
+                                        value={smsConfig.custom_method || 'POST'}
+                                        onChange={(e) => setSmsConfig({ ...smsConfig, custom_method: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                    >
+                                        <option value="POST">POST</option>
+                                        <option value="PUT">PUT</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Extra Headers <span className="text-slate-400">(JSON)</span></label>
+                                <textarea
+                                    value={smsConfig.custom_headers || '{}'}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, custom_headers: e.target.value })}
+                                    rows={2}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-xs"
+                                    placeholder='{"X-Custom-Header": "value"}'
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Body Template <span className="text-slate-400">(JSON with {'{{to}}'} and {'{{message}}'} placeholders)</span></label>
+                                <textarea
+                                    value={smsConfig.custom_body_template || '{"to":"{{to}}","message":"{{message}}"}'}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, custom_body_template: e.target.value })}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-xs"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Test SMS */}
+                    <div className="space-y-6">
+                        <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                <Smartphone size={18} className="text-[#0066B3]" />
+                                Send Test SMS
+                            </h3>
+                            <p className="text-sm text-slate-500">Verify your SMS integration by sending a test message.</p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="tel"
+                                    value={testSmsTo}
+                                    onChange={(e) => setTestSmsTo(e.target.value)}
+                                    placeholder="+254712345678"
+                                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg"
+                                />
+                                <button
+                                    onClick={() => testSmsTo && sendTestSmsMutation.mutate(testSmsTo)}
+                                    disabled={!testSmsTo || sendTestSmsMutation.isPending || !enabled}
+                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                    {sendTestSmsMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                    Send
+                                </button>
+                            </div>
+                            {!enabled && <p className="text-xs text-amber-600">Enable SMS first to send a test message.</p>}
+                        </div>
+
+                        {/* Provider Info */}
+                        <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                            <h3 className="font-semibold text-slate-700 text-sm">Provider Quick Links</h3>
+                            {provider === 'africastalking' && (
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <p>• <a href="https://africastalking.com" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">Africa's Talking Dashboard</a></p>
+                                    <p>• Use <code className="bg-white px-1.5 py-0.5 rounded text-xs">sandbox</code> as username for testing</p>
+                                    <p>• Sender ID requires approval from AT</p>
+                                </div>
+                            )}
+                            {provider === 'twilio' && (
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <p>• <a href="https://console.twilio.com" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">Twilio Console</a></p>
+                                    <p>• Use a verified number or Messaging Service SID</p>
+                                </div>
+                            )}
+                            {provider === 'custom' && (
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <p>• Use <code className="bg-white px-1.5 py-0.5 rounded text-xs">{'{{to}}'}</code> and <code className="bg-white px-1.5 py-0.5 rounded text-xs">{'{{message}}'}</code> in the body template</p>
+                                    <p>• API key is sent as <code className="bg-white px-1.5 py-0.5 rounded text-xs">Authorization: Bearer ...</code></p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => saveSmsConfigMutation.mutate(smsConfig)}
+                        disabled={saveSmsConfigMutation.isPending}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
+                    >
+                        {saveSmsConfigMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        {saveSmsConfigMutation.isPending ? 'Saving...' : 'Save SMS Settings'}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     const renderTabContent = () => {
         switch (activeTab) {
             case 'claim-types': return renderClaimTypesContent();
@@ -1044,6 +1344,7 @@ const SettingsPage: React.FC = () => {
             case 'holidays': return renderHolidaysContent();
             case 'loan-settings': return renderLoanSettingsContent();
             case 'email-settings': return renderEmailSettingsContent();
+            case 'sms-settings': return renderSmsSettingsContent();
         }
     };
 
@@ -1056,7 +1357,7 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const showAddButton = activeTab !== 'approval-flows' && activeTab !== 'loan-settings' && activeTab !== 'email-settings';
+    const showAddButton = activeTab !== 'approval-flows' && activeTab !== 'loan-settings' && activeTab !== 'email-settings' && activeTab !== 'sms-settings';
 
     return (
         <div className="space-y-6">

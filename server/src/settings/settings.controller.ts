@@ -4,6 +4,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { SettingsService } from './settings.service';
 import { EmailService } from '../email/email.service';
+import { SmsService, SmsProvider } from '../sms/sms.service';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -11,6 +12,7 @@ export class SettingsController {
     constructor(
         private readonly settingsService: SettingsService,
         private readonly emailService: EmailService,
+        private readonly smsService: SmsService,
     ) { }
 
     @Get()
@@ -109,6 +111,82 @@ export class SettingsController {
                     </div>
                 </div>
             `,
+        });
+    }
+
+    // ── SMS / Bulk SMS Settings ──
+
+    @Get('sms/config')
+    @Roles('CEO', 'HR_MANAGER')
+    async getSmsConfig() {
+        const dbSettings = await this.settingsService.getByCategory('sms');
+        const liveConfig = this.smsService.getConfig();
+        return {
+            sms_enabled: dbSettings['sms_enabled'] || String(liveConfig.enabled),
+            sms_provider: dbSettings['sms_provider'] || liveConfig.provider,
+            // Africa's Talking
+            at_username: dbSettings['at_username'] || '',
+            at_api_key: dbSettings['at_api_key'] ? '••••••••' : '',
+            at_from: dbSettings['at_from'] || '',
+            at_endpoint: dbSettings['at_endpoint'] || 'https://api.africastalking.com/version1/messaging',
+            // Twilio
+            twilio_sid: dbSettings['twilio_sid'] || '',
+            twilio_auth_token: dbSettings['twilio_auth_token'] ? '••••••••' : '',
+            twilio_from: dbSettings['twilio_from'] || '',
+            // Custom
+            custom_endpoint: dbSettings['custom_endpoint'] || '',
+            custom_api_key: dbSettings['custom_api_key'] ? '••••••••' : '',
+            custom_method: dbSettings['custom_method'] || 'POST',
+            custom_headers: dbSettings['custom_headers'] || '{}',
+            custom_body_template: dbSettings['custom_body_template'] || '{"to":"{{to}}","message":"{{message}}"}',
+            configured: liveConfig.configured,
+        };
+    }
+
+    @Put('sms/config')
+    @Roles('CEO')
+    async updateSmsConfig(@Body() body: Record<string, string>) {
+        const secretKeys = ['at_api_key', 'twilio_auth_token', 'custom_api_key'];
+        const entries: { key: string; value: string; category: string }[] = [];
+
+        for (const [key, value] of Object.entries(body)) {
+            if (secretKeys.includes(key) && value?.includes('••')) continue;
+            entries.push({ key, value: value || '', category: 'sms' });
+        }
+        await this.settingsService.bulkSet(entries);
+
+        // Resolve secrets (use saved value if masked)
+        const resolveSecret = async (key: string) => {
+            if (body[key] && !body[key].includes('••')) return body[key];
+            return (await this.settingsService.get(key)) || '';
+        };
+
+        this.smsService.reconfigure({
+            enabled: body.sms_enabled === 'true',
+            provider: (body.sms_provider || 'africastalking') as SmsProvider,
+            at_username: body.at_username,
+            at_api_key: await resolveSecret('at_api_key'),
+            at_from: body.at_from,
+            at_endpoint: body.at_endpoint,
+            twilio_sid: body.twilio_sid,
+            twilio_auth_token: await resolveSecret('twilio_auth_token'),
+            twilio_from: body.twilio_from,
+            custom_endpoint: body.custom_endpoint,
+            custom_api_key: await resolveSecret('custom_api_key'),
+            custom_method: body.custom_method,
+            custom_headers: body.custom_headers,
+            custom_body_template: body.custom_body_template,
+        });
+
+        return { message: 'SMS settings updated and applied' };
+    }
+
+    @Post('sms/send-test')
+    @Roles('CEO')
+    async sendTestSms(@Body() body: { to: string }) {
+        return this.smsService.sendSms({
+            to: body.to,
+            message: 'Kechita Capital - Test SMS. If you received this, your SMS integration is configured correctly!',
         });
     }
 
