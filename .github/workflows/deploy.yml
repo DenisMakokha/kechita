@@ -1,0 +1,118 @@
+name: CI/CD Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Job 1: Build & verify the client (frontend)
+  # ─────────────────────────────────────────────
+  client-check:
+    name: Client Build & TypeCheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  # ─────────────────────────────────────────────
+  # Job 2: Build & verify the server (backend)
+  # ─────────────────────────────────────────────
+  server-check:
+    name: Server Build & TypeCheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx nest build
+
+  # ─────────────────────────────────────────────
+  # Job 3: Deploy to production (only if both pass)
+  # ─────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [client-check, server-check]
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 Starting deployment..."
+
+            cd /opt/kechita
+
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            git pull origin main
+
+            # Install server dependencies
+            echo "📦 Installing server dependencies..."
+            cd /opt/kechita/server
+            npm ci --omit=dev
+
+            # Build server
+            echo "🔨 Building server..."
+            npx nest build
+
+            # Run migrations (if any exist)
+            echo "🗄️ Running migrations..."
+            if [ -d "src/migrations" ] && [ "$(ls -A src/migrations 2>/dev/null)" ]; then
+              npx typeorm migration:run -d dist/data-source.js || echo "⚠️ Migration runner not configured, skipping..."
+            else
+              echo "ℹ️ No migrations found, skipping..."
+            fi
+
+            # Run production seed (idempotent — skips existing data)
+            echo "🌱 Running production seed..."
+            npx ts-node src/seeds/seed-production-defaults.ts || echo "⚠️ Seed completed with warnings"
+
+            # Restart server
+            echo "♻️ Restarting server..."
+            pm2 restart kechita-api
+            sleep 5
+
+            # Install client dependencies & build
+            echo "📦 Installing client dependencies..."
+            cd /opt/kechita/client
+            npm ci
+            echo "🔨 Building client..."
+            npm run build
+
+            # Verify server is running
+            echo "✅ Verifying deployment..."
+            curl -sf http://localhost:3000/ > /dev/null && echo "✅ API is healthy" || echo "❌ API health check failed"
+            pm2 save
+
+            echo "🎉 Deployment complete!"

@@ -40,7 +40,7 @@ const AppDataSource = new DataSource({
         Staff, Region, Branch, Department, Position, Document, DocumentType, StaffDocument,
         EmploymentHistory, OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus, StaffContract,
     ],
-    synchronize: false,
+    synchronize: true,
 });
 
 const ROLES = [
