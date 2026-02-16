@@ -5,10 +5,11 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
     Plus, MapPin, Building, Briefcase, Users, Edit, Trash2,
     Settings, Receipt, Calendar, CalendarDays, GitBranch,
-    PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle
+    PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle,
+    Mail, Send, Wifi, WifiOff, Loader2
 } from 'lucide-react';
 
-type Tab = 'organization' | 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings';
+type Tab = 'organization' | 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings';
 type OrgSubTab = 'regions' | 'branches' | 'departments' | 'positions';
 
 interface ClaimType {
@@ -397,6 +398,43 @@ const SettingsPage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete approval flow', 'error'),
     });
 
+    // Email settings state
+    const [emailConfig, setEmailConfig] = useState<Record<string, string>>({});
+    const [testEmailTo, setTestEmailTo] = useState('');
+
+    const { data: emailConfigData } = useQuery<Record<string, string>>({
+        queryKey: ['email-config'],
+        queryFn: async () => (await api.get('/settings/email/config')).data,
+    });
+
+    useEffect(() => {
+        if (emailConfigData) setEmailConfig(emailConfigData);
+    }, [emailConfigData]);
+
+    const saveEmailConfigMutation = useMutation({
+        mutationFn: async (config: Record<string, string>) => (await api.put('/settings/email/config', config)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['email-config'] }); showToast('Email settings saved and applied'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save email settings', 'error'),
+    });
+
+    const testConnectionMutation = useMutation({
+        mutationFn: async () => (await api.post('/settings/email/test-connection')).data,
+        onSuccess: (data: any) => {
+            if (data.success) showToast('SMTP connection successful');
+            else showToast(`Connection failed: ${data.error}`, 'error');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Connection test failed', 'error'),
+    });
+
+    const sendTestEmailMutation = useMutation({
+        mutationFn: async (to: string) => (await api.post('/settings/email/send-test', { to })).data,
+        onSuccess: (data: any) => {
+            if (data.success) showToast(`Test email sent to ${testEmailTo}`);
+            else showToast(`Send failed: ${data.error}`, 'error');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to send test email', 'error'),
+    });
+
     const mainTabs = [
         { key: 'organization' as Tab, label: 'Organization', icon: Building },
         { key: 'claim-types' as Tab, label: 'Claim Types', icon: Receipt },
@@ -404,6 +442,7 @@ const SettingsPage: React.FC = () => {
         { key: 'approval-flows' as Tab, label: 'Approval Flows', icon: GitBranch },
         { key: 'holidays' as Tab, label: 'Public Holidays', icon: CalendarDays },
         { key: 'loan-settings' as Tab, label: 'Loan Settings', icon: PiggyBank },
+        { key: 'email-settings' as Tab, label: 'Email / SMTP', icon: Mail },
     ];
 
     const orgSubTabs = [
@@ -1076,6 +1115,155 @@ const SettingsPage: React.FC = () => {
         </div>
     );
 
+    const renderEmailSettingsContent = () => (
+        <div className="p-6 space-y-6">
+            {/* Status Banner */}
+            <div className={`flex items-center gap-3 p-4 rounded-xl border ${(emailConfig as any).configured
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}>
+                {(emailConfig as any).configured ? <Wifi size={20} /> : <WifiOff size={20} />}
+                <span className="font-medium">
+                    {(emailConfig as any).configured ? 'SMTP is configured and active' : 'SMTP not configured — emails are logged only'}
+                </span>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+                {/* SMTP Server Settings */}
+                <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                        <Mail size={18} className="text-[#0066B3]" />
+                        SMTP Server
+                    </h3>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Host</label>
+                        <input
+                            type="text"
+                            value={emailConfig.smtp_host || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
+                            placeholder="e.g., localhost, smtp.gmail.com"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
+                            <input
+                                type="number"
+                                value={emailConfig.smtp_port || '587'}
+                                onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Encryption</label>
+                            <select
+                                value={emailConfig.smtp_secure || 'false'}
+                                onChange={(e) => setEmailConfig({ ...emailConfig, smtp_secure: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            >
+                                <option value="false">STARTTLS (port 587)</option>
+                                <option value="true">SSL/TLS (port 465)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Username <span className="text-slate-400">(optional for localhost)</span></label>
+                        <input
+                            type="text"
+                            value={emailConfig.smtp_user || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
+                            placeholder="user@example.com"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Password <span className="text-slate-400">(optional for localhost)</span></label>
+                        <input
+                            type="password"
+                            value={emailConfig.smtp_pass || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_pass: e.target.value })}
+                            placeholder="••••••••"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                        />
+                    </div>
+                </div>
+
+                {/* Sender Settings */}
+                <div className="space-y-6">
+                    <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                        <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                            <Send size={18} className="text-[#0066B3]" />
+                            Sender Identity
+                        </h3>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">From Email</label>
+                            <input
+                                type="email"
+                                value={emailConfig.smtp_from_email || ''}
+                                onChange={(e) => setEmailConfig({ ...emailConfig, smtp_from_email: e.target.value })}
+                                placeholder="noreply@kechita.cloud"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">From Name</label>
+                            <input
+                                type="text"
+                                value={emailConfig.smtp_from_name || ''}
+                                onChange={(e) => setEmailConfig({ ...emailConfig, smtp_from_name: e.target.value })}
+                                placeholder="Kechita Capital"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Test Email */}
+                    <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
+                        <h3 className="font-semibold text-slate-900">Send Test Email</h3>
+                        <div className="flex gap-2">
+                            <input
+                                type="email"
+                                value={testEmailTo}
+                                onChange={(e) => setTestEmailTo(e.target.value)}
+                                placeholder="recipient@example.com"
+                                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg"
+                            />
+                            <button
+                                onClick={() => testEmailTo && sendTestEmailMutation.mutate(testEmailTo)}
+                                disabled={!testEmailTo || sendTestEmailMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                                {sendTestEmailMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={() => saveEmailConfigMutation.mutate(emailConfig)}
+                    disabled={saveEmailConfigMutation.isPending}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
+                >
+                    {saveEmailConfigMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {saveEmailConfigMutation.isPending ? 'Saving...' : 'Save Settings'}
+                </button>
+                <button
+                    onClick={() => testConnectionMutation.mutate()}
+                    disabled={testConnectionMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50"
+                >
+                    {testConnectionMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Wifi size={18} />}
+                    {testConnectionMutation.isPending ? 'Testing...' : 'Test Connection'}
+                </button>
+            </div>
+        </div>
+    );
+
     const renderTabContent = () => {
         switch (activeTab) {
             case 'organization': return renderOrganizationContent();
@@ -1084,6 +1272,7 @@ const SettingsPage: React.FC = () => {
             case 'approval-flows': return renderApprovalFlowsContent();
             case 'holidays': return renderHolidaysContent();
             case 'loan-settings': return renderLoanSettingsContent();
+            case 'email-settings': return renderEmailSettingsContent();
         }
     };
 
@@ -1097,7 +1286,7 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const showAddButton = activeTab !== 'approval-flows' && activeTab !== 'loan-settings';
+    const showAddButton = activeTab !== 'approval-flows' && activeTab !== 'loan-settings' && activeTab !== 'email-settings';
 
     return (
         <div className="space-y-6">

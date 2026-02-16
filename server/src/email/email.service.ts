@@ -29,12 +29,13 @@ export interface EmailTemplate {
 export class EmailService {
     private readonly logger = new Logger(EmailService.name);
     private transporter: nodemailer.Transporter;
-    private readonly fromEmail: string;
-    private readonly fromName: string;
+    private fromEmail: string;
+    private fromName: string;
+    private smtpConfigured = false;
 
     constructor(private configService: ConfigService) {
         const smtpHost = this.configService.get('SMTP_HOST') || 'smtp.gmail.com';
-        const smtpPort = this.configService.get('SMTP_PORT') || 587;
+        const smtpPort = parseInt(this.configService.get('SMTP_PORT') || '587', 10);
         const smtpUser = this.configService.get('SMTP_USER');
         const smtpPass = this.configService.get('SMTP_PASS');
 
@@ -53,12 +54,61 @@ export class EmailService {
 
         // Verify connection on startup
         if (smtpUser && smtpPass) {
+            this.smtpConfigured = true;
             this.transporter.verify()
                 .then(() => this.logger.log('SMTP connection established'))
                 .catch((err) => this.logger.warn('SMTP connection failed:', err.message));
+        } else if (smtpHost === 'localhost') {
+            this.smtpConfigured = true;
+            this.logger.log('Using local Postfix for email delivery');
         } else {
             this.logger.warn('SMTP credentials not configured - emails will be logged only');
         }
+    }
+
+    /**
+     * Reconfigure the SMTP transporter at runtime (called from settings UI).
+     */
+    reconfigure(config: {
+        host: string;
+        port: number;
+        user?: string;
+        pass?: string;
+        fromEmail: string;
+        fromName: string;
+        secure?: boolean;
+    }): void {
+        this.fromEmail = config.fromEmail;
+        this.fromName = config.fromName;
+
+        this.transporter = nodemailer.createTransport({
+            host: config.host,
+            port: config.port,
+            secure: config.secure ?? config.port === 465,
+            auth: config.user && config.pass ? {
+                user: config.user,
+                pass: config.pass,
+            } : undefined,
+        });
+
+        this.smtpConfigured = !!(config.host);
+        this.logger.log(`SMTP reconfigured: ${config.host}:${config.port} from=${config.fromEmail}`);
+    }
+
+    /**
+     * Test the current SMTP connection.
+     */
+    async testConnection(): Promise<{ success: boolean; error?: string }> {
+        try {
+            await this.transporter.verify();
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    }
+
+    getConfig(): { fromEmail: string; fromName: string; configured: boolean } {
+        return { fromEmail: this.fromEmail, fromName: this.fromName, configured: this.smtpConfigured };
     }
 
     async sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
@@ -76,7 +126,7 @@ export class EmailService {
             };
 
             // If no SMTP configured, log the email instead
-            if (!this.configService.get('SMTP_USER')) {
+            if (!this.smtpConfigured) {
                 this.logger.log(`[Email - DEV MODE] To: ${mailOptions.to}, Subject: ${mailOptions.subject}`);
                 return { success: true, messageId: 'dev-mode-' + Date.now() };
             }
