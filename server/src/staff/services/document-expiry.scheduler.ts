@@ -6,6 +6,7 @@ import { StaffDocument, StaffDocumentStatus } from '../entities/staff-document.e
 import { NotificationService } from '../../notifications/notification.service';
 import { NotificationType } from '../../notifications/entities/notification.entity';
 import { Staff } from '../entities/staff.entity';
+import { documentExpiringEmail, documentExpiredHrEmail } from '../../email/email-templates';
 
 @Injectable()
 export class DocumentExpiryScheduler {
@@ -56,6 +57,8 @@ export class DocumentExpiryScheduler {
 
             const docName = doc.documentType?.name || doc.doc_type || 'Document';
 
+            const staffFullName = `${doc.staff.first_name} ${doc.staff.last_name}`;
+
             // Notify the staff member
             await this.notificationService.create({
                 userId: doc.staff.user.id,
@@ -65,17 +68,19 @@ export class DocumentExpiryScheduler {
                 priority: 'high' as any,
                 referenceType: 'staff_document',
                 referenceId: doc.id,
-            });
+                emailHtml: documentExpiringEmail(staffFullName, docName, new Date(doc.expiry_date!).toLocaleDateString(), 'expired'),
+            } as any);
 
             // Notify HR managers
             await this.notificationService.notifyByRole('HR_MANAGER', {
                 type: NotificationType.DOCUMENT_EXPIRING,
                 title: 'Staff Document Expired',
-                body: `${doc.staff.first_name} ${doc.staff.last_name}'s ${docName} has expired.`,
+                body: `${staffFullName}'s ${docName} has expired.`,
                 priority: 'high' as any,
                 referenceType: 'staff_document',
                 referenceId: doc.id,
-            });
+                emailHtml: documentExpiredHrEmail('HR Manager', staffFullName, docName),
+            } as any);
 
             // Mark reminder as sent
             doc.reminder_sent_expired = true;
@@ -120,7 +125,8 @@ export class DocumentExpiryScheduler {
                 priority: 'high' as any,
                 referenceType: 'staff_document',
                 referenceId: doc.id,
-            });
+                emailHtml: documentExpiringEmail(`${doc.staff.first_name} ${doc.staff.last_name}`, docName, expiryDate, '7 days'),
+            } as any);
 
             // Mark reminder as sent and update status
             doc.reminder_sent_7_days = true;
@@ -168,7 +174,8 @@ export class DocumentExpiryScheduler {
                 priority: 'medium' as any,
                 referenceType: 'staff_document',
                 referenceId: doc.id,
-            });
+                emailHtml: documentExpiringEmail(`${doc.staff.first_name} ${doc.staff.last_name}`, docName, expiryDate, '30 days'),
+            } as any);
 
             // Mark reminder as sent
             doc.reminder_sent_30_days = true;

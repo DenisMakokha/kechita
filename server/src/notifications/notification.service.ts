@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, IsNull, MoreThan, In } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -7,6 +7,7 @@ import { NotificationPreference } from './entities/notification-preference.entit
 import { User } from '../auth/entities/user.entity';
 import { EmailService } from '../email/email.service';
 import { SmsService } from '../sms/sms.service';
+import { genericNotificationEmail } from '../email/email-templates';
 
 export interface CreateNotificationDto {
     userId: string;
@@ -35,6 +36,8 @@ export interface NotificationStats {
 
 @Injectable()
 export class NotificationService {
+    private readonly logger = new Logger(NotificationService.name);
+
     constructor(
         @InjectRepository(Notification)
         private notificationRepo: Repository<Notification>,
@@ -83,18 +86,35 @@ export class NotificationService {
             notification: saved,
         });
 
-        // Trigger email notification based on preferences
-        if (preference?.email_enabled) {
-            const user = await this.userRepo.findOne({ where: { id: dto.userId } });
-            if (user?.email) {
-                const emailName = user.email.split('@')[0].replace(/[._]/g, ' ');
-                await this.emailService.sendNotificationEmail({
-                    email: user.email,
-                    name: emailName || 'Team Member',
-                    subject: dto.title,
-                    title: dto.title,
-                    message: dto.body,
-                });
+        // Send email notification:
+        // - If preference exists and email_enabled is explicitly false, skip
+        // - Otherwise send (default = email ON)
+        const emailDisabled = preference && preference.email_enabled === false;
+        if (!emailDisabled) {
+            try {
+                const user = await this.userRepo.findOne({ where: { id: dto.userId }, relations: ['staff'] });
+                if (user?.email) {
+                    const name = user.staff
+                        ? `${user.staff.first_name} ${user.staff.last_name}`
+                        : user.email.split('@')[0].replace(/[._]/g, ' ');
+                    const actionUrl = dto.actions?.[0]?.url
+                        ? `https://kechita.cloud${dto.actions[0].url}`
+                        : undefined;
+                    const html = (dto as any).emailHtml || genericNotificationEmail(
+                        name,
+                        dto.title,
+                        dto.body,
+                        actionUrl,
+                        dto.actions?.[0]?.label,
+                    );
+                    await this.emailService.sendEmail({
+                        to: user.email,
+                        subject: dto.title,
+                        html,
+                    });
+                }
+            } catch (err: any) {
+                this.logger.warn(`Failed to send email for notification: ${err.message}`);
             }
         }
 

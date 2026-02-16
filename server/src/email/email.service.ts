@@ -594,37 +594,14 @@ export class EmailService {
         actionUrl?: string;
         actionText?: string;
     }): Promise<{ success: boolean; messageId?: string; error?: string }> {
-        const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; }
-        .btn { display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
-        .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2>Kechita Capital</h2>
-        </div>
-        <div class="content">
-            <p>Dear ${data.name},</p>
-            <h3>${data.title}</h3>
-            <p>${data.message}</p>
-            ${data.actionUrl ? `<a href="${data.actionUrl}" class="btn">${data.actionText || 'View Details'}</a>` : ''}
-            <p style="margin-top: 30px;">Best regards,<br>Kechita Capital</p>
-        </div>
-        <div class="footer">
-            <p>This is an automated notification from Kechita Staff Portal.</p>
-        </div>
-    </div>
-</body>
-</html>`;
+        const { genericNotificationEmail } = require('./email-templates');
+        const html = genericNotificationEmail(
+            data.name,
+            data.title,
+            data.message,
+            data.actionUrl,
+            data.actionText,
+        );
 
         return this.sendEmail({
             to: data.email,

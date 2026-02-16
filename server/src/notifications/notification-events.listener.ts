@@ -8,6 +8,12 @@ import { ApprovalCompletedEvent } from '../approval/approval.service';
 import { ApprovalInstance } from '../approval/entities/approval-instance.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { User } from '../auth/entities/user.entity';
+import {
+    approvalCompletedEmail,
+    approvalRequiredEmail,
+    approvalReturnedEmail,
+    approvalEscalatedEmail,
+} from '../email/email-templates';
 
 @Injectable()
 export class NotificationEventsListener {
@@ -44,6 +50,7 @@ export class NotificationEventsListener {
             const targetLabel = this.getTargetLabel(event.targetType);
             const isApproved = event.status === 'approved';
 
+            const staffName = requester.first_name || 'Team Member';
             await this.notificationService.create({
                 userId: user.id,
                 type: isApproved ? NotificationType.APPROVAL_COMPLETED : NotificationType.APPROVAL_REJECTED,
@@ -59,7 +66,8 @@ export class NotificationEventsListener {
                 actions: [
                     { label: 'View Details', action: 'navigate', url: `/approvals`, style: 'primary' },
                 ],
-            });
+                emailHtml: approvalCompletedEmail(staffName, targetLabel, isApproved, event.comment),
+            } as any);
 
             this.logger.log(`Notification sent to ${requester.first_name} for ${event.targetType} ${event.status}`);
         } catch (err: any) {
@@ -89,7 +97,8 @@ export class NotificationEventsListener {
                 actions: [
                     { label: 'Review Now', action: 'navigate', url: `/approvals`, style: 'primary' },
                 ],
-            });
+                emailHtml: approvalEscalatedEmail('Team', targetLabel, event.stepOrder),
+            } as any);
 
             this.logger.log(`Escalation notification sent to role ${event.toRole}`);
         } catch (err: any) {
@@ -118,6 +127,7 @@ export class NotificationEventsListener {
 
             const targetLabel = this.getTargetLabel(event.targetType);
 
+            const returnStaffName = instance.requester?.first_name || 'Team Member';
             await this.notificationService.create({
                 userId: user.id,
                 type: NotificationType.APPROVAL_REQUIRED,
@@ -129,7 +139,8 @@ export class NotificationEventsListener {
                 actions: [
                     { label: 'View Details', action: 'navigate', url: `/approvals`, style: 'primary' },
                 ],
-            });
+                emailHtml: approvalReturnedEmail(returnStaffName, targetLabel, event.comment),
+            } as any);
         } catch (err: any) {
             this.logger.warn(`Failed to send return notification: ${err.message}`);
         }
@@ -161,7 +172,8 @@ export class NotificationEventsListener {
                     actions: [
                         { label: 'Review Now', action: 'navigate', url: `/approvals`, style: 'primary' },
                     ],
-                });
+                    emailHtml: approvalRequiredEmail('Team', targetLabel, event.stepName),
+                } as any);
             } else if (event.approverRoleCode) {
                 await this.notificationService.notifyByRole(event.approverRoleCode, {
                     type: NotificationType.APPROVAL_REQUIRED,
@@ -173,7 +185,8 @@ export class NotificationEventsListener {
                     actions: [
                         { label: 'Review Now', action: 'navigate', url: `/approvals`, style: 'primary' },
                     ],
-                });
+                    emailHtml: approvalRequiredEmail('Team', targetLabel, event.stepName),
+                } as any);
             }
         } catch (err: any) {
             this.logger.warn(`Failed to send step pending notification: ${err.message}`);
