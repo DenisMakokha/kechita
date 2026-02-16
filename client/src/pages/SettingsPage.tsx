@@ -3,14 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
-    Plus, MapPin, Building, Briefcase, Users, Edit, Trash2,
+    Plus, Edit, Trash2,
     Settings, Receipt, Calendar, CalendarDays, GitBranch,
     PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle,
     Mail, Send, Wifi, WifiOff, Loader2
 } from 'lucide-react';
 
-type Tab = 'organization' | 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings';
-type OrgSubTab = 'regions' | 'branches' | 'departments' | 'positions';
+type Tab = 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings';
 
 interface ClaimType {
     id: string;
@@ -94,8 +93,7 @@ interface PublicHoliday {
 }
 
 const SettingsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<Tab>('organization');
-    const [orgSubTab, setOrgSubTab] = useState<OrgSubTab>('regions');
+    const [activeTab, setActiveTab] = useState<Tab>('claim-types');
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({});
@@ -114,26 +112,11 @@ const SettingsPage: React.FC = () => {
         setTimeout(() => setToast(null), 3500);
     };
 
-    // Organization queries
-    const { data: regions } = useQuery({
-        queryKey: ['regions'],
-        queryFn: async () => (await api.get('/org/regions')).data,
-    });
-
-    const { data: branches } = useQuery({
-        queryKey: ['branches'],
-        queryFn: async () => (await api.get('/org/branches')).data,
-    });
-
-    const { data: departments } = useQuery({
-        queryKey: ['departments'],
-        queryFn: async () => (await api.get('/org/departments')).data,
-    });
-
-    const { data: positions } = useQuery({
-        queryKey: ['positions'],
-        queryFn: async () => (await api.get('/org/positions')).data,
-    });
+    // Org data (used by approval flow scope dropdowns)
+    const { data: regions } = useQuery({ queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data });
+    const { data: branches } = useQuery({ queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data });
+    const { data: departments } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get('/org/departments')).data });
+    const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data });
 
     // Claim types query
     const { data: claimTypes } = useQuery<ClaimType[]>({
@@ -223,68 +206,6 @@ const SettingsPage: React.FC = () => {
         mutationFn: async (id: string) => (await api.patch(`/leave/types/${id}/deactivate`)).data,
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leave-types'] }); showToast('Leave type deactivated'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate leave type', 'error'),
-    });
-
-    // Mutations — Organization
-    const createRegionMutation = useMutation({
-        mutationFn: async (data: any) => (await api.post('/org/regions', data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['regions'] }); setShowModal(false); setFormData({}); showToast('Region created'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create region', 'error'),
-    });
-    const updateRegionMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/regions/${id}`, data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['regions'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Region updated'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update region', 'error'),
-    });
-    const deleteRegionMutation = useMutation({
-        mutationFn: async (id: string) => (await api.delete(`/org/regions/${id}`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['regions'] }); showToast('Region deleted'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete region', 'error'),
-    });
-    const createBranchMutation = useMutation({
-        mutationFn: async (data: any) => (await api.post('/org/branches', data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); setShowModal(false); setFormData({}); showToast('Branch created'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create branch', 'error'),
-    });
-    const updateBranchMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/branches/${id}`, data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Branch updated'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update branch', 'error'),
-    });
-    const deleteBranchMutation = useMutation({
-        mutationFn: async (id: string) => (await api.delete(`/org/branches/${id}`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); showToast('Branch deleted'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete branch', 'error'),
-    });
-    const createDepartmentMutation = useMutation({
-        mutationFn: async (data: any) => (await api.post('/org/departments', data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['departments'] }); setShowModal(false); setFormData({}); showToast('Department created'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create department', 'error'),
-    });
-    const updateDepartmentMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/departments/${id}`, data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['departments'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Department updated'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update department', 'error'),
-    });
-    const deleteDepartmentMutation = useMutation({
-        mutationFn: async (id: string) => (await api.delete(`/org/departments/${id}`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['departments'] }); showToast('Department deleted'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete department', 'error'),
-    });
-    const createPositionMutation = useMutation({
-        mutationFn: async (data: any) => (await api.post('/org/positions', data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['positions'] }); setShowModal(false); setFormData({}); showToast('Position created'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create position', 'error'),
-    });
-    const updatePositionMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/org/positions/${id}`, data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['positions'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Position updated'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update position', 'error'),
-    });
-    const deletePositionMutation = useMutation({
-        mutationFn: async (id: string) => (await api.delete(`/org/positions/${id}`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['positions'] }); showToast('Position deleted'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot delete position', 'error'),
     });
 
     // Mutations — Loan Settings
@@ -436,7 +357,6 @@ const SettingsPage: React.FC = () => {
     });
 
     const mainTabs = [
-        { key: 'organization' as Tab, label: 'Organization', icon: Building },
         { key: 'claim-types' as Tab, label: 'Claim Types', icon: Receipt },
         { key: 'leave-types' as Tab, label: 'Leave Types', icon: Calendar },
         { key: 'approval-flows' as Tab, label: 'Approval Flows', icon: GitBranch },
@@ -445,24 +365,9 @@ const SettingsPage: React.FC = () => {
         { key: 'email-settings' as Tab, label: 'Email / SMTP', icon: Mail },
     ];
 
-    const orgSubTabs = [
-        { key: 'regions' as OrgSubTab, label: 'Regions', icon: MapPin, count: regions?.length || 0 },
-        { key: 'branches' as OrgSubTab, label: 'Branches', icon: Building, count: branches?.length || 0 },
-        { key: 'departments' as OrgSubTab, label: 'Departments', icon: Briefcase, count: departments?.length || 0 },
-        { key: 'positions' as OrgSubTab, label: 'Positions', icon: Users, count: positions?.length || 0 },
-    ];
-
     const openModal = (_type: string, item?: any) => {
         setEditItem(item);
-        if (item && activeTab === 'organization') {
-            const data = { ...item };
-            if (orgSubTab === 'branches' && item.region) data.region_id = item.region.id;
-            if (orgSubTab === 'departments' && item.parent) data.parent_id = item.parent.id;
-            if (orgSubTab === 'positions' && item.department) data.department_id = item.department.id;
-            setFormData(data);
-        } else {
-            setFormData(item || {});
-        }
+        setFormData(item || {});
         setShowModal(true);
     };
 
@@ -500,10 +405,6 @@ const SettingsPage: React.FC = () => {
 
     const getModalTitle = () => {
         const isEdit = !!editItem;
-        if (activeTab === 'organization') {
-            const label = orgSubTab.slice(0, -1).charAt(0).toUpperCase() + orgSubTab.slice(1, -1);
-            return `${isEdit ? 'Edit' : 'Add'} ${label}`;
-        }
         switch (activeTab) {
             case 'claim-types': return `${isEdit ? 'Edit' : 'Add'} Claim Type`;
             case 'leave-types': return `${isEdit ? 'Edit' : 'Add'} Leave Type`;
@@ -514,21 +415,7 @@ const SettingsPage: React.FC = () => {
     };
 
     const handleSave = () => {
-        if (activeTab === 'organization') {
-            if (orgSubTab === 'regions') {
-                if (editItem) updateRegionMutation.mutate({ id: editItem.id, data: formData });
-                else createRegionMutation.mutate(formData);
-            } else if (orgSubTab === 'branches') {
-                if (editItem) updateBranchMutation.mutate({ id: editItem.id, data: formData });
-                else createBranchMutation.mutate(formData);
-            } else if (orgSubTab === 'departments') {
-                if (editItem) updateDepartmentMutation.mutate({ id: editItem.id, data: formData });
-                else createDepartmentMutation.mutate(formData);
-            } else if (orgSubTab === 'positions') {
-                if (editItem) updatePositionMutation.mutate({ id: editItem.id, data: formData });
-                else createPositionMutation.mutate(formData);
-            }
-        } else if (activeTab === 'claim-types') {
+        if (activeTab === 'claim-types') {
             if (editItem) {
                 updateClaimTypeMutation.mutate({ id: editItem.id, data: formData });
             } else {
@@ -553,121 +440,6 @@ const SettingsPage: React.FC = () => {
                 originalStepIds: approvalFlowOriginalStepIds,
             });
         }
-    };
-
-    const renderOrganizationContent = () => {
-        const getOrgData = () => {
-            switch (orgSubTab) {
-                case 'regions': return regions;
-                case 'branches': return branches;
-                case 'departments': return departments;
-                case 'positions': return positions;
-            }
-        };
-
-        const data = getOrgData() || [];
-
-        return (
-            <div>
-                {/* Org Sub Tabs */}
-                <div className="flex gap-1 p-2 border-b border-slate-200">
-                    {orgSubTabs.map((tab) => {
-                        const Icon = tab.icon;
-                        return (
-                            <button
-                                key={tab.key}
-                                onClick={() => setOrgSubTab(tab.key)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${orgSubTab === tab.key
-                                    ? 'bg-blue-100 text-[#0066B3]'
-                                    : 'text-slate-600 hover:bg-slate-100'
-                                    }`}
-                            >
-                                <Icon size={16} />
-                                {tab.label}
-                                <span className={`px-2 py-0.5 rounded-full text-xs ${orgSubTab === tab.key
-                                    ? 'bg-blue-200 text-[#0066B3]'
-                                    : 'bg-slate-200 text-slate-600'
-                                    }`}>
-                                    {tab.count}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* Organization Table */}
-                <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Name</th>
-                            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Code</th>
-                            {orgSubTab === 'regions' && (
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Branches</th>
-                            )}
-                            {orgSubTab === 'branches' && (
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Region</th>
-                            )}
-                            {orgSubTab === 'departments' && (
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Parent</th>
-                            )}
-                            {orgSubTab === 'positions' && (
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Department</th>
-                            )}
-                            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Description</th>
-                            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.map((item: any) => (
-                            <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                <td className="px-6 py-4 font-medium text-slate-900">{item.name}</td>
-                                <td className="px-6 py-4">
-                                    <span className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">{item.code}</span>
-                                </td>
-                                {orgSubTab === 'regions' && (
-                                    <td className="px-6 py-4 text-slate-600">{item.branches?.length || 0}</td>
-                                )}
-                                {orgSubTab === 'branches' && (
-                                    <td className="px-6 py-4 text-slate-600">{item.region?.name || '-'}</td>
-                                )}
-                                {orgSubTab === 'departments' && (
-                                    <td className="px-6 py-4 text-slate-600">{item.parent?.name || '-'}</td>
-                                )}
-                                {orgSubTab === 'positions' && (
-                                    <td className="px-6 py-4 text-slate-600">{item.department?.name || '-'}</td>
-                                )}
-                                <td className="px-6 py-4 text-slate-500 text-sm max-w-[200px] truncate">{item.description || '-'}</td>
-                                <td className="px-6 py-4">
-                                    <div className="flex gap-2">
-                                        <button onClick={() => openModal(orgSubTab, item)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600">
-                                            <Edit size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => askConfirm('Delete Item', `Delete "${item.name}"? This cannot be undone.`, () => {
-                                                if (orgSubTab === 'regions') deleteRegionMutation.mutate(item.id);
-                                                else if (orgSubTab === 'branches') deleteBranchMutation.mutate(item.id);
-                                                else if (orgSubTab === 'departments') deleteDepartmentMutation.mutate(item.id);
-                                                else if (orgSubTab === 'positions') deletePositionMutation.mutate(item.id);
-                                            })}
-                                            className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        {data.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                                    No {orgSubTab} found
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        );
     };
 
     const renderClaimTypesContent = () => (
@@ -1266,7 +1038,6 @@ const SettingsPage: React.FC = () => {
 
     const renderTabContent = () => {
         switch (activeTab) {
-            case 'organization': return renderOrganizationContent();
             case 'claim-types': return renderClaimTypesContent();
             case 'leave-types': return renderLeaveTypesContent();
             case 'approval-flows': return renderApprovalFlowsContent();
@@ -1278,7 +1049,6 @@ const SettingsPage: React.FC = () => {
 
     const getAddButtonLabel = () => {
         switch (activeTab) {
-            case 'organization': return `Add ${orgSubTab.slice(0, -1)}`;
             case 'claim-types': return 'Add Claim Type';
             case 'leave-types': return 'Add Leave Type';
             case 'holidays': return 'Add Holiday';
@@ -1967,87 +1737,6 @@ const SettingsPage: React.FC = () => {
                                 </>
                             )}
 
-                            {activeTab === 'organization' && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
-                                            <input
-                                                type="text"
-                                                value={formData.code || ''}
-                                                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                                                placeholder="e.g., NAIROBI"
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                                            <input
-                                                type="text"
-                                                value={formData.name || ''}
-                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                placeholder="e.g., Nairobi Region"
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                            />
-                                        </div>
-                                    </div>
-                                    {orgSubTab === 'branches' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Region</label>
-                                            <select
-                                                value={formData.region_id || ''}
-                                                onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                            >
-                                                <option value="">Select Region</option>
-                                                {regions?.map((r: any) => (
-                                                    <option key={r.id} value={r.id}>{r.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                    {orgSubTab === 'departments' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Parent Department</label>
-                                            <select
-                                                value={formData.parent_id || ''}
-                                                onChange={(e) => setFormData({ ...formData, parent_id: e.target.value || null })}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                            >
-                                                <option value="">None (Top Level)</option>
-                                                {departments?.filter((d: any) => d.id !== editItem?.id).map((d: any) => (
-                                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                    {orgSubTab === 'positions' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                                            <select
-                                                value={formData.department_id || ''}
-                                                onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                            >
-                                                <option value="">Select Department</option>
-                                                {departments?.map((d: any) => (
-                                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                                        <textarea
-                                            value={formData.description || ''}
-                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                            rows={2}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                                            placeholder="Optional description..."
-                                        />
-                                    </div>
-                                </>
-                            )}
                         </div>
 
                         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">

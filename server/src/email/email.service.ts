@@ -42,6 +42,7 @@ export class EmailService {
         this.fromEmail = this.configService.get('SMTP_FROM_EMAIL') || 'noreply@kechita.com';
         this.fromName = this.configService.get('SMTP_FROM_NAME') || 'Kechita Capital';
 
+        const isLocal = smtpHost === 'localhost' || smtpHost === '127.0.0.1';
         this.transporter = nodemailer.createTransport({
             host: smtpHost,
             port: smtpPort,
@@ -50,6 +51,7 @@ export class EmailService {
                 user: smtpUser,
                 pass: smtpPass,
             } : undefined,
+            tls: isLocal ? { rejectUnauthorized: false } : undefined,
         });
 
         // Verify connection on startup
@@ -81,6 +83,7 @@ export class EmailService {
         this.fromEmail = config.fromEmail;
         this.fromName = config.fromName;
 
+        const isLocal = config.host === 'localhost' || config.host === '127.0.0.1';
         this.transporter = nodemailer.createTransport({
             host: config.host,
             port: config.port,
@@ -89,6 +92,7 @@ export class EmailService {
                 user: config.user,
                 pass: config.pass,
             } : undefined,
+            tls: isLocal ? { rejectUnauthorized: false } : undefined,
         });
 
         this.smtpConfigured = !!(config.host);
