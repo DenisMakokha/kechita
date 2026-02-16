@@ -72,18 +72,17 @@ jobs:
 
             cd /opt/kechita
 
-            # Reset any local changes and pull latest code
+            # Preserve .env files, reset everything else, pull
             echo "📥 Pulling latest code..."
             git reset --hard HEAD
-            git clean -fd
+            git clean -fd -e server/.env -e client/.env.production
             git pull origin main
 
-            # Install server dependencies
+            # ── Server ──
             echo "📦 Installing server dependencies..."
             cd /opt/kechita/server
-            npm ci --omit=dev
+            npm ci
 
-            # Build server
             echo "🔨 Building server..."
             npx nest build
 
@@ -99,19 +98,22 @@ jobs:
             echo "🌱 Running production seed..."
             npx ts-node src/seeds/seed-production-defaults.ts || echo "⚠️ Seed completed with warnings"
 
+            # Prune dev dependencies for production
+            npm prune --omit=dev
+
             # Restart server
             echo "♻️ Restarting server..."
             pm2 restart kechita-api
             sleep 5
 
-            # Install client dependencies & build
+            # ── Client ──
             echo "📦 Installing client dependencies..."
             cd /opt/kechita/client
             npm ci
             echo "🔨 Building client..."
             npm run build
 
-            # Verify server is running
+            # ── Verify ──
             echo "✅ Verifying deployment..."
             curl -sf http://localhost:3000/ > /dev/null && echo "✅ API is healthy" || echo "❌ API health check failed"
             pm2 save
