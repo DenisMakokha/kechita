@@ -129,7 +129,7 @@ export class SettingsController {
             at_api_key: dbSettings['at_api_key'] ? '••••••••' : '',
             at_from: dbSettings['at_from'] || '',
             at_endpoint: dbSettings['at_endpoint'] || 'https://api.africastalking.com/version1/messaging',
-            // Mobulk Africa (OnFon Media)
+            // Mobulk Africa
             mobulk_access_key: dbSettings['mobulk_access_key'] ? '••••••••' : '',
             mobulk_api_key: dbSettings['mobulk_api_key'] ? '••••••••' : '',
             mobulk_client_id: dbSettings['mobulk_client_id'] || '',

@@ -11,7 +11,7 @@ export interface SmsConfig {
     at_api_key?: string;
     at_from?: string;
     at_endpoint?: string;
-    // Mobulk Africa (OnFon Media)
+    // Mobulk Africa
     mobulk_access_key?: string;
     mobulk_api_key?: string;
     mobulk_client_id?: string;
@@ -106,7 +106,7 @@ export class SmsService {
     }
 
     /**
-     * Check SMS credit balance (Mobulk Africa / OnFon Media)
+     * Check SMS credit balance (Mobulk Africa)
      */
     async checkBalance(): Promise<{ success: boolean; credits?: string; error?: string; providerResponse?: any }> {
         if (this.config.provider !== 'mobulk') {

@@ -1211,7 +1211,7 @@ const SettingsPage: React.FC = () => {
                             <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                                 <MessageSquare size={18} className="text-violet-600" />
                                 Mobulk Africa
-                                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">OnFon Media</span>
+                                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">mobulkafrica.pro</span>
                             </h3>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Access Key</label>
@@ -1359,10 +1359,10 @@ const SettingsPage: React.FC = () => {
                             )}
                             {provider === 'mobulk' && (
                                 <div className="text-sm text-slate-600 space-y-1">
-                                    <p>• <a href="https://www.onfonmedia.co.ke" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">OnFon Media Portal</a></p>
+                                    <p>• <a href="https://mobulkafrica.pro" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">Mobulk Africa Portal</a></p>
                                     <p>• <a href="https://www.docs.onfonmedia.co.ke" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">API Documentation</a></p>
                                     <p>• 3 keys required: Access Key (header), API Key + Client ID (body)</p>
-                                    <p>• Sender ID must be approved by OnFon</p>
+                                    <p>• Sender ID must be approved by Mobulk Africa</p>
                                     <p>• Credit balance can be checked from the widget above</p>
                                 </div>
                             )}
