@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { UserService } from './user.service';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { Staff } from '../staff/entities/staff.entity';
+import { EmailService } from '../email/email.service';
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 
 describe('UserService', () => {
@@ -60,6 +64,31 @@ describe('UserService', () => {
                     useValue: {
                         find: jest.fn(),
                         findOne: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(PasswordResetToken),
+                    useValue: {
+                        create: jest.fn().mockReturnValue({}),
+                        save: jest.fn().mockResolvedValue({}),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(Staff),
+                    useValue: {
+                        findOne: jest.fn().mockResolvedValue(null),
+                    },
+                },
+                {
+                    provide: EmailService,
+                    useValue: {
+                        sendWelcomeEmail: jest.fn().mockResolvedValue({ success: true }),
+                    },
+                },
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn().mockReturnValue('http://localhost:5173'),
                     },
                 },
             ],

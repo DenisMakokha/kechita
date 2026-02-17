@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository, Like, ILike } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { Staff } from '../staff/entities/staff.entity';
+import { EmailService } from '../email/email.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto, UpdateUserRolesDto, UpdateUserPasswordDto } from './dto/update-user.dto';
 
@@ -25,11 +30,19 @@ export interface PaginatedUsers {
 
 @Injectable()
 export class UserService {
+    private readonly logger = new Logger(UserService.name);
+
     constructor(
         @InjectRepository(User)
         private userRepository: Repository<User>,
         @InjectRepository(Role)
         private roleRepository: Repository<Role>,
+        @InjectRepository(PasswordResetToken)
+        private resetTokenRepository: Repository<PasswordResetToken>,
+        @InjectRepository(Staff)
+        private staffRepository: Repository<Staff>,
+        private emailService: EmailService,
+        private configService: ConfigService,
     ) {}
 
     async findAll(query: UserListQuery): Promise<PaginatedUsers> {
@@ -104,6 +117,7 @@ export class UserService {
             is_active: dto.is_active ?? true,
         });
 
+        let roleName: string | undefined;
         if (dto.role_code) {
             const role = await this.roleRepository.findOne({
                 where: { code: dto.role_code, is_active: true },
@@ -112,9 +126,19 @@ export class UserService {
                 throw new BadRequestException(`Invalid role code: ${dto.role_code}`);
             }
             user.roles = [role];
+            roleName = role.name;
         }
 
-        return this.userRepository.save(user);
+        const savedUser = await this.userRepository.save(user);
+
+        // Send welcome email with password setup link
+        try {
+            await this.sendWelcomeEmailWithSetupLink(savedUser, roleName);
+        } catch (err) {
+            this.logger.warn(`Failed to send welcome email to ${savedUser.email}: ${err.message}`);
+        }
+
+        return savedUser;
     }
 
     async update(id: string, dto: UpdateUserDto): Promise<User> {
@@ -217,6 +241,42 @@ export class UserService {
             .where('role.code = :roleCode', { roleCode })
             .andWhere('user.is_active = true')
             .getMany();
+    }
+
+    private async sendWelcomeEmailWithSetupLink(user: User, roleName?: string): Promise<void> {
+        // Generate a password setup token (24 hours expiry)
+        const token = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        const resetToken = this.resetTokenRepository.create({
+            token: hashedToken,
+            user_id: user.id,
+            expires_at: expiresAt,
+        });
+        await this.resetTokenRepository.save(resetToken);
+
+        // Get staff name if linked
+        const staff = await this.staffRepository.findOne({
+            where: { user: { id: user.id } },
+        });
+        const userName = staff
+            ? `${staff.first_name} ${staff.last_name}`
+            : user.email.split('@')[0];
+
+        const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:5173';
+        const setupUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+        await this.emailService.sendWelcomeEmail({
+            email: user.email,
+            name: userName,
+            role: roleName,
+            setupUrl,
+        });
+
+        this.logger.log(`Welcome email sent to: ${user.email}`);
     }
 
     async countByRole(): Promise<{ role: string; count: number }[]> {

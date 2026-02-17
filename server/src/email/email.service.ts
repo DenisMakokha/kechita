@@ -1095,4 +1095,24 @@ export class EmailService {
             html,
         });
     }
+
+    async sendWelcomeEmail(data: {
+        email: string;
+        name: string;
+        role?: string;
+        setupUrl: string;
+    }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        const { welcomeEmail } = require('./email-templates');
+        const html = welcomeEmail(data.name, {
+            email: data.email,
+            role: data.role,
+            setupUrl: data.setupUrl,
+        });
+
+        return this.sendEmail({
+            to: data.email,
+            subject: '🎉 Welcome to Kechita Capital - Set Your Password',
+            html,
+        });
+    }
 }

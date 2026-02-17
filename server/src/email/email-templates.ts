@@ -264,15 +264,28 @@ export function loanEmail(recipientName: string, action: 'submitted' | 'approved
     });
 }
 
-export function welcomeEmail(recipientName: string): string {
+export function welcomeEmail(recipientName: string, data?: { role?: string; setupUrl?: string; email?: string }): string {
+    const details: Array<{ label: string; value: string }> = [];
+    if (data?.email) details.push({ label: 'Email', value: data.email });
+    if (data?.role) details.push({ label: 'Role', value: data.role });
+
+    const hasSetupUrl = !!data?.setupUrl;
+
     return buildEmailHtml({
         recipientName,
         icon: '🎉',
         title: 'Welcome to Kechita Capital!',
-        body: `We're excited to have you on board! Your staff account has been created. You can now log in to the Kechita Staff Portal to access your dashboard, submit requests, and manage your profile.`,
+        body: hasSetupUrl
+            ? `We're excited to have you on board! Your account has been created on the Kechita Staff Portal. Please set your password using the button below to get started.`
+            : `We're excited to have you on board! Your staff account has been created. You can now log in to the Kechita Staff Portal to access your dashboard, submit requests, and manage your profile.`,
         accentColor: BRAND.primary,
-        action: { label: 'Log In to Portal', url: `${BRAND.domain}/login` },
-        footerNote: 'If you did not expect this email, please contact your HR department.',
+        details: details.length > 0 ? details : undefined,
+        action: hasSetupUrl
+            ? { label: 'Set Your Password', url: data!.setupUrl! }
+            : { label: 'Log In to Portal', url: `${BRAND.domain}/login` },
+        footerNote: hasSetupUrl
+            ? 'This password setup link expires in 24 hours. If you did not expect this email, please contact your HR department.'
+            : 'If you did not expect this email, please contact your HR department.',
     });
 }
 
