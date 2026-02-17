@@ -71,6 +71,7 @@ const CLAIM_TYPES = [
     { code: 'RELOCATION', name: 'Relocation Allowance' },
     { code: 'AIR_TICKET', name: 'Air Ticket' },
     { code: 'COMMUNICATION', name: 'Communication Allowance' },
+    { code: 'AIRTIME', name: 'Airtime' },
 ];
 
 async function seed() {

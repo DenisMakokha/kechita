@@ -158,6 +158,39 @@ async function seed() {
             }
         }
 
+        // ==================== PUBLIC HOLIDAYS 2026 ====================
+        console.log('\nSeeding public holidays for 2026...');
+
+        const holidays2026 = [
+            { name: "New Year's Day", date: '2026-01-01', is_recurring: true },
+            { name: 'Good Friday', date: '2026-04-03', is_recurring: false },
+            { name: 'Easter Monday', date: '2026-04-06', is_recurring: false },
+            { name: 'Labour Day', date: '2026-05-01', is_recurring: true },
+            { name: 'Madaraka Day', date: '2026-06-01', is_recurring: true },
+            { name: 'Eid ul-Fitr', date: '2026-03-20', is_recurring: false },
+            { name: 'Eid ul-Adha', date: '2026-05-27', is_recurring: false },
+            { name: 'Utamaduni Day', date: '2026-10-10', is_recurring: true },
+            { name: 'Mashujaa Day', date: '2026-10-20', is_recurring: true },
+            { name: 'Jamhuri Day', date: '2026-12-12', is_recurring: true },
+            { name: 'Christmas Day', date: '2026-12-25', is_recurring: true },
+            { name: 'Boxing Day', date: '2026-12-26', is_recurring: true },
+        ];
+
+        for (const h of holidays2026) {
+            const existing = await holidayRepo.findOneBy({
+                name: h.name,
+                year: 2026
+            });
+            if (!existing) {
+                await holidayRepo.save(holidayRepo.create({
+                    ...h,
+                    year: 2026,
+                    date: new Date(h.date),
+                }));
+                console.log(`  Created holiday: ${h.name}`);
+            }
+        }
+
         // ==================== APPROVAL FLOWS ====================
         console.log('\nSeeding approval flows...');
 

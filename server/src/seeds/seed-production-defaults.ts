@@ -25,6 +25,7 @@ import { OnboardingTask } from '../staff/entities/onboarding-task.entity';
 import { OnboardingInstance } from '../staff/entities/onboarding-instance.entity';
 import { OnboardingTaskStatus } from '../staff/entities/onboarding-task-status.entity';
 import { StaffContract } from '../staff/entities/staff-contract.entity';
+import { PublicHoliday } from '../leave/entities/public-holiday.entity';
 
 dotenv.config();
 
@@ -38,7 +39,7 @@ const AppDataSource = new DataSource({
     entities: [
         Role, User, Permission, LeaveType, ClaimType, ApprovalFlow, ApprovalFlowStep, SystemSetting,
         Staff, Region, Branch, Department, Position, Document, DocumentType, StaffDocument,
-        EmploymentHistory, OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus, StaffContract,
+        EmploymentHistory, OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus, StaffContract, PublicHoliday,
     ],
     synchronize: true,
 });
@@ -66,14 +67,124 @@ const LEAVE_TYPES = [
     { code: 'UNPAID', name: 'Unpaid Leave', max_days_per_year: 30, color: '#94A3B8' },
 ];
 
-const CLAIM_TYPES = [
-    { code: 'TRANSPORT', name: 'Transport Allowance' },
-    { code: 'MEALS', name: 'Meals & Accommodation' },
-    { code: 'OFFICE', name: 'Office Supplies' },
-    { code: 'COMMUNICATION', name: 'Communication' },
-    { code: 'TRAINING', name: 'Training & Development' },
-    { code: 'MEDICAL', name: 'Medical Reimbursement' },
-    { code: 'OTHER', name: 'Other' },
+const CLAIM_TYPES: Partial<ClaimType>[] = [
+    {
+        code: 'PER_DIEM', name: 'Per Diem',
+        description: 'Daily allowance for official travel',
+        max_amount_per_claim: 10000, max_amount_per_month: 50000,
+        requires_receipt: false, requires_approval: true, is_taxable: false,
+        icon: 'calendar', color: '#3B82F6', display_order: 1,
+    },
+    {
+        code: 'FUEL', name: 'Fuel Allowance',
+        description: 'Fuel reimbursement for official travel',
+        max_amount_per_claim: 20000, max_amount_per_month: 80000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'fuel', color: '#F59E0B', display_order: 2,
+    },
+    {
+        code: 'TRANSPORT', name: 'Transport',
+        description: 'Transport costs (taxi, bus, etc.)',
+        max_amount_per_claim: 5000, max_amount_per_month: 20000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'car', color: '#10B981', display_order: 3,
+    },
+    {
+        code: 'MEALS', name: 'Meals & Entertainment',
+        description: 'Meals during official duties or client entertainment',
+        max_amount_per_claim: 5000, max_amount_per_month: 25000,
+        requires_receipt: true, requires_approval: true, is_taxable: true,
+        icon: 'utensils', color: '#EC4899', display_order: 4,
+    },
+    {
+        code: 'ACCOMMODATION', name: 'Accommodation',
+        description: 'Hotel/lodging during official travel',
+        max_amount_per_claim: 15000, max_amount_per_month: 60000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'building', color: '#8B5CF6', display_order: 5,
+    },
+    {
+        code: 'MEDICAL', name: 'Medical Expense',
+        description: 'Medical expenses not covered by insurance',
+        max_amount_per_claim: 50000, max_amount_per_year: 200000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'heart-pulse', color: '#EF4444', display_order: 6,
+    },
+    {
+        code: 'AIRFARE', name: 'Air Travel',
+        description: 'Flight tickets for official travel',
+        max_amount_per_claim: 100000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'plane', color: '#06B6D4', display_order: 7,
+    },
+    {
+        code: 'COMMUNICATION', name: 'Communication',
+        description: 'Phone, internet, and other communication costs',
+        max_amount_per_claim: 3000, max_amount_per_month: 10000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'phone', color: '#14B8A6', display_order: 8,
+    },
+    {
+        code: 'TRAINING', name: 'Training & Development',
+        description: 'Training courses, certifications, seminars',
+        max_amount_per_claim: 100000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'book-open', color: '#6366F1', display_order: 9,
+    },
+    {
+        code: 'RELOCATION', name: 'Relocation Allowance',
+        description: 'Moving expenses for staff transfers',
+        max_amount_per_claim: 200000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        eligible_role_codes: ['BRANCH_MANAGER', 'REGIONAL_MANAGER', 'HR_MANAGER', 'CEO'],
+        icon: 'truck', color: '#64748B', display_order: 10,
+    },
+    {
+        code: 'AIRTIME', name: 'Airtime',
+        description: 'Monthly airtime allowance for staff communication',
+        max_amount_per_claim: 2000, max_amount_per_month: 2000,
+        requires_receipt: false, requires_approval: true, is_taxable: false,
+        once_per_month: true,
+        icon: 'smartphone', color: '#0EA5E9', display_order: 11,
+    },
+    {
+        code: 'MISC', name: 'Miscellaneous',
+        description: 'Other approved expenses',
+        max_amount_per_claim: 10000,
+        requires_receipt: true, requires_approval: true, is_taxable: false,
+        icon: 'receipt', color: '#94A3B8', display_order: 99,
+    },
+];
+
+// Kenyan Public Holidays
+const HOLIDAYS_2025 = [
+    { name: "New Year's Day", date: '2025-01-01', is_recurring: true },
+    { name: 'Good Friday', date: '2025-04-18', is_recurring: false },
+    { name: 'Easter Monday', date: '2025-04-21', is_recurring: false },
+    { name: 'Labour Day', date: '2025-05-01', is_recurring: true },
+    { name: 'Madaraka Day', date: '2025-06-01', is_recurring: true },
+    { name: 'Eid ul-Fitr', date: '2025-03-31', is_recurring: false },
+    { name: 'Eid ul-Adha', date: '2025-06-07', is_recurring: false },
+    { name: 'Utamaduni Day', date: '2025-10-10', is_recurring: true },
+    { name: 'Mashujaa Day', date: '2025-10-20', is_recurring: true },
+    { name: 'Jamhuri Day', date: '2025-12-12', is_recurring: true },
+    { name: 'Christmas Day', date: '2025-12-25', is_recurring: true },
+    { name: 'Boxing Day', date: '2025-12-26', is_recurring: true },
+];
+
+const HOLIDAYS_2026 = [
+    { name: "New Year's Day", date: '2026-01-01', is_recurring: true },
+    { name: 'Good Friday', date: '2026-04-03', is_recurring: false },
+    { name: 'Easter Monday', date: '2026-04-06', is_recurring: false },
+    { name: 'Labour Day', date: '2026-05-01', is_recurring: true },
+    { name: 'Madaraka Day', date: '2026-06-01', is_recurring: true },
+    { name: 'Eid ul-Fitr', date: '2026-03-20', is_recurring: false },
+    { name: 'Eid ul-Adha', date: '2026-05-27', is_recurring: false },
+    { name: 'Utamaduni Day', date: '2026-10-10', is_recurring: true },
+    { name: 'Mashujaa Day', date: '2026-10-20', is_recurring: true },
+    { name: 'Jamhuri Day', date: '2026-12-12', is_recurring: true },
+    { name: 'Christmas Day', date: '2026-12-25', is_recurring: true },
+    { name: 'Boxing Day', date: '2026-12-26', is_recurring: true },
 ];
 
 async function seedProductionDefaults() {
@@ -128,16 +239,67 @@ async function seedProductionDefaults() {
     }
 
     // Seed Claim Types
+    console.log('📋 Seeding claim types...');
     const claimTypeRepo = AppDataSource.getRepository(ClaimType);
     for (const ct of CLAIM_TYPES) {
         const existing = await claimTypeRepo.findOneBy({ code: ct.code });
         if (!existing) {
             const claimType = claimTypeRepo.create(ct);
             await claimTypeRepo.save(claimType);
-            console.log(`  Created claim type: ${ct.name}`);
+            console.log(`  ✅ Created claim type: ${ct.name}${ct.once_per_month ? ' (once per month)' : ''}`);
         } else {
-            console.log(`  Claim type exists: ${ct.name}`);
+            // Update existing claim type with new fields if missing
+            let updated = false;
+            if (ct.once_per_month !== undefined && existing.once_per_month !== ct.once_per_month) {
+                existing.once_per_month = ct.once_per_month;
+                updated = true;
+            }
+            if (ct.max_amount_per_claim && !existing.max_amount_per_claim) {
+                existing.max_amount_per_claim = ct.max_amount_per_claim;
+                updated = true;
+            }
+            if (ct.max_amount_per_month && !existing.max_amount_per_month) {
+                existing.max_amount_per_month = ct.max_amount_per_month;
+                updated = true;
+            }
+            if (ct.description && !existing.description) {
+                existing.description = ct.description;
+                updated = true;
+            }
+            if (ct.icon && !existing.icon) {
+                existing.icon = ct.icon;
+                updated = true;
+            }
+            if (ct.color && !existing.color) {
+                existing.color = ct.color;
+                updated = true;
+            }
+            if (updated) {
+                await claimTypeRepo.save(existing);
+                console.log(`  🔄 Updated claim type: ${ct.name}`);
+            } else {
+                console.log(`  ⏭️  Claim type exists: ${ct.name}`);
+            }
         }
+    }
+
+    // Seed Public Holidays
+    console.log('📅 Seeding public holidays...');
+    const holidayRepo = AppDataSource.getRepository(PublicHoliday);
+    for (const [year, holidays] of [[2025, HOLIDAYS_2025], [2026, HOLIDAYS_2026]] as const) {
+        let created = 0;
+        for (const h of holidays) {
+            const existing = await holidayRepo.findOneBy({ name: h.name, year: year as number });
+            if (!existing) {
+                await holidayRepo.save(holidayRepo.create({
+                    ...h,
+                    year: year as number,
+                    date: new Date(h.date),
+                }));
+                created++;
+            }
+        }
+        console.log(`  📅 ${year}: ${created} new holidays seeded (${holidays.length} total defined)`);
     }
 
     // Seed Permissions (after roles exist)
