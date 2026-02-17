@@ -588,38 +588,54 @@ const CreateAnnouncementModal: React.FC<{
     };
 
     return (
-        <div className="ann-modal-overlay">
-            <div className="ann-modal create-modal">
-                <h2><Megaphone size={24} /> Create Announcement</h2>
-                <form onSubmit={e => { e.preventDefault(); handleSubmit(false); }}>
-                    <div className="ann-form-group">
-                        <label>Title</label>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
+                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
+                        <div className="p-2 bg-[#0066B3] rounded-xl text-white">
+                            <Megaphone size={20} />
+                        </div>
+                        Create Announcement
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors">
+                        <X size={20} className="text-slate-500" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <form onSubmit={e => { e.preventDefault(); handleSubmit(false); }} className="p-6 overflow-y-auto flex-1 space-y-5">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
                         <input
                             type="text"
                             value={formData.title}
                             onChange={e => setFormData({ ...formData, title: e.target.value })}
                             placeholder="Announcement title"
                             required
+                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                         />
                     </div>
 
-                    <div className="ann-form-group">
-                        <label>Content</label>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Content</label>
                         <textarea
                             value={formData.content}
                             onChange={e => setFormData({ ...formData, content: e.target.value })}
                             placeholder="Write your announcement..."
-                            rows={6}
+                            rows={5}
                             required
+                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent resize-y"
                         />
                     </div>
 
-                    <div className="ann-form-row">
-                        <div className="ann-form-group">
-                            <label>Priority</label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
                             <select
                                 value={formData.priority}
                                 onChange={e => setFormData({ ...formData, priority: e.target.value })}
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                             >
                                 <option value="low">Low</option>
                                 <option value="normal">Normal</option>
@@ -627,79 +643,76 @@ const CreateAnnouncementModal: React.FC<{
                                 <option value="urgent">Urgent</option>
                             </select>
                         </div>
-
-                        <div className="ann-form-group">
-                            <label>Schedule (optional)</label>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Schedule <span className="text-slate-400">(optional)</span></label>
                             <input
                                 type="datetime-local"
                                 value={formData.scheduled_for}
                                 onChange={e => setFormData({ ...formData, scheduled_for: e.target.value })}
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                             />
                         </div>
                     </div>
 
-                    <div className="ann-form-group">
-                        <label>Channels</label>
-                        <div className="ann-channel-options">
-                            <label className={`ann-channel-opt ${formData.channels.includes('portal') ? 'selected' : ''}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={formData.channels.includes('portal')}
-                                    onChange={() => toggleChannel('portal')}
-                                />
-                                <Globe size={18} />
-                                Portal
-                            </label>
-                            <label className={`ann-channel-opt ${formData.channels.includes('email') ? 'selected' : ''}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={formData.channels.includes('email')}
-                                    onChange={() => toggleChannel('email')}
-                                />
-                                <Mail size={18} />
-                                Email
-                            </label>
-                            <label className={`ann-channel-opt ${formData.channels.includes('sms') ? 'selected' : ''}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={formData.channels.includes('sms')}
-                                    onChange={() => toggleChannel('sms')}
-                                />
-                                <MessageSquare size={18} />
-                                SMS
-                            </label>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Channels</label>
+                        <div className="flex gap-3">
+                            {[
+                                { key: 'portal', label: 'Portal', icon: <Globe size={16} /> },
+                                { key: 'email', label: 'Email', icon: <Mail size={16} /> },
+                                { key: 'sms', label: 'SMS', icon: <MessageSquare size={16} /> },
+                            ].map(ch => (
+                                <button
+                                    key={ch.key}
+                                    type="button"
+                                    onClick={() => toggleChannel(ch.key)}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border font-medium text-sm transition-all ${
+                                        formData.channels.includes(ch.key)
+                                            ? 'border-[#0066B3] bg-blue-50 text-[#0066B3]'
+                                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                                    }`}
+                                >
+                                    {ch.icon}
+                                    {ch.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    <div className="ann-form-group">
-                        <label className="ann-checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={formData.requires_acknowledgment}
-                                onChange={e => setFormData({ ...formData, requires_acknowledgment: e.target.checked })}
-                            />
-                            Require acknowledgment from recipients
-                        </label>
-                    </div>
-
-                    <div className="ann-modal-actions">
-                        <button type="button" className="ann-btn secondary" onClick={onClose}>
-                            Cancel
-                        </button>
-                        <button type="submit" className="ann-btn outline" disabled={createMutation.isPending}>
-                            Save as Draft
-                        </button>
-                        <button
-                            type="button"
-                            className="ann-btn primary"
-                            onClick={() => handleSubmit(true)}
-                            disabled={createMutation.isPending || publishMutation.isPending}
-                        >
-                            <Send size={18} />
-                            {formData.scheduled_for ? 'Schedule' : 'Publish Now'}
-                        </button>
-                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={formData.requires_acknowledgment}
+                            onChange={e => setFormData({ ...formData, requires_acknowledgment: e.target.checked })}
+                            className="w-4 h-4 text-[#0066B3] rounded"
+                        />
+                        <span className="text-sm text-slate-700">Require acknowledgment from recipients</span>
+                    </label>
                 </form>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
+                    <button type="button" onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-white font-medium">
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSubmit(false)}
+                        disabled={createMutation.isPending || !formData.title}
+                        className="px-4 py-2.5 border border-[#0066B3] text-[#0066B3] rounded-lg font-medium hover:bg-blue-50 disabled:opacity-50"
+                    >
+                        Save as Draft
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSubmit(true)}
+                        disabled={createMutation.isPending || publishMutation.isPending || !formData.title}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
+                    >
+                        <Send size={16} />
+                        {formData.scheduled_for ? 'Schedule' : 'Publish Now'}
+                    </button>
+                </div>
             </div>
         </div>
     );
