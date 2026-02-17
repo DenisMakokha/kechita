@@ -15,7 +15,7 @@ interface Session {
     user_agent?: string;
     ip_address?: string;
     created_at: string;
-    last_used_at: string;
+    expires_at: string;
     is_current?: boolean;
 }
 
@@ -488,7 +488,7 @@ export const SecuritySettingsPage: React.FC = () => {
                                                         )}
                                                         <span className="flex items-center gap-1">
                                                             <Clock size={12} />
-                                                            Last active: {new Date(session.last_used_at).toLocaleDateString('en-GB', {
+                                                            Created: {new Date(session.created_at).toLocaleDateString('en-GB', {
                                                                 day: 'numeric',
                                                                 month: 'short',
                                                                 hour: '2-digit',

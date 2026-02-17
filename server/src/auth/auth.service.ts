@@ -5,6 +5,7 @@ import { Repository, MoreThan, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import * as QRCode from 'qrcode';
 import { User } from './entities/user.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
@@ -403,7 +404,7 @@ export class AuthService {
 
     // ==================== SESSION MANAGEMENT ====================
 
-    async getActiveSessions(userId: string, currentTokenHash?: string): Promise<ActiveSession[]> {
+    async getActiveSessions(userId: string, currentIp?: string, currentUserAgent?: string): Promise<ActiveSession[]> {
         const tokens = await this.refreshTokenRepository.find({
             where: {
                 user_id: userId,
@@ -413,14 +414,22 @@ export class AuthService {
             order: { created_at: 'DESC' },
         });
 
-        return tokens.map((token) => ({
-            id: token.id,
-            user_agent: token.user_agent || 'Unknown device',
-            ip_address: token.ip_address || 'Unknown',
-            created_at: token.created_at,
-            expires_at: token.expires_at,
-            is_current: currentTokenHash === token.token,
-        }));
+        // Mark the most recently used token matching the current IP + user-agent as current
+        let currentFound = false;
+        return tokens.map((token) => {
+            const isCurrent = !currentFound &&
+                currentIp === token.ip_address &&
+                currentUserAgent === token.user_agent;
+            if (isCurrent) currentFound = true;
+            return {
+                id: token.id,
+                user_agent: token.user_agent || 'Unknown device',
+                ip_address: token.ip_address || 'Unknown',
+                created_at: token.created_at,
+                expires_at: token.expires_at,
+                is_current: isCurrent,
+            };
+        });
     }
 
     async revokeSession(sessionId: string, userId: string): Promise<{ message: string }> {
@@ -448,24 +457,63 @@ export class AuthService {
 
     // ==================== 2FA METHODS ====================
 
-    async generate2FASecret(userId: string): Promise<{ secret: string; otpauth_url: string }> {
+    private base32Encode(buffer: Buffer): string {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let bits = 0;
+        let value = 0;
+        let output = '';
+        for (let i = 0; i < buffer.length; i++) {
+            value = (value << 8) | buffer[i];
+            bits += 8;
+            while (bits >= 5) {
+                output += alphabet[(value >>> (bits - 5)) & 31];
+                bits -= 5;
+            }
+        }
+        if (bits > 0) {
+            output += alphabet[(value << (5 - bits)) & 31];
+        }
+        return output;
+    }
+
+    private base32Decode(encoded: string): Buffer {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let bits = 0;
+        let value = 0;
+        const output: number[] = [];
+        for (const char of encoded.toUpperCase()) {
+            const idx = alphabet.indexOf(char);
+            if (idx === -1) continue;
+            value = (value << 5) | idx;
+            bits += 5;
+            if (bits >= 8) {
+                output.push((value >>> (bits - 8)) & 255);
+                bits -= 8;
+            }
+        }
+        return Buffer.from(output);
+    }
+
+    async generate2FASecret(userId: string): Promise<{ secret: string; qrCode: string }> {
         const user = await this.usersRepository.findOne({ where: { id: userId } });
         if (!user) {
             throw new BadRequestException('User not found');
         }
 
-        // Generate a random secret
-        const secret = crypto.randomBytes(20).toString('hex');
-        
-        // Store secret temporarily (not enabled yet)
+        // Generate a random secret and encode as base32 (required by authenticator apps)
+        const secretBuffer = crypto.randomBytes(20);
+        const secret = this.base32Encode(secretBuffer);
+
+        // Store secret (not enabled yet)
         await this.usersRepository.update(userId, {
             two_factor_secret: secret,
         });
 
-        // Generate OTP auth URL for QR code
-        const otpauth_url = `otpauth://totp/Kechita:${user.email}?secret=${secret}&issuer=Kechita`;
+        // Generate OTP auth URL and QR code data URL
+        const otpauthUrl = `otpauth://totp/Kechita:${encodeURIComponent(user.email)}?secret=${secret}&issuer=Kechita&algorithm=SHA1&digits=6&period=30`;
+        const qrCode = await QRCode.toDataURL(otpauthUrl);
 
-        return { secret, otpauth_url };
+        return { secret, qrCode };
     }
 
     async enable2FA(userId: string, token: string): Promise<{ message: string }> {
@@ -531,14 +579,15 @@ export class AuthService {
     }
 
     private verifyTOTP(secret: string, token: string): boolean {
-        // Simple TOTP verification (30-second window)
+        // Decode base32 secret to raw bytes
+        const secretBuffer = this.base32Decode(secret);
         const timeStep = 30;
         const currentTime = Math.floor(Date.now() / 1000 / timeStep);
         
-        // Check current and previous time step (to handle timing issues)
-        for (const timeOffset of [0, -1]) {
+        // Check current and adjacent time steps (to handle timing drift)
+        for (const timeOffset of [0, -1, 1]) {
             const time = currentTime + timeOffset;
-            const hmac = crypto.createHmac('sha1', Buffer.from(secret, 'hex'));
+            const hmac = crypto.createHmac('sha1', secretBuffer);
             const timeBuffer = Buffer.alloc(8);
             timeBuffer.writeBigInt64BE(BigInt(time));
             hmac.update(timeBuffer);

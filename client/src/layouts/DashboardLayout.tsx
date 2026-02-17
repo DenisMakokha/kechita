@@ -27,7 +27,6 @@ import {
     Lock,
     Bell,
     FileText,
-    UserCircle,
     UserCheck,
     Building2,
 } from 'lucide-react';
@@ -51,7 +50,6 @@ const navItems = [
     { path: '/organization', label: 'Organization', icon: Building2, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER'] },
     { path: '/audit', label: 'Audit Logs', icon: FileText, roles: ['CEO', 'HR_MANAGER'] },
     { path: '/settings', label: 'Settings', icon: Settings, roles: ['CEO', 'HR_MANAGER'] },
-    { path: '/my-profile', label: 'My Profile', icon: UserCircle, roles: ALL_STAFF_ROLES },
 ];
 
 // Get time-based greeting
