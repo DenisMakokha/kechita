@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import LogoHeader from '../assets/LogoHeader.svg';
 
 export const PublicLayout: React.FC = () => {
     return (
@@ -9,12 +10,7 @@ export const PublicLayout: React.FC = () => {
             <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <Link to="/careers" className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                            K
-                        </div>
-                        <span className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                            Kechita Portal
-                        </span>
+                        <img src={LogoHeader} alt="Kechita Capital" className="h-10" />
                     </Link>
                     <div className="flex items-center gap-4">
                         <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
@@ -41,10 +37,7 @@ export const PublicLayout: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-slate-200 rounded-md flex items-center justify-center text-slate-500 font-bold text-sm">
-                                K
-                            </div>
-                            <span className="font-semibold text-slate-700">Kechita Portal</span>
+                            <img src={LogoHeader} alt="Kechita Capital" className="h-8" />
                         </div>
                         <p className="text-sm text-slate-400">
                             Powered by Nelium Systems &copy; {new Date().getFullYear()}
