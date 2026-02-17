@@ -105,16 +105,16 @@ export const UsersPage: React.FC = () => {
 
     // Update user roles mutation
     const updateRolesMutation = useMutation({
-        mutationFn: async ({ id, role_ids }: { id: string; role_ids: string[] }) =>
-            (await api.patch(`/users/${id}/roles`, { role_ids })).data,
+        mutationFn: async ({ id, role_code }: { id: string; role_code: string }) =>
+            (await api.patch(`/users/${id}/roles`, { role_code })).data,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             queryClient.invalidateQueries({ queryKey: ['users-stats-by-role'] });
             setShowRoleModal(false);
             setSelectedUser(null);
-            showToast('Roles updated');
+            showToast('Role updated');
         },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update roles', 'error'),
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error'),
     });
 
     // Activate/Deactivate user mutations
@@ -158,7 +158,7 @@ export const UsersPage: React.FC = () => {
 
     const openCreateModal = () => {
         setSelectedUser(null);
-        setFormData({ is_active: true, role_ids: [] });
+        setFormData({ is_active: true, role_code: '' });
         setShowModal(true);
     };
 
@@ -186,9 +186,9 @@ export const UsersPage: React.FC = () => {
         }
     };
 
-    const handleRoleSave = (roleIds: string[]) => {
+    const handleRoleSave = (roleCode: string) => {
         if (selectedUser) {
-            updateRolesMutation.mutate({ id: selectedUser.id, role_ids: roleIds });
+            updateRolesMutation.mutate({ id: selectedUser.id, role_code: roleCode });
         }
     };
 
@@ -324,7 +324,7 @@ export const UsersPage: React.FC = () => {
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">User</th>
-                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Roles</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Role</th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Location</th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Last Login</th>
@@ -352,25 +352,13 @@ export const UsersPage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.roles.length === 0 ? (
-                                                    <span className="text-sm text-slate-400">No roles</span>
-                                                ) : (
-                                                    user.roles.slice(0, 2).map((role) => (
-                                                        <span
-                                                            key={role.id}
-                                                            className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded"
-                                                        >
-                                                            {role.code}
-                                                        </span>
-                                                    ))
-                                                )}
-                                                {user.roles.length > 2 && (
-                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded">
-                                                        +{user.roles.length - 2}
-                                                    </span>
-                                                )}
-                                            </div>
+                                            {user.roles.length === 0 ? (
+                                                <span className="text-sm text-slate-400">No role</span>
+                                            ) : (
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                                    {user.roles[0].name}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             {user.staff?.branch || user.staff?.region ? (
@@ -449,7 +437,7 @@ export const UsersPage: React.FC = () => {
                                                             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                                         >
                                                             <Shield size={16} />
-                                                            Manage Roles
+                                                            Change Role
                                                         </button>
                                                         <button
                                                             onClick={() => handleResetPassword(user.id)}
@@ -580,31 +568,18 @@ export const UsersPage: React.FC = () => {
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Assign Roles
+                                            Assign Role
                                         </label>
-                                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3">
+                                        <select
+                                            value={formData.role_code || ''}
+                                            onChange={(e) => setFormData({ ...formData, role_code: e.target.value })}
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"
+                                        >
+                                            <option value="">Select a role</option>
                                             {roles?.map((role) => (
-                                                <label
-                                                    key={role.id}
-                                                    className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.role_ids?.includes(role.id) || false}
-                                                        onChange={(e) => {
-                                                            const ids = formData.role_ids || [];
-                                                            if (e.target.checked) {
-                                                                setFormData({ ...formData, role_ids: [...ids, role.id] });
-                                                            } else {
-                                                                setFormData({ ...formData, role_ids: ids.filter((id: string) => id !== role.id) });
-                                                            }
-                                                        }}
-                                                        className="w-4 h-4 text-[#0066B3] rounded"
-                                                    />
-                                                    <span className="text-sm text-slate-700">{role.name}</span>
-                                                </label>
+                                                <option key={role.id} value={role.code}>{role.name}</option>
                                             ))}
-                                        </div>
+                                        </select>
                                     </div>
                                 </>
                             )}
@@ -638,7 +613,7 @@ export const UsersPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Manage Roles Modal */}
+            {/* Change Role Modal */}
             {showRoleModal && selectedUser && (
                 <RoleManagementModal
                     user={selectedUser}
@@ -681,28 +656,20 @@ export const UsersPage: React.FC = () => {
 const RoleManagementModal: React.FC<{
     user: User;
     roles: Role[];
-    onSave: (roleIds: string[]) => void;
+    onSave: (roleCode: string) => void;
     onClose: () => void;
     isPending: boolean;
 }> = ({ user, roles, onSave, onClose, isPending }) => {
-    const [selectedRoles, setSelectedRoles] = useState<string[]>(
-        user.roles.map((r) => r.id)
+    const [selectedRole, setSelectedRole] = useState<string>(
+        user.roles[0]?.code || ''
     );
-
-    const toggleRole = (roleId: string) => {
-        setSelectedRoles((prev) =>
-            prev.includes(roleId)
-                ? prev.filter((id) => id !== roleId)
-                : [...prev, roleId]
-        );
-    };
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-900">Manage Roles</h2>
+                        <h2 className="text-lg font-semibold text-slate-900">Change Role</h2>
                         <p className="text-sm text-slate-500">{user.email}</p>
                     </div>
                     <button
@@ -718,16 +685,17 @@ const RoleManagementModal: React.FC<{
                             <label
                                 key={role.id}
                                 className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                                    selectedRoles.includes(role.id)
+                                    selectedRole === role.code
                                         ? 'border-[#0066B3] bg-blue-50'
                                         : 'border-slate-200 hover:bg-slate-50'
                                 }`}
+                                onClick={() => setSelectedRole(role.code)}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                        selectedRoles.includes(role.id) ? 'bg-[#0066B3]' : 'bg-slate-100'
+                                        selectedRole === role.code ? 'bg-[#0066B3]' : 'bg-slate-100'
                                     }`}>
-                                        {selectedRoles.includes(role.id) ? (
+                                        {selectedRole === role.code ? (
                                             <ShieldCheck size={16} className="text-white" />
                                         ) : (
                                             <ShieldOff size={16} className="text-slate-400" />
@@ -739,10 +707,11 @@ const RoleManagementModal: React.FC<{
                                     </div>
                                 </div>
                                 <input
-                                    type="checkbox"
-                                    checked={selectedRoles.includes(role.id)}
-                                    onChange={() => toggleRole(role.id)}
-                                    className="w-5 h-5 text-[#0066B3] rounded"
+                                    type="radio"
+                                    name="user-role"
+                                    checked={selectedRole === role.code}
+                                    onChange={() => setSelectedRole(role.code)}
+                                    className="w-5 h-5 text-[#0066B3]"
                                 />
                             </label>
                         ))}
@@ -756,11 +725,11 @@ const RoleManagementModal: React.FC<{
                         Cancel
                     </button>
                     <button
-                        onClick={() => onSave(selectedRoles)}
+                        onClick={() => onSave(selectedRole)}
                         disabled={isPending}
                         className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50"
                     >
-                        {isPending ? 'Saving...' : 'Save Roles'}
+                        {isPending ? 'Saving...' : 'Save Role'}
                     </button>
                 </div>
             </div>

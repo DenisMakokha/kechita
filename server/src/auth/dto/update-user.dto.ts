@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsArray, IsOptional, IsBoolean } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsBoolean } from 'class-validator';
 
 export class UpdateUserDto {
     @IsEmail()
@@ -11,9 +11,8 @@ export class UpdateUserDto {
 }
 
 export class UpdateUserRolesDto {
-    @IsArray()
-    @IsString({ each: true })
-    role_codes: string[];
+    @IsString()
+    role_code: string;
 }
 
 export class UpdateUserPasswordDto {

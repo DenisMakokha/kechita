@@ -127,31 +127,31 @@ describe('UserService', () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it('should assign roles when role_codes provided', async () => {
+        it('should assign role when role_code provided', async () => {
             userRepository.findOne.mockResolvedValue(null);
-            roleRepository.find.mockResolvedValue([mockRole as Role]);
+            roleRepository.findOne.mockResolvedValue(mockRole as Role);
             userRepository.create.mockReturnValue({ ...mockUser, roles: [] } as User);
             userRepository.save.mockResolvedValue(mockUser as User);
 
             await service.create({
                 email: 'new@kechita.com',
                 password: 'password123',
-                role_codes: ['STAFF'],
+                role_code: 'STAFF',
             });
 
-            expect(roleRepository.find).toHaveBeenCalled();
+            expect(roleRepository.findOne).toHaveBeenCalled();
         });
 
-        it('should throw BadRequestException for invalid role codes', async () => {
+        it('should throw BadRequestException for invalid role code', async () => {
             userRepository.findOne.mockResolvedValue(null);
-            roleRepository.find.mockResolvedValue([]); // No roles found
+            roleRepository.findOne.mockResolvedValue(null); // Role not found
             userRepository.create.mockReturnValue({ ...mockUser, roles: [] } as User);
 
             await expect(
                 service.create({
                     email: 'new@kechita.com',
                     password: 'password123',
-                    role_codes: ['INVALID_ROLE'],
+                    role_code: 'INVALID_ROLE',
                 })
             ).rejects.toThrow(BadRequestException);
         });
@@ -182,13 +182,13 @@ describe('UserService', () => {
     });
 
     describe('updateRoles', () => {
-        it('should update user roles', async () => {
+        it('should update user role', async () => {
             const hrRole = { ...mockRole, id: 'role-2', code: 'HR_MANAGER' } as Role;
             userRepository.findOne.mockResolvedValue(mockUser as User);
-            roleRepository.find.mockResolvedValue([hrRole]);
+            roleRepository.findOne.mockResolvedValue(hrRole);
             userRepository.save.mockResolvedValue({ ...mockUser, roles: [hrRole] } as User);
 
-            const result = await service.updateRoles('user-1', { role_codes: ['HR_MANAGER'] });
+            const result = await service.updateRoles('user-1', { role_code: 'HR_MANAGER' });
 
             expect(userRepository.save).toHaveBeenCalled();
         });

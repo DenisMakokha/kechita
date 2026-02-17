@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Like, ILike } from 'typeorm';
+import { Repository, Like, ILike } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
@@ -104,18 +104,14 @@ export class UserService {
             is_active: dto.is_active ?? true,
         });
 
-        if (dto.role_codes && dto.role_codes.length > 0) {
-            const roles = await this.roleRepository.find({
-                where: { code: In(dto.role_codes), is_active: true },
+        if (dto.role_code) {
+            const role = await this.roleRepository.findOne({
+                where: { code: dto.role_code, is_active: true },
             });
-
-            if (roles.length !== dto.role_codes.length) {
-                const foundCodes = roles.map(r => r.code);
-                const missingCodes = dto.role_codes.filter(c => !foundCodes.includes(c));
-                throw new BadRequestException(`Invalid role codes: ${missingCodes.join(', ')}`);
+            if (!role) {
+                throw new BadRequestException(`Invalid role code: ${dto.role_code}`);
             }
-
-            user.roles = roles;
+            user.roles = [role];
         }
 
         return this.userRepository.save(user);
@@ -142,17 +138,14 @@ export class UserService {
     async updateRoles(id: string, dto: UpdateUserRolesDto): Promise<User> {
         const user = await this.findOne(id);
 
-        const roles = await this.roleRepository.find({
-            where: { code: In(dto.role_codes), is_active: true },
+        const role = await this.roleRepository.findOne({
+            where: { code: dto.role_code, is_active: true },
         });
-
-        if (roles.length !== dto.role_codes.length) {
-            const foundCodes = roles.map(r => r.code);
-            const missingCodes = dto.role_codes.filter(c => !foundCodes.includes(c));
-            throw new BadRequestException(`Invalid role codes: ${missingCodes.join(', ')}`);
+        if (!role) {
+            throw new BadRequestException(`Invalid role code: ${dto.role_code}`);
         }
 
-        user.roles = roles;
+        user.roles = [role];
         return this.userRepository.save(user);
     }
 
@@ -166,11 +159,9 @@ export class UserService {
             throw new NotFoundException(`Role not found: ${roleCode}`);
         }
 
-        const hasRole = user.roles.some(r => r.code === roleCode);
-        if (!hasRole) {
-            user.roles.push(role);
-            await this.userRepository.save(user);
-        }
+        // Single role enforcement: replace existing role
+        user.roles = [role];
+        await this.userRepository.save(user);
 
         return user;
     }
