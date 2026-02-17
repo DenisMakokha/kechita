@@ -108,8 +108,9 @@ export class UserService {
             throw new ConflictException('User with this email already exists');
         }
 
+        const password = dto.password || crypto.randomBytes(32).toString('hex');
         const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(dto.password, saltRounds);
+        const passwordHash = await bcrypt.hash(password, saltRounds);
 
         const user = this.userRepository.create({
             email: dto.email.toLowerCase(),

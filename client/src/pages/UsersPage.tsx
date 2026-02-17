@@ -5,8 +5,8 @@ import { InputDialog } from '../components/ui/InputDialog';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
     Users, Plus, Search, Filter, MoreVertical, Edit, Trash2,
-    Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail,
-    Key, ChevronLeft, ChevronRight, X, Eye, EyeOff, AlertCircle,
+    Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Key,
+    ChevronLeft, ChevronRight, X, AlertCircle,
     CheckCircle, Clock, Building, MapPin
 } from 'lucide-react';
 
@@ -45,7 +45,6 @@ export const UsersPage: React.FC = () => {
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [formData, setFormData] = useState<any>({});
-    const [showPassword, setShowPassword] = useState(false);
     const [actionMenu, setActionMenu] = useState<string | null>(null);
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
@@ -544,29 +543,6 @@ export const UsersPage: React.FC = () => {
                             {!selectedUser && (
                                 <>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Password
-                                        </label>
-                                        <div className="relative">
-                                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                value={formData.password || ''}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                                className="w-full pl-10 pr-12 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                                placeholder="Minimum 8 characters"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                            >
-                                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-2">
                                             Assign Role
                                         </label>
@@ -580,6 +556,13 @@ export const UsersPage: React.FC = () => {
                                                 <option key={role.id} value={role.code}>{role.name}</option>
                                             ))}
                                         </select>
+                                    </div>
+
+                                    <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <Mail className="text-blue-500 mt-0.5 flex-shrink-0" size={16} />
+                                        <p className="text-sm text-blue-700">
+                                            A welcome email with a password setup link will be sent to the user.
+                                        </p>
                                     </div>
                                 </>
                             )}
