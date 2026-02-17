@@ -228,12 +228,12 @@ export const DashboardLayout: React.FC = () => {
                                 key={item.path}
                                 to={item.path}
                                 title={sidebarCollapsed ? item.label : undefined}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${isActive
+                                className={`flex items-center gap-3 px-3 py-1.5 rounded-xl transition-all duration-200 group relative ${isActive
                                     ? 'bg-gradient-to-r from-[#0066B3] to-[#00AEEF] text-white shadow-lg shadow-blue-500/30'
                                     : 'text-slate-600 hover:bg-blue-50 hover:text-[#0066B3]'
                                     }`}
                             >
-                                <Icon size={20} className={isActive ? 'text-white' : 'text-slate-500 group-hover:text-[#0066B3]'} />
+                                <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500 group-hover:text-[#0066B3]'} />
                                 {!sidebarCollapsed && <span className="font-medium">{item.label}</span>}
                                 {sidebarCollapsed && (
                                     <div className="absolute left-full ml-2 px-2 py-1 bg-slate-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
