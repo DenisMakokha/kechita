@@ -101,17 +101,26 @@ jobs:
             # Prune dev dependencies for production
             npm prune --omit=dev
 
-            # Restart server
+            # Restart server (clears in-memory cache)
             echo "♻️ Restarting server..."
             pm2 restart kechita-api
+            pm2 flush kechita-api
             sleep 5
 
             # ── Client ──
             echo "📦 Installing client dependencies..."
             cd /opt/kechita/client
             npm ci
+
+            echo "🧹 Clearing old client build..."
+            rm -rf dist
+
             echo "🔨 Building client..."
             npm run build
+
+            # Restart Nginx to serve fresh client files
+            echo "♻️ Restarting Nginx..."
+            sudo systemctl restart nginx || sudo service nginx restart || echo "⚠️ Could not restart Nginx"
 
             # ── Verify ──
             echo "✅ Verifying deployment..."
