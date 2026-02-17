@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export type SmsProvider = 'africastalking' | 'twilio' | 'custom';
+export type SmsProvider = 'africastalking' | 'mobulk' | 'custom';
 
 export interface SmsConfig {
     enabled: boolean;
@@ -11,10 +11,11 @@ export interface SmsConfig {
     at_api_key?: string;
     at_from?: string;
     at_endpoint?: string;
-    // Twilio
-    twilio_sid?: string;
-    twilio_auth_token?: string;
-    twilio_from?: string;
+    // Mobulk Africa (OnFon Media)
+    mobulk_access_key?: string;
+    mobulk_api_key?: string;
+    mobulk_client_id?: string;
+    mobulk_sender_id?: string;
     // Custom HTTP
     custom_endpoint?: string;
     custom_api_key?: string;
@@ -34,6 +35,9 @@ export class SmsService {
     private readonly logger = new Logger(SmsService.name);
     private config: SmsConfig;
 
+    private static readonly MOBULK_SMS_URL = 'https://api.onfonmedia.co.ke/v1/sms/SendBulkSMS';
+    private static readonly MOBULK_BALANCE_URL = 'https://api.onfonmedia.co.ke/v1/sms/Balance';
+
     constructor(private readonly configService: ConfigService) {
         this.config = {
             enabled: this.configService.get<string>('SMS_ENABLED') === 'true',
@@ -42,9 +46,10 @@ export class SmsService {
             at_api_key: this.configService.get<string>('AT_API_KEY'),
             at_from: this.configService.get<string>('AT_FROM'),
             at_endpoint: this.configService.get<string>('AT_SMS_ENDPOINT') || 'https://api.africastalking.com/version1/messaging',
-            twilio_sid: this.configService.get<string>('TWILIO_SID'),
-            twilio_auth_token: this.configService.get<string>('TWILIO_AUTH_TOKEN'),
-            twilio_from: this.configService.get<string>('TWILIO_FROM'),
+            mobulk_access_key: this.configService.get<string>('MOBULK_ACCESS_KEY'),
+            mobulk_api_key: this.configService.get<string>('MOBULK_API_KEY'),
+            mobulk_client_id: this.configService.get<string>('MOBULK_CLIENT_ID'),
+            mobulk_sender_id: this.configService.get<string>('MOBULK_SENDER_ID'),
             custom_endpoint: this.configService.get<string>('SMS_CUSTOM_ENDPOINT'),
             custom_api_key: this.configService.get<string>('SMS_CUSTOM_API_KEY'),
             custom_method: this.configService.get<string>('SMS_CUSTOM_METHOD') || 'POST',
@@ -76,7 +81,7 @@ export class SmsService {
     private hasCredentials(): boolean {
         switch (this.config.provider) {
             case 'africastalking': return !!(this.config.at_username && this.config.at_api_key);
-            case 'twilio': return !!(this.config.twilio_sid && this.config.twilio_auth_token && this.config.twilio_from);
+            case 'mobulk': return !!(this.config.mobulk_access_key && this.config.mobulk_api_key && this.config.mobulk_client_id);
             case 'custom': return !!(this.config.custom_endpoint);
             default: return false;
         }
@@ -94,9 +99,47 @@ export class SmsService {
 
         switch (this.config.provider) {
             case 'africastalking': return this.sendViaAfricasTalking(options);
-            case 'twilio': return this.sendViaTwilio(options);
+            case 'mobulk': return this.sendViaMobulk(options);
             case 'custom': return this.sendViaCustom(options);
             default: return { success: false, error: `Unknown provider: ${this.config.provider}` };
+        }
+    }
+
+    /**
+     * Check SMS credit balance (Mobulk Africa / OnFon Media)
+     */
+    async checkBalance(): Promise<{ success: boolean; credits?: string; error?: string; providerResponse?: any }> {
+        if (this.config.provider !== 'mobulk') {
+            return { success: false, error: 'Credit balance check is only available for Mobulk Africa provider' };
+        }
+
+        const { mobulk_access_key, mobulk_api_key, mobulk_client_id } = this.config;
+        if (!mobulk_access_key || !mobulk_api_key || !mobulk_client_id) {
+            return { success: false, error: 'Missing Mobulk Africa credentials' };
+        }
+
+        try {
+            const url = `${SmsService.MOBULK_BALANCE_URL}?ApiKey=${encodeURIComponent(mobulk_api_key)}&ClientId=${encodeURIComponent(mobulk_client_id)}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'AccessKey': mobulk_access_key,
+                },
+            });
+
+            const payload = await response.json();
+
+            if (payload.ErrorCode !== 0) {
+                this.logger.warn(`Mobulk balance error: ${payload.ErrorDescription}`);
+                return { success: false, error: payload.ErrorDescription || 'Balance check failed', providerResponse: payload };
+            }
+
+            const credits = payload.Data?.[0]?.Credits || '0';
+            return { success: true, credits, providerResponse: payload };
+        } catch (e: any) {
+            this.logger.error(`Mobulk balance check failed: ${e.message}`);
+            return { success: false, error: e.message };
         }
     }
 
@@ -137,26 +180,41 @@ export class SmsService {
         }
     }
 
-    private async sendViaTwilio(options: SendSmsOptions): Promise<{ success: boolean; error?: string; providerResponse?: any }> {
-        const { twilio_sid, twilio_auth_token, twilio_from } = this.config;
-        const from = options.from || twilio_from;
+    private async sendViaMobulk(options: SendSmsOptions): Promise<{ success: boolean; error?: string; providerResponse?: any }> {
+        const { mobulk_access_key, mobulk_api_key, mobulk_client_id, mobulk_sender_id } = this.config;
+        const senderId = options.from || mobulk_sender_id || 'KECHITA';
+
+        const payload = {
+            SenderId: senderId,
+            IsUnicode: false,
+            IsFlash: false,
+            MessageParameters: [
+                { Number: options.to, Text: options.message },
+            ],
+            ApiKey: mobulk_api_key,
+            ClientId: mobulk_client_id,
+        };
 
         try {
-            const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilio_sid}/Messages.json`, {
+            const response = await fetch(SmsService.MOBULK_SMS_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': 'Basic ' + Buffer.from(`${twilio_sid}:${twilio_auth_token}`).toString('base64'),
+                    'Content-Type': 'application/json',
+                    'AccessKey': mobulk_access_key!,
                 },
-                body: new URLSearchParams({ To: options.to, From: from!, Body: options.message }),
+                body: JSON.stringify(payload),
             });
 
-            const payload = await response.json();
-            if (!response.ok) {
-                return { success: false, error: payload.message || `Twilio error (${response.status})`, providerResponse: payload };
+            const result = await response.json();
+
+            if (result.ErrorCode !== 0) {
+                this.logger.warn(`Mobulk SMS error: ${result.ErrorDescription}`);
+                return { success: false, error: result.ErrorDescription || 'Send failed', providerResponse: result };
             }
-            return { success: true, providerResponse: payload };
+
+            return { success: true, providerResponse: result };
         } catch (e: any) {
+            this.logger.error(`Mobulk SMS failed: ${e.message}`);
             return { success: false, error: e.message };
         }
     }

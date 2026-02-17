@@ -384,6 +384,16 @@ const SettingsPage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to send test SMS', 'error'),
     });
 
+    const [smsBalance, setSmsBalance] = useState<{ credits?: string; error?: string } | null>(null);
+    const checkBalanceMutation = useMutation({
+        mutationFn: async () => (await api.get('/settings/sms/balance')).data,
+        onSuccess: (data: any) => {
+            if (data.success) setSmsBalance({ credits: data.credits });
+            else setSmsBalance({ error: data.error });
+        },
+        onError: (e: any) => setSmsBalance({ error: e?.response?.data?.message || 'Failed to check balance' }),
+    });
+
     const mainTabs = [
         { key: 'claim-types' as Tab, label: 'Claim Types', icon: Receipt },
         { key: 'leave-types' as Tab, label: 'Leave Types', icon: Calendar },
@@ -1110,11 +1120,40 @@ const SettingsPage: React.FC = () => {
                             className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                         >
                             <option value="africastalking">Africa's Talking</option>
-                            <option value="twilio">Twilio</option>
+                            <option value="mobulk">Mobulk Africa</option>
                             <option value="custom">Custom HTTP API</option>
                         </select>
                     </div>
                 </div>
+
+                {/* Mobulk Africa Credit Balance */}
+                {provider === 'mobulk' && enabled && (
+                    <div className="p-5 bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-xl">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-semibold text-violet-900 flex items-center gap-2 mb-1">
+                                    <DollarSign size={18} className="text-violet-600" />
+                                    SMS Credit Balance
+                                </h3>
+                                {smsBalance?.credits ? (
+                                    <p className="text-2xl font-bold text-violet-700">{smsBalance.credits}</p>
+                                ) : smsBalance?.error ? (
+                                    <p className="text-sm text-red-600">{smsBalance.error}</p>
+                                ) : (
+                                    <p className="text-sm text-violet-500">Click "Check Balance" to fetch your current credits</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => checkBalanceMutation.mutate()}
+                                disabled={checkBalanceMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 disabled:opacity-50 text-sm"
+                            >
+                                {checkBalanceMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <DollarSign size={14} />}
+                                {checkBalanceMutation.isPending ? 'Checking...' : 'Check Balance'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Provider-specific fields */}
                 <div className="grid md:grid-cols-2 gap-6">
@@ -1167,41 +1206,54 @@ const SettingsPage: React.FC = () => {
                         </div>
                     )}
 
-                    {provider === 'twilio' && (
+                    {provider === 'mobulk' && (
                         <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
                             <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                                <MessageSquare size={18} className="text-red-500" />
-                                Twilio
+                                <MessageSquare size={18} className="text-violet-600" />
+                                Mobulk Africa
+                                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">OnFon Media</span>
                             </h3>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Account SID</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Access Key</label>
                                 <input
-                                    type="text"
-                                    value={smsConfig.twilio_sid || ''}
-                                    onChange={(e) => setSmsConfig({ ...smsConfig, twilio_sid: e.target.value })}
-                                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    type="password"
+                                    value={smsConfig.mobulk_access_key || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, mobulk_access_key: e.target.value })}
+                                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">Sent as header for all API requests</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">API Key</label>
+                                <input
+                                    type="password"
+                                    value={smsConfig.mobulk_api_key || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, mobulk_api_key: e.target.value })}
+                                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Auth Token</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Client ID</label>
                                 <input
-                                    type="password"
-                                    value={smsConfig.twilio_auth_token || ''}
-                                    onChange={(e) => setSmsConfig({ ...smsConfig, twilio_auth_token: e.target.value })}
-                                    placeholder="••••••••"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                    type="text"
+                                    value={smsConfig.mobulk_client_id || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, mobulk_client_id: e.target.value })}
+                                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">From Number</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Sender ID</label>
                                 <input
                                     type="text"
-                                    value={smsConfig.twilio_from || ''}
-                                    onChange={(e) => setSmsConfig({ ...smsConfig, twilio_from: e.target.value })}
-                                    placeholder="+1234567890"
+                                    value={smsConfig.mobulk_sender_id || ''}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, mobulk_sender_id: e.target.value })}
+                                    placeholder="e.g., KECHITA"
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                                 />
+                                <p className="text-xs text-slate-400 mt-1">Approved sender name displayed on recipient's phone</p>
                             </div>
                         </div>
                     )}
@@ -1267,7 +1319,7 @@ const SettingsPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Test SMS */}
+                    {/* Test SMS + Provider Info */}
                     <div className="space-y-6">
                         <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-4">
                             <h3 className="font-semibold text-slate-900 flex items-center gap-2">
@@ -1305,10 +1357,13 @@ const SettingsPage: React.FC = () => {
                                     <p>• Sender ID requires approval from AT</p>
                                 </div>
                             )}
-                            {provider === 'twilio' && (
+                            {provider === 'mobulk' && (
                                 <div className="text-sm text-slate-600 space-y-1">
-                                    <p>• <a href="https://console.twilio.com" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">Twilio Console</a></p>
-                                    <p>• Use a verified number or Messaging Service SID</p>
+                                    <p>• <a href="https://www.onfonmedia.co.ke" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">OnFon Media Portal</a></p>
+                                    <p>• <a href="https://www.docs.onfonmedia.co.ke" target="_blank" rel="noreferrer" className="text-[#0066B3] hover:underline">API Documentation</a></p>
+                                    <p>• 3 keys required: Access Key (header), API Key + Client ID (body)</p>
+                                    <p>• Sender ID must be approved by OnFon</p>
+                                    <p>• Credit balance can be checked from the widget above</p>
                                 </div>
                             )}
                             {provider === 'custom' && (

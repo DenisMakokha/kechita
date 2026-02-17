@@ -129,10 +129,11 @@ export class SettingsController {
             at_api_key: dbSettings['at_api_key'] ? '••••••••' : '',
             at_from: dbSettings['at_from'] || '',
             at_endpoint: dbSettings['at_endpoint'] || 'https://api.africastalking.com/version1/messaging',
-            // Twilio
-            twilio_sid: dbSettings['twilio_sid'] || '',
-            twilio_auth_token: dbSettings['twilio_auth_token'] ? '••••••••' : '',
-            twilio_from: dbSettings['twilio_from'] || '',
+            // Mobulk Africa (OnFon Media)
+            mobulk_access_key: dbSettings['mobulk_access_key'] ? '••••••••' : '',
+            mobulk_api_key: dbSettings['mobulk_api_key'] ? '••••••••' : '',
+            mobulk_client_id: dbSettings['mobulk_client_id'] || '',
+            mobulk_sender_id: dbSettings['mobulk_sender_id'] || '',
             // Custom
             custom_endpoint: dbSettings['custom_endpoint'] || '',
             custom_api_key: dbSettings['custom_api_key'] ? '••••••••' : '',
@@ -146,7 +147,7 @@ export class SettingsController {
     @Put('sms/config')
     @Roles('CEO')
     async updateSmsConfig(@Body() body: Record<string, string>) {
-        const secretKeys = ['at_api_key', 'twilio_auth_token', 'custom_api_key'];
+        const secretKeys = ['at_api_key', 'mobulk_access_key', 'mobulk_api_key', 'custom_api_key'];
         const entries: { key: string; value: string; category: string }[] = [];
 
         for (const [key, value] of Object.entries(body)) {
@@ -168,9 +169,10 @@ export class SettingsController {
             at_api_key: await resolveSecret('at_api_key'),
             at_from: body.at_from,
             at_endpoint: body.at_endpoint,
-            twilio_sid: body.twilio_sid,
-            twilio_auth_token: await resolveSecret('twilio_auth_token'),
-            twilio_from: body.twilio_from,
+            mobulk_access_key: await resolveSecret('mobulk_access_key'),
+            mobulk_api_key: await resolveSecret('mobulk_api_key'),
+            mobulk_client_id: body.mobulk_client_id,
+            mobulk_sender_id: body.mobulk_sender_id,
             custom_endpoint: body.custom_endpoint,
             custom_api_key: await resolveSecret('custom_api_key'),
             custom_method: body.custom_method,
@@ -179,6 +181,12 @@ export class SettingsController {
         });
 
         return { message: 'SMS settings updated and applied' };
+    }
+
+    @Get('sms/balance')
+    @Roles('CEO', 'HR_MANAGER')
+    async getSmsBalance() {
+        return this.smsService.checkBalance();
     }
 
     @Post('sms/send-test')
