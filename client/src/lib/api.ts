@@ -28,11 +28,28 @@ const processQueue = (error: Error | null, token: string | null = null) => {
     failedQueue = [];
 };
 
-// Add token to requests
+// Strip non-DTO metadata fields from outgoing request bodies
+const STRIP_FIELDS = ['id', 'created_at', 'updated_at', 'deleted_at'];
+
+function stripMetadata(data: any): any {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || data instanceof FormData) return data;
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (!STRIP_FIELDS.includes(key)) {
+            cleaned[key] = value;
+        }
+    }
+    return cleaned;
+}
+
+// Add token to requests + strip metadata from mutation bodies
 api.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (config.data && ['post', 'patch', 'put'].includes(config.method || '')) {
+        config.data = stripMetadata(config.data);
     }
     return config;
 });
