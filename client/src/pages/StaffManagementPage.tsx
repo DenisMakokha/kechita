@@ -11,7 +11,8 @@ import {
     Users, Plus, Search, MoreVertical, Edit, Trash2, X,
     Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Eye,
     Key, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Clock,
-    Building, Loader2, RefreshCw, AlertTriangle, UserPlus
+    Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
+    Upload, Download, FileSpreadsheet
 } from 'lucide-react';
 
 type Tab = 'directory' | 'users' | 'roles';
@@ -69,6 +70,12 @@ export const StaffManagementPage: React.FC = () => {
     const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [deleteRoleTarget, setDeleteRoleTarget] = useState<Role | null>(null);
 
+    // Bulk import state
+    const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+    const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
+    const [bulkImportResult, setBulkImportResult] = useState<any>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
     const staffRules = useMemo<ValidationRules<Record<string, any>>>(() => ({
         first_name: [v => validators.required(v, 'First name')],
         last_name: [v => validators.required(v, 'Last name')],
@@ -117,6 +124,37 @@ export const StaffManagementPage: React.FC = () => {
     const activateRoleMutation = useMutation({ mutationFn: async (id: string) => (await api.post(`/roles/${id}/activate`)).data, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }), onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to activate role', 'error') });
     const deactivateRoleMutation = useMutation({ mutationFn: async (id: string) => (await api.post(`/roles/${id}/deactivate`)).data, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }), onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate role', 'error') });
 
+    const bulkImportMutation = useMutation({
+        mutationFn: async (file: File) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            return (await api.post('/staff/bulk-import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+        },
+        onSuccess: (data) => {
+            setBulkImportResult(data);
+            setBulkImportFile(null);
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Import failed', 'error'),
+    });
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const response = await api.get('/staff/bulk-import/template', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `staff-import-template-${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch {
+            showToast('Failed to download template', 'error');
+        }
+    };
+
     // Computed
     const filteredStaff = useMemo(() => staff.filter((m: Staff) => {
         const search = staffSearch === '' || `${m.first_name} ${m.last_name}`.toLowerCase().includes(staffSearch.toLowerCase()) || m.user?.email?.toLowerCase().includes(staffSearch.toLowerCase()) || m.employee_number?.toLowerCase().includes(staffSearch.toLowerCase());
@@ -149,6 +187,7 @@ export const StaffManagementPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <button onClick={() => refetchStaff()} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><RefreshCw size={20} /></button>
                     {activeTab === 'directory' && <div className="flex items-center gap-2">
+                        <button onClick={() => { setBulkImportFile(null); setBulkImportResult(null); setShowBulkImportModal(true); }} className="flex items-center gap-2 px-4 py-2 border border-emerald-600 text-emerald-700 rounded-lg font-medium hover:bg-emerald-50"><FileSpreadsheet size={18} />Bulk Import</button>
                         <button onClick={() => { setStaffFormData({ create_onboarding: true }); setShowAddStaffModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add Staff</button>
                         <button onClick={() => navigate('/recruitment')} className="flex items-center gap-2 px-4 py-2 border border-[#0066B3] text-[#0066B3] rounded-lg font-medium hover:bg-blue-50"><UserPlus size={20} />Hire via Recruitment</button>
                     </div>}
@@ -378,6 +417,238 @@ export const StaffManagementPage: React.FC = () => {
                 onCancel={() => setDeleteRoleTarget(null)}
                 isLoading={deleteRoleMutation.isPending}
             />
+
+            {/* BULK IMPORT MODAL */}
+            {showBulkImportModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-100 rounded-lg">
+                                    <FileSpreadsheet className="text-emerald-600" size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-slate-900">Bulk Import Staff</h2>
+                                    <p className="text-xs text-slate-500">Upload an Excel file to add multiple staff at once</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); setBulkImportResult(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                            {/* Results view */}
+                            {bulkImportResult ? (
+                                <div className="space-y-4">
+                                    {/* Summary */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-200">
+                                            <p className="text-3xl font-bold text-slate-900">{bulkImportResult.total}</p>
+                                            <p className="text-sm text-slate-500 mt-1">Total Rows</p>
+                                        </div>
+                                        <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-200">
+                                            <p className="text-3xl font-bold text-emerald-700">{bulkImportResult.succeeded}</p>
+                                            <p className="text-sm text-emerald-600 mt-1">Imported</p>
+                                        </div>
+                                        <div className={`rounded-xl p-4 text-center border ${bulkImportResult.failed > 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                                            <p className={`text-3xl font-bold ${bulkImportResult.failed > 0 ? 'text-red-700' : 'text-slate-400'}`}>{bulkImportResult.failed}</p>
+                                            <p className={`text-sm mt-1 ${bulkImportResult.failed > 0 ? 'text-red-600' : 'text-slate-400'}`}>Failed</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Success banner */}
+                                    {bulkImportResult.succeeded > 0 && (
+                                        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                            <CheckCircle className="text-emerald-600 flex-shrink-0" size={20} />
+                                            <div>
+                                                <p className="font-medium text-emerald-800">{bulkImportResult.succeeded} staff member{bulkImportResult.succeeded !== 1 ? 's' : ''} imported successfully</p>
+                                                <p className="text-sm text-emerald-600">Each staff member will receive a welcome email to set their password.</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Created list */}
+                                    {bulkImportResult.created?.length > 0 && (
+                                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                                                <p className="text-sm font-semibold text-slate-700">Successfully Created</p>
+                                            </div>
+                                            <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto">
+                                                {bulkImportResult.created.map((c: any) => (
+                                                    <div key={c.row} className="flex items-center justify-between px-4 py-2.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <CheckCircle className="text-emerald-500" size={14} />
+                                                            <span className="text-sm text-slate-700">{c.email}</span>
+                                                        </div>
+                                                        <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{c.employee_number}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Errors list */}
+                                    {bulkImportResult.errors?.length > 0 && (
+                                        <div className="bg-white border border-red-200 rounded-xl overflow-hidden">
+                                            <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+                                                <p className="text-sm font-semibold text-red-700">Rows with Errors (skipped)</p>
+                                            </div>
+                                            <div className="divide-y divide-red-50 max-h-48 overflow-y-auto">
+                                                {bulkImportResult.errors.map((e: any) => (
+                                                    <div key={e.row} className="px-4 py-3">
+                                                        <div className="flex items-start gap-2">
+                                                            <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={14} />
+                                                            <div>
+                                                                <p className="text-sm font-medium text-red-800">Row {e.row} — {e.email}</p>
+                                                                <p className="text-xs text-red-600 mt-0.5">{e.error}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => { setBulkImportResult(null); setBulkImportFile(null); }}
+                                            className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50"
+                                        >
+                                            Import Another File
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowBulkImportModal(false); setBulkImportResult(null); }}
+                                            className="flex-1 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Upload view */
+                                <div className="space-y-5">
+                                    {/* Step 1: Download template */}
+                                    <div className="flex items-start gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                        <div className="p-2 bg-[#0066B3] rounded-lg flex-shrink-0">
+                                            <Download className="text-white" size={18} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-slate-900">Step 1 — Download the Template</p>
+                                            <p className="text-sm text-slate-500 mt-0.5">Fill in the Excel template with your staff data. Region, Branch, Department, and Position will be created automatically if they don't exist.</p>
+                                        </div>
+                                        <button
+                                            onClick={handleDownloadTemplate}
+                                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] flex-shrink-0"
+                                        >
+                                            <Download size={16} />
+                                            Download
+                                        </button>
+                                    </div>
+
+                                    {/* Step 2: Upload */}
+                                    <div>
+                                        <p className="font-medium text-slate-900 mb-3">Step 2 — Upload Completed File</p>
+                                        <label
+                                            className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-all ${isDragging ? 'border-emerald-500 bg-emerald-50' : bulkImportFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-slate-50 hover:border-[#0066B3] hover:bg-blue-50'}`}
+                                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                            onDragLeave={() => setIsDragging(false)}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                setIsDragging(false);
+                                                const f = e.dataTransfer.files[0];
+                                                if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) setBulkImportFile(f);
+                                                else showToast('Please upload an .xlsx file', 'error');
+                                            }}
+                                        >
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                accept=".xlsx,.xls"
+                                                onChange={(e) => {
+                                                    const f = e.target.files?.[0];
+                                                    if (f) setBulkImportFile(f);
+                                                }}
+                                            />
+                                            {bulkImportFile ? (
+                                                <div className="text-center">
+                                                    <FileSpreadsheet className="mx-auto text-emerald-600 mb-2" size={40} />
+                                                    <p className="font-medium text-emerald-800">{bulkImportFile.name}</p>
+                                                    <p className="text-sm text-emerald-600 mt-1">{(bulkImportFile.size / 1024).toFixed(1)} KB — ready to import</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.preventDefault(); setBulkImportFile(null); }}
+                                                        className="mt-2 text-xs text-red-500 hover:text-red-700 underline"
+                                                    >
+                                                        Remove file
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center">
+                                                    <Upload className="mx-auto text-slate-400 mb-3" size={40} />
+                                                    <p className="font-medium text-slate-700">Drop your .xlsx file here</p>
+                                                    <p className="text-sm text-slate-400 mt-1">or click to browse</p>
+                                                    <p className="text-xs text-slate-400 mt-3">Accepts .xlsx files only</p>
+                                                </div>
+                                            )}
+                                        </label>
+                                    </div>
+
+                                    {/* Info notes */}
+                                    <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
+                                        <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
+                                            <span>Org entities (Region, Branch, Dept, Position) are auto-created from the file</span>
+                                        </div>
+                                        <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
+                                            <span>Each staff member gets a welcome email to set their own password</span>
+                                        </div>
+                                        <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
+                                            <span>Rows with errors are skipped — valid rows are still imported</span>
+                                        </div>
+                                        <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
+                                            <span>Employee numbers are auto-generated for each staff member</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer — only show when not showing results */}
+                        {!bulkImportResult && (
+                            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+                                <button
+                                    onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); }}
+                                    className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => { if (bulkImportFile) bulkImportMutation.mutate(bulkImportFile); }}
+                                    disabled={!bulkImportFile || bulkImportMutation.isPending}
+                                    className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {bulkImportMutation.isPending ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            Importing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload size={16} />
+                                            Import Staff
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

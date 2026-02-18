@@ -10,6 +10,7 @@ import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto'
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
 import { ContractService } from './services/contract.service';
+import { BulkImportService } from './services/bulk-import.service';
 import { CreateTemplateDto, CreateTaskDto } from './dto/onboarding.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -26,7 +27,41 @@ export class StaffController {
         private readonly documentService: DocumentService,
         private readonly onboardingService: OnboardingService,
         private readonly contractService: ContractService,
+        private readonly bulkImportService: BulkImportService,
     ) { }
+
+    // ==================== BULK IMPORT ====================
+
+    @Get('bulk-import/template')
+    @Roles('CEO', 'HR_MANAGER')
+    async downloadTemplate(@Res() res: any) {
+        const buffer = await this.bulkImportService.generateTemplate();
+        const filename = `staff-import-template-${new Date().toISOString().split('T')[0]}.xlsx`;
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Length': buffer.length,
+        });
+        res.end(buffer);
+    }
+
+    @Post('bulk-import')
+    @Roles('CEO', 'HR_MANAGER')
+    @UseInterceptors(FileInterceptor('file'))
+    async bulkImport(
+        @UploadedFile() file: Express.Multer.File,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        if (!file) throw new BadRequestException('No file uploaded');
+        const allowed = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+        ];
+        if (!allowed.includes(file.mimetype) && !file.originalname.endsWith('.xlsx')) {
+            throw new BadRequestException('Only .xlsx files are accepted');
+        }
+        return this.bulkImportService.importStaff(file.buffer, req.user.id);
+    }
 
     // ==================== STAFF CRUD ====================
 

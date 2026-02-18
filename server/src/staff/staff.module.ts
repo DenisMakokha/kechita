@@ -19,6 +19,7 @@ import { StaffDocument } from './entities/staff-document.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
 import { StaffContract } from './entities/staff-contract.entity';
 import { ContractService } from './services/contract.service';
+import { BulkImportService } from './services/bulk-import.service';
 
 // Onboarding Entities
 import { OnboardingTemplate } from './entities/onboarding-template.entity';
@@ -71,7 +72,7 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     NotificationModule,
   ],
   controllers: [StaffController, DocumentController, OnboardingController],
-  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler],
-  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler],
+  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService],
+  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService],
 })
 export class StaffModule { }
