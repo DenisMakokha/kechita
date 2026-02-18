@@ -1,6 +1,6 @@
 import {
     Controller, Get, Post, Patch, Delete, Body, Param, Query,
-    UseGuards, ParseUUIDPipe, HttpCode, HttpStatus
+    UseGuards, ParseUUIDPipe, HttpCode, HttpStatus, Req
 } from '@nestjs/common';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -62,8 +62,9 @@ export class UserController {
     async update(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateUserDto,
+        @Req() req: any,
     ) {
-        return this.userService.update(id, dto);
+        return this.userService.update(id, dto, req.user?.roles);
     }
 
     @Patch(':id/roles')
@@ -71,8 +72,9 @@ export class UserController {
     async updateRoles(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateUserRolesDto,
+        @Req() req: any,
     ) {
-        return this.userService.updateRoles(id, dto);
+        return this.userService.updateRoles(id, dto, req.user?.roles);
     }
 
     @Post(':id/roles/:roleCode')
@@ -81,8 +83,9 @@ export class UserController {
     async addRole(
         @Param('id', ParseUUIDPipe) id: string,
         @Param('roleCode') roleCode: string,
+        @Req() req: any,
     ) {
-        return this.userService.addRole(id, roleCode);
+        return this.userService.addRole(id, roleCode, req.user?.roles);
     }
 
     @Delete(':id/roles/:roleCode')
@@ -90,8 +93,9 @@ export class UserController {
     async removeRole(
         @Param('id', ParseUUIDPipe) id: string,
         @Param('roleCode') roleCode: string,
+        @Req() req: any,
     ) {
-        return this.userService.removeRole(id, roleCode);
+        return this.userService.removeRole(id, roleCode, req.user?.roles);
     }
 
     @Patch(':id/password')
@@ -99,27 +103,28 @@ export class UserController {
     async updatePassword(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateUserPasswordDto,
+        @Req() req: any,
     ) {
-        return this.userService.updatePassword(id, dto);
+        return this.userService.updatePassword(id, dto, req.user?.roles);
     }
 
     @Post(':id/activate')
     @Roles('CEO', 'HR_MANAGER')
     @HttpCode(HttpStatus.OK)
-    async activate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.userService.activate(id);
+    async activate(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+        return this.userService.activate(id, req.user?.roles);
     }
 
     @Post(':id/deactivate')
     @Roles('CEO', 'HR_MANAGER')
     @HttpCode(HttpStatus.OK)
-    async deactivate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.userService.deactivate(id);
+    async deactivate(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+        return this.userService.deactivate(id, req.user?.roles);
     }
 
     @Delete(':id')
     @Roles('CEO')
-    async delete(@Param('id', ParseUUIDPipe) id: string) {
-        return this.userService.delete(id);
+    async delete(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+        return this.userService.delete(id, req.user?.roles);
     }
 }

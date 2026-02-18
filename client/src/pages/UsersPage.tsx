@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuthStore } from '../store/auth.store';
 import { InputDialog } from '../components/ui/InputDialog';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
@@ -35,8 +36,19 @@ interface Role {
     is_active: boolean;
 }
 
+const ROLE_HIERARCHY: Record<string, number> = {
+    CEO: 1, HR_MANAGER: 2, REGIONAL_ADMIN: 3, HR_ASSISTANT: 4,
+    REGIONAL_MANAGER: 5, BRANCH_MANAGER: 6, BDM: 7, ACCOUNTANT: 8, RELATIONSHIP_OFFICER: 9,
+};
+
+const getHighestRank = (roles: { code: string }[]): number => {
+    if (!roles || roles.length === 0) return 999;
+    return Math.min(...roles.map(r => ROLE_HIERARCHY[r.code] ?? 999));
+};
+
 export const UsersPage: React.FC = () => {
     const queryClient = useQueryClient();
+    const currentUser = useAuthStore(s => s.user);
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('');
@@ -415,63 +427,83 @@ export const UsersPage: React.FC = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end gap-2 relative">
-                                                <button
-                                                    onClick={() => setActionMenu(actionMenu === user.id ? null : user.id)}
-                                                    className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
-                                                >
-                                                    <MoreVertical size={18} />
-                                                </button>
-                                                {actionMenu === user.id && (
-                                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-10">
+                                            {(() => {
+                                                const myRank = getHighestRank(currentUser?.roles || []);
+                                                const targetRank = getHighestRank(user.roles || []);
+                                                const canModify = myRank < targetRank;
+                                                return (
+                                                    <div className="flex items-center justify-end gap-2 relative">
+                                                        {!canModify && (
+                                                            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Protected</span>
+                                                        )}
                                                         <button
-                                                            onClick={() => openEditModal(user)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                                            onClick={() => setActionMenu(actionMenu === user.id ? null : user.id)}
+                                                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
                                                         >
-                                                            <Edit size={16} />
-                                                            Edit User
+                                                            <MoreVertical size={18} />
                                                         </button>
-                                                        <button
-                                                            onClick={() => openRoleModal(user)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                                                        >
-                                                            <Shield size={16} />
-                                                            Change Role
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleResetPassword(user.id)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                                                        >
-                                                            <Key size={16} />
-                                                            Reset Password
-                                                        </button>
-                                                        <hr className="my-1" />
-                                                        <button
-                                                            onClick={() => handleToggleStatus(user)}
-                                                            className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${user.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
-                                                        >
-                                                            {user.is_active ? (
-                                                                <>
-                                                                    <UserX size={16} />
-                                                                    Deactivate
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <UserCheck size={16} />
-                                                                    Activate
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(user)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                            Delete User
-                                                        </button>
+                                                        {actionMenu === user.id && (
+                                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-10">
+                                                                {canModify ? (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => openEditModal(user)}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                            <Edit size={16} />
+                                                                            Edit User
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => openRoleModal(user)}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                            <Shield size={16} />
+                                                                            Change Role
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleResetPassword(user.id)}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                            <Key size={16} />
+                                                                            Reset Password
+                                                                        </button>
+                                                                        <hr className="my-1" />
+                                                                        <button
+                                                                            onClick={() => handleToggleStatus(user)}
+                                                                            className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${user.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                                                        >
+                                                                            {user.is_active ? (
+                                                                                <>
+                                                                                    <UserX size={16} />
+                                                                                    Deactivate
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <UserCheck size={16} />
+                                                                                    Activate
+                                                                                </>
+                                                                            )}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDelete(user)}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                                                        >
+                                                                            <Trash2 size={16} />
+                                                                            Delete User
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="px-4 py-3 text-xs text-slate-500 text-center">
+                                                                        <ShieldCheck size={16} className="mx-auto mb-1 text-slate-400" />
+                                                                        This user has a higher role.<br />
+                                                                        You cannot modify their account.
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
+                                                );
+                                            })()}
                                         </td>
                                     </tr>
                                 ))}

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository, Like, ILike } from 'typeorm';
@@ -44,6 +44,34 @@ export class UserService {
         private emailService: EmailService,
         private configService: ConfigService,
     ) {}
+
+    // Role hierarchy: lower number = higher rank
+    private static readonly ROLE_HIERARCHY: Record<string, number> = {
+        CEO: 1,
+        HR_MANAGER: 2,
+        REGIONAL_ADMIN: 3,
+        HR_ASSISTANT: 4,
+        REGIONAL_MANAGER: 5,
+        BRANCH_MANAGER: 6,
+        BDM: 7,
+        ACCOUNTANT: 8,
+        RELATIONSHIP_OFFICER: 9,
+    };
+
+    private getHighestRank(roles: { code: string }[]): number {
+        if (!roles || roles.length === 0) return 999;
+        return Math.min(...roles.map(r => UserService.ROLE_HIERARCHY[r.code] ?? 999));
+    }
+
+    private assertCanModifyUser(actorRoles: { code: string }[], targetUser: User): void {
+        const actorRank = this.getHighestRank(actorRoles);
+        const targetRank = this.getHighestRank(targetUser.roles || []);
+        if (actorRank >= targetRank) {
+            throw new ForbiddenException(
+                'You cannot modify a user with an equal or higher role than yours',
+            );
+        }
+    }
 
     async findAll(query: UserListQuery): Promise<PaginatedUsers> {
         const { page = 1, limit = 20, search, role_code, is_active } = query;
@@ -142,8 +170,9 @@ export class UserService {
         return savedUser;
     }
 
-    async update(id: string, dto: UpdateUserDto): Promise<User> {
+    async update(id: string, dto: UpdateUserDto, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(id);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
 
         if (dto.email && dto.email !== user.email) {
             const existing = await this.findByEmail(dto.email);
@@ -160,8 +189,9 @@ export class UserService {
         return this.userRepository.save(user);
     }
 
-    async updateRoles(id: string, dto: UpdateUserRolesDto): Promise<User> {
+    async updateRoles(id: string, dto: UpdateUserRolesDto, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(id);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
 
         const role = await this.roleRepository.findOne({
             where: { code: dto.role_code, is_active: true },
@@ -174,8 +204,9 @@ export class UserService {
         return this.userRepository.save(user);
     }
 
-    async addRole(userId: string, roleCode: string): Promise<User> {
+    async addRole(userId: string, roleCode: string, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(userId);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
         const role = await this.roleRepository.findOne({ 
             where: { code: roleCode, is_active: true } 
         });
@@ -191,22 +222,17 @@ export class UserService {
         return user;
     }
 
-    async removeRole(userId: string, roleCode: string): Promise<User> {
+    async removeRole(userId: string, roleCode: string, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(userId);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
 
         user.roles = user.roles.filter(r => r.code !== roleCode);
         return this.userRepository.save(user);
     }
 
-    async updatePassword(id: string, dto: UpdateUserPasswordDto): Promise<{ message: string }> {
-        const user = await this.userRepository.findOne({
-            where: { id },
-            select: ['id'],
-        });
-
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+    async updatePassword(id: string, dto: UpdateUserPasswordDto, actorRoles?: { code: string }[]): Promise<{ message: string }> {
+        const user = await this.findOne(id);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
 
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(dto.new_password, saltRounds);
@@ -216,20 +242,23 @@ export class UserService {
         return { message: 'Password updated successfully' };
     }
 
-    async activate(id: string): Promise<User> {
+    async activate(id: string, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(id);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
         user.is_active = true;
         return this.userRepository.save(user);
     }
 
-    async deactivate(id: string): Promise<User> {
+    async deactivate(id: string, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(id);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
         user.is_active = false;
         return this.userRepository.save(user);
     }
 
-    async delete(id: string): Promise<{ message: string }> {
+    async delete(id: string, actorRoles?: { code: string }[]): Promise<{ message: string }> {
         const user = await this.findOne(id);
+        if (actorRoles) this.assertCanModifyUser(actorRoles, user);
         await this.userRepository.remove(user);
         return { message: 'User deleted successfully' };
     }
