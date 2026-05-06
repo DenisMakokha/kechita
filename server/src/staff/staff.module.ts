@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, BadRequestException } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -68,6 +68,37 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     ]),
     MulterModule.register({
       storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+      fileFilter: (req, file, callback) => {
+        // Whitelist of allowed MIME types
+        const allowedMimes = [
+          // Images
+          'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+          // Documents
+          'application/pdf',
+          'application/msword', // .doc
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'application/vnd.ms-excel', // .xls
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'text/plain', // .txt
+          // Archives (optional, for bulk uploads)
+          'application/zip',
+          'application/x-zip-compressed',
+        ];
+
+        if (allowedMimes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(
+            new BadRequestException(
+              `File type '${file.mimetype}' is not allowed. Allowed types: images (JPEG, PNG, GIF, WebP), PDF, Word, Excel, and ZIP files.`
+            ),
+            false
+          );
+        }
+      },
     }),
     NotificationModule,
   ],

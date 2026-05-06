@@ -207,8 +207,8 @@ export const PettyCashPage: React.FC = () => {
     ];
 
     const filteredFloats = floats.filter(f =>
-        f.branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.branch.code.toLowerCase().includes(searchTerm.toLowerCase())
+        f.branch?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        f.branch?.code?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -329,7 +329,7 @@ export const PettyCashPage: React.FC = () => {
                                 {floats.filter(f => f.needs_replenishment).map(float => (
                                     <div key={float.id} className="px-6 py-3 flex items-center justify-between hover:bg-amber-100/50">
                                         <div>
-                                            <p className="font-medium text-slate-900">{float.branch.name}</p>
+                                            <p className="font-medium text-slate-900">{float.branch?.name}</p>
                                             <p className="text-sm text-slate-500">Balance: {formatCurrency(float.current_balance)} / {formatCurrency(float.maximum_limit)}</p>
                                         </div>
                                         <button onClick={() => { setSelectedFloat(float.id); setShowReplenishmentModal(true); }} className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-200">
@@ -354,10 +354,10 @@ export const PettyCashPage: React.FC = () => {
                                 {replenishments.filter(r => r.status === 'requested').slice(0, 5).map(rep => (
                                     <div key={rep.id} className="px-6 py-3 flex items-center justify-between hover:bg-slate-50">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-medium">{rep.requestedBy.first_name[0]}{rep.requestedBy.last_name[0]}</div>
+                                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-medium">{rep.requestedBy?.first_name?.[0]}{rep.requestedBy?.last_name?.[0]}</div>
                                             <div>
-                                                <p className="font-medium text-slate-900">{rep.float.branch.name}</p>
-                                                <p className="text-xs text-slate-500">{formatCurrency(rep.amount_requested)} • {rep.requestedBy.first_name} {rep.requestedBy.last_name}</p>
+                                                <p className="font-medium text-slate-900">{rep.float.branch?.name}</p>
+                                                <p className="text-xs text-slate-500">{formatCurrency(rep.amount_requested)} • {rep.requestedBy?.first_name} {rep.requestedBy?.last_name}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -388,7 +388,7 @@ export const PettyCashPage: React.FC = () => {
                         {filteredFloats.map(float => (
                             <div key={float.id} className={`bg-white rounded-xl border p-5 ${float.needs_replenishment ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'}`}>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-semibold text-slate-900">{float.branch.name}</h3>
+                                    <h3 className="font-semibold text-slate-900">{float.branch?.name}</h3>
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${getTierColor(float.tier)}`}>{float.tier}</span>
                                 </div>
                                 <div className="mb-3">
@@ -432,7 +432,7 @@ export const PettyCashPage: React.FC = () => {
                         <div className="flex items-center gap-3">
                             <select value={selectedFloat || ''} onChange={e => setSelectedFloat(e.target.value || null)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm">
                                 <option value="">All Floats</option>
-                                {floats.map(f => <option key={f.id} value={f.id}>{f.branch.name}</option>)}
+                                {floats.map(f => <option key={f.id} value={f.id}>{f.branch?.name}</option>)}
                             </select>
                             <button onClick={() => {
                                 const csvContent = 'Date,Ref#,Type,Description,Amount,Balance,Status\n' + 
@@ -517,7 +517,7 @@ export const PettyCashPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-2 mb-4">
                                     <div className="flex items-center gap-2 text-sm text-slate-600">
-                                        <Building2 size={14} /><span>{rep.float.branch.name}</span>
+                                        <Building2 size={14} /><span>{rep.float.branch?.name}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-slate-600">
                                         <Wallet size={14} /><span>Requested: <strong className="text-slate-900">{formatCurrency(rep.amount_requested)}</strong></span>
@@ -723,7 +723,7 @@ const ExpenseModal: React.FC<{
                         <label className="block text-sm font-medium text-slate-700 mb-1">Branch Float</label>
                         <select value={formData.float_id} onChange={e => { setFormData({ ...formData, float_id: e.target.value }); ev.onChange('float_id', e.target.value); }} onBlur={() => ev.onBlur('float_id', formData.float_id)} className={`w-full px-4 py-2.5 border rounded-lg ${fieldErrorClass(ev.getFieldError('float_id'))}`}>
                             <option value="">Select Float</option>
-                            {floats.map(f => <option key={f.id} value={f.id}>{f.branch.name} ({formatCurrency(f.current_balance)})</option>)}
+                            {floats.map(f => <option key={f.id} value={f.id}>{f.branch?.name} ({formatCurrency(f.current_balance)})</option>)}
                         </select>
                         <FieldError error={ev.getFieldError('float_id')} />
                     </div>
@@ -820,7 +820,7 @@ const ReplenishmentModal: React.FC<{
                         <label className="block text-sm font-medium text-slate-700 mb-1">Branch Float</label>
                         <select value={formData.float_id} onChange={e => { setFormData({ ...formData, float_id: e.target.value }); rv.onChange('float_id', e.target.value); }} onBlur={() => rv.onBlur('float_id', formData.float_id)} className={`w-full px-4 py-2.5 border rounded-lg ${fieldErrorClass(rv.getFieldError('float_id'))}`}>
                             <option value="">Select Float</option>
-                            {floats.map(f => <option key={f.id} value={f.id}>{f.branch.name} (Balance: {formatCurrency(f.current_balance)})</option>)}
+                            {floats.map(f => <option key={f.id} value={f.id}>{f.branch?.name} (Balance: {formatCurrency(f.current_balance)})</option>)}
                         </select>
                         <FieldError error={rv.getFieldError('float_id')} />
                     </div>
