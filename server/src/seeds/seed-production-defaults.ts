@@ -26,6 +26,7 @@ import { OnboardingInstance } from '../staff/entities/onboarding-instance.entity
 import { OnboardingTaskStatus } from '../staff/entities/onboarding-task-status.entity';
 import { StaffContract } from '../staff/entities/staff-contract.entity';
 import { PublicHoliday } from '../leave/entities/public-holiday.entity';
+import { EmailTemplateEntity } from '../email/entities/email-template.entity';
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ const AppDataSource = new DataSource({
         Role, User, Permission, LeaveType, ClaimType, ApprovalFlow, ApprovalFlowStep, SystemSetting,
         Staff, Region, Branch, Department, Position, Document, DocumentType, StaffDocument,
         EmploymentHistory, OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus, StaffContract, PublicHoliday,
+        EmailTemplateEntity,
     ],
     synchronize: true,
 });
