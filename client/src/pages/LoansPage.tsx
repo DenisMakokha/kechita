@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
@@ -97,6 +97,28 @@ const LoansPage: React.FC = () => {
         purpose: [v => validators.required(v, 'Purpose'), validators.minLength(5, 'Purpose')],
     }), []);
     const loanValidation = useFormValidation(loanRules);
+
+    // Load loan settings to use as form defaults
+    const { data: loanSettings } = useQuery<Record<string, any>>({
+        queryKey: ['loan-settings'],
+        queryFn: async () => (await api.get('/settings/category/loans')).data,
+    });
+
+    // Sync form defaults when settings load
+    useEffect(() => {
+        if (loanSettings) {
+            setFormData(prev => ({
+                ...prev,
+                interest_rate: prev.loan_type === 'salary_advance'
+                    ? (loanSettings.advance_interest_rate ?? 0)
+                    : (loanSettings.loan_interest_rate ?? 12),
+                max_salary_deduction_percent: loanSettings.loan_max_deduction_percent ?? 33,
+                term_months: prev.loan_type === 'salary_advance'
+                    ? (loanSettings.advance_repayment_months ?? 1)
+                    : (loanSettings.loan_min_term_months ?? 3),
+            }));
+        }
+    }, [loanSettings]);
 
     // Queries
     const { data: myLoans } = useQuery<StaffLoan[]>({
@@ -625,9 +647,10 @@ const LoansPage: React.FC = () => {
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Loan Type</label>
                                 <div className="grid grid-cols-2 gap-3">
+
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(p => ({ ...p, loan_type: 'salary_advance', interest_rate: 0, term_months: 1 }))}
+                                        onClick={() => setFormData(p => ({ ...p, loan_type: 'salary_advance', interest_rate: loanSettings?.advance_interest_rate ?? 0, term_months: loanSettings?.advance_repayment_months ?? 1, max_salary_deduction_percent: loanSettings?.loan_max_deduction_percent ?? 33 }))}
                                         className={`p-4 rounded-xl border-2 transition-all ${formData.loan_type === 'salary_advance'
                                             ? 'border-cyan-500 bg-cyan-50'
                                             : 'border-slate-200 hover:border-slate-300'
@@ -639,7 +662,7 @@ const LoansPage: React.FC = () => {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(p => ({ ...p, loan_type: 'staff_loan', interest_rate: 12, term_months: 12 }))}
+                                        onClick={() => setFormData(p => ({ ...p, loan_type: 'staff_loan', interest_rate: loanSettings?.loan_interest_rate ?? 12, term_months: loanSettings?.loan_min_term_months ?? 3, max_salary_deduction_percent: loanSettings?.loan_max_deduction_percent ?? 33 }))}
                                         className={`p-4 rounded-xl border-2 transition-all ${formData.loan_type === 'staff_loan'
                                             ? 'border-[#0066B3] bg-blue-50'
                                             : 'border-slate-200 hover:border-slate-300'
@@ -651,6 +674,28 @@ const LoansPage: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Policy limits banner */}
+                            {loanSettings && (
+                                <div className={`mb-6 p-4 rounded-xl text-sm ${formData.loan_type === 'salary_advance' ? 'bg-cyan-50 border border-cyan-200' : 'bg-blue-50 border border-blue-200'}`}>
+                                    <p className="font-medium text-slate-700 mb-2">Policy Limits</p>
+                                    {formData.loan_type === 'salary_advance' ? (
+                                        <ul className="space-y-1 text-slate-600 text-xs">
+                                            <li>• Max amount: <strong>{loanSettings.advance_max_salary_percent ?? 20}% of gross monthly salary</strong></li>
+                                            <li>• Max advances per month: <strong>{loanSettings.advance_max_per_month ?? 1}</strong></li>
+                                            <li>• Repayment period: <strong>{loanSettings.advance_repayment_months ?? 1} month(s)</strong></li>
+                                            <li>• Interest rate: <strong>{loanSettings.advance_interest_rate ?? 0}%</strong></li>
+                                        </ul>
+                                    ) : (
+                                        <ul className="space-y-1 text-slate-600 text-xs">
+                                            <li>• Max amount: <strong>KES {Number(loanSettings.loan_max_amount ?? 500000).toLocaleString()}</strong></li>
+                                            <li>• Max repayment term: <strong>{loanSettings.loan_max_term_months ?? 24} months</strong></li>
+                                            <li>• Annual interest rate: <strong>{loanSettings.loan_interest_rate ?? 12}%</strong></li>
+                                            <li>• Max monthly deduction: <strong>{loanSettings.loan_max_deduction_percent ?? 33}% of gross salary</strong></li>
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Amount & Terms */}
                             <div className="grid grid-cols-2 gap-4 mb-6">

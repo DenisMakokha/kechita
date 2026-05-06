@@ -782,149 +782,147 @@ const SettingsPage: React.FC = () => {
         </div>
     );
 
-    const renderLoanSettingsContent = () => (
-        <div className="p-6">
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* Salary Advance Settings */}
-                <div className="p-6 bg-white border border-slate-200 rounded-xl">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center">
-                            <DollarSign size={20} className="text-cyan-600" />
-                        </div>
-                        <h3 className="font-semibold text-slate-900">Salary Advance</h3>
-                    </div>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Max Advances Per Month</label>
-                            <input
-                                type="number"
-                                value={loanSettings.advance_max_per_month ?? 1}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, advance_max_per_month: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Max % of Salary</label>
-                            <input
-                                type="number"
-                                value={loanSettings.advance_max_salary_percent ?? 50}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, advance_max_salary_percent: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Interest Rate (%)</label>
-                            <input
-                                type="number"
-                                value={loanSettings.advance_interest_rate ?? 0}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, advance_interest_rate: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                    </div>
+    const renderLoanSettingsContent = () => {
+        const field = (
+            key: string,
+            label: string,
+            hint: string,
+            type: 'number' | 'percent' | 'kes' = 'number',
+            defaultVal: number = 0,
+            min?: number,
+            max?: number,
+        ) => (
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-0.5">{label}</label>
+                <p className="text-xs text-slate-400 mb-1">{hint}</p>
+                <div className="relative">
+                    {type === 'kes' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">KES</span>}
+                    {type === 'percent' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>}
+                    <input
+                        type="number"
+                        value={loanSettings[key] ?? defaultVal}
+                        onChange={(e) => setLoanSettings({ ...loanSettings, [key]: Number(e.target.value) })}
+                        min={min}
+                        max={max}
+                        className={`w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] text-sm ${type === 'kes' ? 'pl-12' : ''} ${type === 'percent' ? 'pr-8' : ''}`}
+                    />
                 </div>
+            </div>
+        );
 
-                {/* Staff Loan Settings */}
-                <div className="p-6 bg-white border border-slate-200 rounded-xl">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                            <PiggyBank size={20} className="text-[#0066B3]" />
-                        </div>
-                        <h3 className="font-semibold text-slate-900">Staff Loan</h3>
-                    </div>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Max Loan Amount (KES)</label>
-                            <input
-                                type="number"
-                                value={loanSettings.loan_max_amount ?? 500000}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_max_amount: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Max Term (months)</label>
-                            <input
-                                type="number"
-                                value={loanSettings.loan_max_term_months ?? 24}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_max_term_months: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Interest Rate (% p.a.)</label>
-                            <input
-                                type="number"
-                                value={loanSettings.loan_interest_rate ?? 12}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_interest_rate: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-slate-600 mb-1">Max Salary Deduction (%)</label>
-                            <input
-                                type="number"
-                                value={loanSettings.loan_max_deduction_percent ?? 33}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_max_deduction_percent: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                            />
-                        </div>
-                    </div>
+        const toggle = (key: string, label: string, hint: string, defaultVal: boolean = true) => (
+            <label className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer border border-transparent hover:border-slate-200 transition-colors">
+                <input
+                    type="checkbox"
+                    checked={loanSettings[key] ?? defaultVal}
+                    onChange={(e) => setLoanSettings({ ...loanSettings, [key]: e.target.checked })}
+                    className="w-4 h-4 mt-0.5 text-[#0066B3] rounded accent-[#0066B3]"
+                />
+                <div>
+                    <p className="text-sm font-medium text-slate-700">{label}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{hint}</p>
                 </div>
+            </label>
+        );
 
-                {/* General Loan Policies */}
-                <div className="md:col-span-2 p-6 bg-white border border-slate-200 rounded-xl">
-                    <h3 className="font-semibold text-slate-900 mb-4">General Policies</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={loanSettings.loan_require_guarantor ?? true}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_require_guarantor: e.target.checked })}
-                                className="w-4 h-4 text-[#0066B3] rounded"
-                            />
-                            <span className="text-sm text-slate-700">Require guarantor for loans &gt; KES 100,000</span>
-                        </label>
-                        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={loanSettings.loan_confirmed_only ?? true}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_confirmed_only: e.target.checked })}
-                                className="w-4 h-4 text-[#0066B3] rounded"
-                            />
-                            <span className="text-sm text-slate-700">Only confirmed staff can apply</span>
-                        </label>
-                        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={loanSettings.loan_auto_deduct ?? true}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_auto_deduct: e.target.checked })}
-                                className="w-4 h-4 text-[#0066B3] rounded"
-                            />
-                            <span className="text-sm text-slate-700">Auto-deduct from payroll</span>
-                        </label>
-                        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={loanSettings.loan_allow_multiple ?? false}
-                                onChange={(e) => setLoanSettings({ ...loanSettings, loan_allow_multiple: e.target.checked })}
-                                className="w-4 h-4 text-[#0066B3] rounded"
-                            />
-                            <span className="text-sm text-slate-700">Allow multiple active loans</span>
-                        </label>
+        return (
+            <div className="p-6 space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">Loan & Advance Policies</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">Configure rules that govern staff loans and salary advances across the organization.</p>
                     </div>
                     <button
                         onClick={() => saveLoanSettingsMutation.mutate(loanSettings)}
                         disabled={saveLoanSettingsMutation.isPending}
-                        className="mt-4 flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 text-sm"
                     >
-                        <Save size={18} />
-                        {saveLoanSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
+                        <Save size={16} />
+                        {saveLoanSettingsMutation.isPending ? 'Saving...' : 'Save All Settings'}
                     </button>
                 </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* ── Salary Advance ── */}
+                    <div className="p-6 bg-white border border-slate-200 rounded-xl">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center">
+                                <DollarSign size={20} className="text-cyan-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-slate-900">Salary Advance</h3>
+                                <p className="text-xs text-slate-400">Quick short-term advance against monthly salary</p>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            {field('advance_max_per_month', 'Max Advances Per Month', 'How many salary advance requests a staff member can make in a single calendar month.', 'number', 1, 1, 5)}
+                            {field('advance_max_salary_percent', 'Max % of Gross Salary', 'Maximum advance amount as a percentage of gross monthly salary (e.g. 20 = 20% of salary).', 'percent', 20, 5, 50)}
+                            {field('advance_min_months_employed', 'Minimum Months Employed', 'Staff must have been employed for at least this many months before they can apply.', 'number', 3, 0)}
+                            {field('advance_interest_rate', 'Interest Rate (% p.a.)', 'Annual interest rate applied to salary advances. Set to 0 for interest-free advances.', 'percent', 0, 0, 30)}
+                            {field('advance_repayment_months', 'Repayment Period (months)', 'Number of months over which the advance will be recovered from salary.', 'number', 1, 1, 3)}
+                            {field('advance_max_outstanding', 'Max Outstanding Advances', 'Maximum number of uncleared advances a staff member can have at one time.', 'number', 1, 1, 3)}
+                        </div>
+                    </div>
+
+                    {/* ── Staff Loan ── */}
+                    <div className="p-6 bg-white border border-slate-200 rounded-xl">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <PiggyBank size={20} className="text-[#0066B3]" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-slate-900">Staff Loan</h3>
+                                <p className="text-xs text-slate-400">Medium to long-term loans repaid via monthly deductions</p>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            {field('loan_max_amount', 'Maximum Loan Amount', 'The highest loan amount any staff member can apply for.', 'kes', 500000, 10000)}
+                            {field('loan_min_amount', 'Minimum Loan Amount', 'The lowest loan amount that can be applied for.', 'kes', 10000, 1000)}
+                            {field('loan_max_term_months', 'Maximum Repayment Term (months)', 'The longest period over which a loan can be repaid.', 'number', 24, 1, 60)}
+                            {field('loan_min_term_months', 'Minimum Repayment Term (months)', 'The shortest repayment period allowed.', 'number', 3, 1, 12)}
+                            {field('loan_interest_rate', 'Annual Interest Rate (% p.a.)', 'Interest charged on staff loans per annum, applied on reducing balance.', 'percent', 12, 0, 30)}
+                            {field('loan_max_deduction_percent', 'Max Monthly Salary Deduction (%)', 'Maximum percentage of gross salary that can be deducted monthly for loan repayment (statutory limit is 33%).', 'percent', 33, 10, 50)}
+                            {field('loan_min_months_employed', 'Minimum Months Employed', 'Staff must be employed for at least this many months before qualifying for a loan.', 'number', 6, 0)}
+                            {field('loan_guarantor_threshold', 'Guarantor Required Above (KES)', 'Loans above this amount require a guarantor. Set to 0 to always require.', 'kes', 100000, 0)}
+                        </div>
+                    </div>
+
+                    {/* ── General Policies ── */}
+                    <div className="md:col-span-2 p-6 bg-white border border-slate-200 rounded-xl">
+                        <h3 className="font-semibold text-slate-900 mb-1">General Policies</h3>
+                        <p className="text-xs text-slate-400 mb-5">Organisation-wide rules that apply to all loan and advance types.</p>
+                        <div className="grid md:grid-cols-2 gap-3">
+                            {toggle('loan_require_guarantor', 'Require Guarantor', 'Staff loans above the guarantor threshold require a co-signing guarantor from within the organisation.', true)}
+                            {toggle('loan_confirmed_only', 'Confirmed Staff Only', 'Only staff who have completed their probation period and been confirmed can apply for loans.', true)}
+                            {toggle('advance_confirmed_only', 'Confirmed Staff for Advances', 'Only confirmed staff can apply for salary advances (unconfirmed staff are excluded).', false)}
+                            {toggle('loan_auto_deduct', 'Auto-Deduct from Payroll', 'Loan repayment installments are automatically deducted from monthly payroll.', true)}
+                            {toggle('loan_allow_multiple', 'Allow Multiple Active Loans', 'Staff can hold more than one active loan simultaneously. If disabled, they must clear existing loans first.', false)}
+                            {toggle('advance_clear_before_loan', 'Clear Advances Before Loan', 'Any outstanding salary advances must be cleared before a staff loan can be approved.', true)}
+                            {toggle('loan_allow_top_up', 'Allow Loan Top-Up', 'Staff with an active loan can apply for a top-up if they have repaid at least 50% of the original amount.', false)}
+                            {toggle('loan_require_hod_approval', 'Require HOD Approval', 'All loan applications must first be approved by the Head of Department before HR/Finance review.', true)}
+                            {toggle('loan_notify_hr_on_apply', 'Notify HR on Application', 'HR Manager receives an email/notification whenever a new loan or advance application is submitted.', true)}
+                            {toggle('loan_notify_staff_on_status', 'Notify Staff on Status Change', 'Staff receive notifications when their loan/advance application is approved, rejected or disbursed.', true)}
+                        </div>
+                    </div>
+
+                    {/* ── Eligibility Criteria ── */}
+                    <div className="md:col-span-2 p-6 bg-white border border-slate-200 rounded-xl">
+                        <h3 className="font-semibold text-slate-900 mb-1">Eligibility & Limits</h3>
+                        <p className="text-xs text-slate-400 mb-5">Fine-grained eligibility rules and financial ceilings.</p>
+                        <div className="grid md:grid-cols-3 gap-4">
+                            {field('loan_max_per_staff', 'Max Active Loans Per Staff', 'Maximum number of active loans a single staff member can hold at any one time.', 'number', 1, 1, 5)}
+                            {field('loan_min_salary_for_loan', 'Minimum Gross Salary for Loan (KES)', 'Staff must earn at least this amount monthly to qualify for a staff loan.', 'kes', 15000, 0)}
+                            {field('advance_min_salary_for_advance', 'Minimum Gross Salary for Advance (KES)', 'Staff must earn at least this amount monthly to qualify for a salary advance.', 'kes', 10000, 0)}
+                            {field('loan_max_salary_multiple', 'Max Loan as Multiple of Salary', 'Maximum loan principal expressed as a multiple of gross monthly salary (e.g. 6 = up to 6× salary).', 'number', 6, 1, 24)}
+                            {field('loan_penalty_rate', 'Late Repayment Penalty Rate (%)', 'Monthly penalty rate applied when a repayment installment is overdue.', 'percent', 2, 0, 10)}
+                            {field('loan_grace_days', 'Grace Period (days)', 'Number of days after the due date before a repayment is considered overdue.', 'number', 5, 0, 30)}
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const renderEmailSettingsContent = () => (
         <div className="p-6 space-y-6">

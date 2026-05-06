@@ -343,17 +343,40 @@ export async function seedProductionDefaults() {
     // Seed Default Loan Settings
     const settingRepo = AppDataSource.getRepository(SystemSetting);
     const loanDefaults: { key: string; value: any; description: string }[] = [
+        // Salary Advance
         { key: 'advance_max_per_month', value: 1, description: 'Maximum salary advances per month' },
-        { key: 'advance_max_salary_percent', value: 50, description: 'Max % of salary for advance' },
+        { key: 'advance_max_salary_percent', value: 20, description: 'Max % of gross salary for advance' },
+        { key: 'advance_min_months_employed', value: 3, description: 'Min months employed before advance eligibility' },
         { key: 'advance_interest_rate', value: 0, description: 'Interest rate for salary advances (%)' },
+        { key: 'advance_repayment_months', value: 1, description: 'Months to repay salary advance' },
+        { key: 'advance_max_outstanding', value: 1, description: 'Max outstanding advances at a time' },
+        { key: 'advance_confirmed_only', value: false, description: 'Only confirmed staff can apply for advances' },
+        { key: 'advance_clear_before_loan', value: true, description: 'Advances must be cleared before loan' },
+        { key: 'advance_min_salary_for_advance', value: 10000, description: 'Min gross salary to qualify for advance (KES)' },
+        // Staff Loan
         { key: 'loan_max_amount', value: 500000, description: 'Maximum staff loan amount (KES)' },
+        { key: 'loan_min_amount', value: 10000, description: 'Minimum staff loan amount (KES)' },
         { key: 'loan_max_term_months', value: 24, description: 'Maximum loan term in months' },
+        { key: 'loan_min_term_months', value: 3, description: 'Minimum loan term in months' },
         { key: 'loan_interest_rate', value: 12, description: 'Annual interest rate for staff loans (%)' },
         { key: 'loan_max_deduction_percent', value: 33, description: 'Max salary deduction percentage for repayment' },
-        { key: 'loan_require_guarantor', value: true, description: 'Require guarantor for loans > KES 100,000' },
+        { key: 'loan_min_months_employed', value: 6, description: 'Min months employed before loan eligibility' },
+        { key: 'loan_guarantor_threshold', value: 100000, description: 'Loans above this amount require a guarantor (KES)' },
+        // General policies
+        { key: 'loan_require_guarantor', value: true, description: 'Require guarantor for loans above threshold' },
         { key: 'loan_confirmed_only', value: true, description: 'Only confirmed staff can apply for loans' },
         { key: 'loan_auto_deduct', value: true, description: 'Auto-deduct loan repayments from payroll' },
         { key: 'loan_allow_multiple', value: false, description: 'Allow multiple active loans per staff' },
+        { key: 'loan_allow_top_up', value: false, description: 'Allow loan top-up after 50% repaid' },
+        { key: 'loan_require_hod_approval', value: true, description: 'Require HOD approval for loans' },
+        { key: 'loan_notify_hr_on_apply', value: true, description: 'Notify HR on loan application' },
+        { key: 'loan_notify_staff_on_status', value: true, description: 'Notify staff on loan status change' },
+        // Eligibility
+        { key: 'loan_max_per_staff', value: 1, description: 'Max active loans per staff member' },
+        { key: 'loan_min_salary_for_loan', value: 15000, description: 'Min gross salary to qualify for loan (KES)' },
+        { key: 'loan_max_salary_multiple', value: 6, description: 'Max loan as multiple of gross monthly salary' },
+        { key: 'loan_penalty_rate', value: 2, description: 'Monthly penalty rate for overdue repayments (%)' },
+        { key: 'loan_grace_days', value: 5, description: 'Grace period days before repayment is overdue' },
     ];
     console.log('💰 Seeding loan settings...');
     let settingsCreated = 0;
