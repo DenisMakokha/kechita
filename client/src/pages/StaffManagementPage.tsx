@@ -91,6 +91,16 @@ export const StaffManagementPage: React.FC = () => {
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
     const [roleFormData, setRoleFormData] = useState<Partial<Role>>({});
 
+    // HR policy settings
+    const { data: hrPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['hr-settings'],
+        queryFn: async () => (await api.get('/settings/category/hr')).data,
+    });
+    const hrProbationMonths = Number(hrPolicy?.hr_probation_default_months ?? 3);
+    const hrNoticePeriodMonths = Number(hrPolicy?.hr_notice_period_months ?? 1);
+    const hrStaffPrefix = hrPolicy?.hr_staff_number_prefix ?? 'KEC';
+    const hrRequireNok = hrPolicy?.hr_nok_required ?? true;
+
     // Queries
     const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => (await api.get('/staff')).data, refetchInterval: 60000 });
     const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data });
@@ -269,6 +279,11 @@ export const StaffManagementPage: React.FC = () => {
                             <button onClick={() => { setShowAddStaffModal(false); setStaffFormData({}); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
                         </div>
                         <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                            {hrPolicy && (
+                                <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
+                                    📋 HR Policy: Staff numbers prefixed with <strong>{hrStaffPrefix}</strong> · Default probation <strong>{hrProbationMonths} months</strong> · Notice period <strong>{hrNoticePeriodMonths} month(s)</strong>{hrRequireNok ? ' · Next of Kin required' : ''}
+                                </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>

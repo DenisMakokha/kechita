@@ -880,6 +880,17 @@ const AddFloatModal: React.FC<{
         queryFn: () => api.get('/org/branches').then(r => r.data),
     });
 
+    const { data: pcPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['petty-cash-settings'],
+        queryFn: () => api.get('/settings/category/petty_cash').then(r => r.data),
+    });
+    const tierLimits: Record<string, number> = {
+        small: Number(pcPolicy?.petty_cash_small_tier_limit ?? 5000),
+        medium: Number(pcPolicy?.petty_cash_medium_tier_limit ?? 20000),
+        large: Number(pcPolicy?.petty_cash_large_tier_limit ?? 50000),
+        hq: Number(pcPolicy?.petty_cash_large_tier_limit ?? 50000) * 2,
+    };
+
     const { data: staff = [] } = useQuery<{ id: string; first_name: string; last_name: string; employee_number: string }[]>({
         queryKey: ['staff-list'],
         queryFn: () => api.get('/staff?limit=500').then(r => r.data?.data || r.data || []),
@@ -919,12 +930,13 @@ const AddFloatModal: React.FC<{
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Tier</label>
-                        <select value={formData.tier} onChange={e => setFormData({ ...formData, tier: e.target.value })} required className="w-full px-4 py-2.5 border border-slate-200 rounded-lg">
-                            <option value="small">Small</option>
-                            <option value="medium">Medium</option>
-                            <option value="large">Large</option>
-                            <option value="hq">HQ</option>
+                        <select value={formData.tier} onChange={e => { const t = e.target.value; setFormData({ ...formData, tier: t, maximum_limit: String(tierLimits[t] || '') }); }} required className="w-full px-4 py-2.5 border border-slate-200 rounded-lg">
+                            <option value="small">Small (max KES {(tierLimits.small || 5000).toLocaleString()})</option>
+                            <option value="medium">Medium (max KES {(tierLimits.medium || 20000).toLocaleString()})</option>
+                            <option value="large">Large (max KES {(tierLimits.large || 50000).toLocaleString()})</option>
+                            <option value="hq">HQ (max KES {(tierLimits.hq || 100000).toLocaleString()})</option>
                         </select>
+                        <p className="text-xs text-slate-400 mt-0.5">Tier limits are configured by admin in System Settings</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>

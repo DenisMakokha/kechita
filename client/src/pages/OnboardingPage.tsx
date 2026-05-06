@@ -67,6 +67,16 @@ export default function OnboardingPage() {
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
     const queryClient = useQueryClient();
 
+    // Onboarding policy settings
+    const { data: onboardingPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['onboarding-settings'],
+        queryFn: () => api.get('/settings/category/onboarding').then(r => r.data),
+    });
+    const deadlineDays = Number(onboardingPolicy?.onboarding_deadline_days ?? 30);
+    const reminderDays = Number(onboardingPolicy?.onboarding_reminder_days_before ?? 5);
+    const requireAllTasks = onboardingPolicy?.onboarding_require_all_tasks ?? true;
+    const requireAllDocs = onboardingPolicy?.onboarding_require_all_docs ?? true;
+
     // Fetch onboarding stats
     const { data: stats } = useQuery<OnboardingStats>({
         queryKey: ['onboarding-stats'],
@@ -198,6 +208,18 @@ export default function OnboardingPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-slate-800">Onboarding Management</h1>
                 <p className="text-slate-600 mt-1">Track and manage staff onboarding checklists</p>
+                {onboardingPolicy && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs inline-flex items-center gap-4">
+                        <span>📋 Policy:</span>
+                        <span>Deadline <strong>{deadlineDays} days</strong></span>
+                        <span>·</span>
+                        <span>Reminder <strong>{reminderDays} days</strong> before</span>
+                        <span>·</span>
+                        <span>{requireAllTasks ? '✅ All tasks required' : '⚠️ Tasks optional'}</span>
+                        <span>·</span>
+                        <span>{requireAllDocs ? '✅ All docs required' : '⚠️ Docs optional'}</span>
+                    </div>
+                )}
             </div>
 
             {/* Stats Cards */}

@@ -115,6 +115,11 @@ export class ReportingService {
         private branchRepo: Repository<Branch>,
     ) { }
 
+    async getStaffBranchId(staffId: string): Promise<string | null> {
+        const staff = await this.staffRepo.findOne({ where: { id: staffId }, relations: ['branch'] });
+        return staff?.branch?.id ?? null;
+    }
+
     async submitReport(staffId: string, branchId: string, dto: SubmitReportDto) {
         const report = this.reportRepo.create({
             branch: { id: branchId } as any,
@@ -952,6 +957,16 @@ export class ReportingService {
 
         if (!report) throw new NotFoundException('Report not found');
         return report;
+    }
+
+    // ==================== PENDING REPORTS ====================
+
+    async getPendingReports(): Promise<BranchDailyReport[]> {
+        return this.reportRepo.find({
+            where: { status: 'submitted' },
+            relations: ['branch', 'submittedBy'],
+            order: { report_date: 'DESC' },
+        });
     }
 
     // ==================== MY REPORTS ====================

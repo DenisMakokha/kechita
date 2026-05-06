@@ -165,6 +165,18 @@ const RecruitmentPage: React.FC = () => {
     const queryClient = useQueryClient();
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
 
+    // Recruitment policy settings
+    const { data: recruitmentPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['recruitment-settings'],
+        queryFn: async () => (await api.get('/settings/category/recruitment')).data,
+    });
+    const maxActiveJobs = Number(recruitmentPolicy?.recruitment_max_active_jobs ?? 20);
+    const shortlistQuota = Number(recruitmentPolicy?.recruitment_shortlist_quota ?? 10);
+    const defaultInterviewRounds = Number(recruitmentPolicy?.recruitment_interview_rounds ?? 2);
+    const offerExpiryDays = Number(recruitmentPolicy?.recruitment_offer_expiry_days ?? 5);
+    const allowInternalApplications = recruitmentPolicy?.recruitment_allow_internal_applications ?? true;
+    const requireApprovalBeforePosting = recruitmentPolicy?.recruitment_approval_before_posting ?? true;
+
     // Queries
     const { data: jobs, isLoading: jobsLoading } = useQuery<Job[]>({
         queryKey: ['jobs'],
@@ -1329,6 +1341,12 @@ const RecruitmentPage: React.FC = () => {
                         </div>
 
                         <div className="p-6 overflow-y-auto flex-1 space-y-5">
+                            {/* Policy Banner */}
+                            {recruitmentPolicy && (
+                                <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
+                                    📋 Policy: Max active postings <strong>{maxActiveJobs}</strong> · Max shortlist <strong>{shortlistQuota}</strong> · Default interview rounds <strong>{defaultInterviewRounds}</strong> · Offer expires in <strong>{offerExpiryDays} days</strong>{requireApprovalBeforePosting ? ' · ✅ Approval required before going live' : ''}
+                                </div>
+                            )}
                             {/* ── SECTION 1: BASIC INFO ── */}
                             <div className="space-y-4">
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Basic Information</h3>
@@ -1422,10 +1440,12 @@ const RecruitmentPage: React.FC = () => {
                                         <input type="checkbox" checked={jobFormData.show_salary || false} onChange={(e) => setJobFormData({ ...jobFormData, show_salary: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" />
                                         <span className="text-sm text-slate-700">Show Salary on JD</span>
                                     </label>
+                                    {allowInternalApplications && (
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox" checked={jobFormData.is_internal_only || false} onChange={(e) => setJobFormData({ ...jobFormData, is_internal_only: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" />
                                         <span className="text-sm text-slate-700">Internal Only</span>
                                     </label>
+                                    )}
                                 </div>
                             </div>
 

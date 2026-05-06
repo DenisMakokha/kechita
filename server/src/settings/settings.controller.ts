@@ -22,7 +22,6 @@ export class SettingsController {
     }
 
     @Get('category/:category')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     getByCategory(@Param('category') category: string) {
         return this.settingsService.getByCategory(category);
     }

@@ -120,6 +120,18 @@ const ClaimsPage: React.FC = () => {
     }), [formData.period_start]);
     const claimValidation = useFormValidation(claimRules);
 
+    // Claims policy settings
+    const { data: claimsPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['claims-settings'],
+        queryFn: async () => (await api.get('/settings/category/claims')).data,
+    });
+    const maxItemAmount = Number(claimsPolicy?.claims_max_item_amount ?? 50000);
+    const receiptThreshold = Number(claimsPolicy?.claims_require_receipt_above ?? 1000);
+    const maxRetroactiveDays = Number(claimsPolicy?.claims_retroactive_days ?? 30);
+    const retroactiveEarliestDate = new Date();
+    retroactiveEarliestDate.setDate(retroactiveEarliestDate.getDate() - maxRetroactiveDays);
+    const retroactiveDateStr = retroactiveEarliestDate.toISOString().split('T')[0];
+
     // Queries
     const { data: claimTypes } = useQuery<ClaimType[]>({
         queryKey: ['claim-types'],
@@ -583,6 +595,12 @@ const ClaimsPage: React.FC = () => {
                         </div>
 
                         <div className="p-6 overflow-y-auto flex-1">
+                            {/* Policy Banner */}
+                            {claimsPolicy && (
+                                <div className="mb-4 p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
+                                    📋 Policy: Max item amount <strong>KES {maxItemAmount.toLocaleString()}</strong>. Receipt required for items above <strong>KES {receiptThreshold.toLocaleString()}</strong>. Expenses must be within past <strong>{maxRetroactiveDays} days</strong>.
+                                </div>
+                            )}
                             {/* Claim Details */}
                             <div className="space-y-4 mb-6">
                                 <div>
@@ -708,16 +726,21 @@ const ClaimsPage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             value={item.amount}
+                                                            max={maxItemAmount}
                                                             onChange={(e) => updateItem(index, 'amount', parseFloat(e.target.value) || 0)}
                                                             placeholder="0"
-                                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                                                            className={`w-full px-3 py-2 border rounded-lg ${item.amount > maxItemAmount ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                                                         />
+                                                        {item.amount > maxItemAmount && <p className="text-xs text-red-600 mt-0.5">Exceeds max KES {maxItemAmount.toLocaleString()}</p>}
+                                                        {item.amount > receiptThreshold && !item.receipt_number && <p className="text-xs text-amber-600 mt-0.5">Receipt required above KES {receiptThreshold.toLocaleString()}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs text-slate-500 mb-1">Date</label>
                                                         <input
                                                             type="date"
                                                             value={item.expense_date}
+                                                            min={retroactiveDateStr}
+                                                            max={new Date().toISOString().split('T')[0]}
                                                             onChange={(e) => updateItem(index, 'expense_date', e.target.value)}
                                                             className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                                                         />

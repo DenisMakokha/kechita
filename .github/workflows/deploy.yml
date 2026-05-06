@@ -96,7 +96,7 @@ jobs:
 
             # Run production seed (idempotent — skips existing data)
             echo "🌱 Running production seed..."
-            npx ts-node src/seeds/seed-production-defaults.ts || echo "⚠️ Seed completed with warnings"
+            npm run seed:production || echo "⚠️ Seed completed with warnings"
 
             # Prune dev dependencies for production
             npm prune --omit=dev

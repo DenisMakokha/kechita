@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { InputDialog } from '../components/ui/InputDialog';
@@ -1049,6 +1049,33 @@ const LeaveRequestModal: React.FC<{
         contact_phone: '',
     });
     const [error, setError] = useState<string | null>(null);
+    const [policyWarning, setPolicyWarning] = useState<string | null>(null);
+
+    const { data: leavePolicy } = useQuery<Record<string, any>>({
+        queryKey: ['leave-settings'],
+        queryFn: async () => (await api.get('/settings/category/leave')).data,
+    });
+
+    const minNotice = Number(leavePolicy?.leave_min_days_notice ?? 3);
+    const maxConsecutive = Number(leavePolicy?.leave_max_consecutive_days ?? 21);
+    const allowHalfDays = leavePolicy?.leave_allow_half_days ?? false;
+    const minDate = new Date(); minDate.setDate(minDate.getDate() + minNotice);
+    const minDateStr = minDate.toISOString().split('T')[0];
+
+    useEffect(() => {
+        if (formData.start_date && formData.end_date && !formData.is_half_day) {
+            const start = new Date(formData.start_date);
+            const end = new Date(formData.end_date);
+            const diffDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+            if (diffDays > maxConsecutive) {
+                setPolicyWarning(`This request exceeds the maximum ${maxConsecutive} consecutive days policy. Please contact HR for an override.`);
+            } else {
+                setPolicyWarning(null);
+            }
+        } else {
+            setPolicyWarning(null);
+        }
+    }, [formData.start_date, formData.end_date, formData.is_half_day, maxConsecutive]);
 
     const submitMutation = useMutation({
         mutationFn: async (data: typeof formData) => {
@@ -1094,6 +1121,17 @@ const LeaveRequestModal: React.FC<{
                             {error}
                         </div>
                     )}
+                    {policyWarning && (
+                        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm flex items-start gap-2">
+                            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                            {policyWarning}
+                        </div>
+                    )}
+                    {leavePolicy && minNotice > 0 && (
+                        <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
+                            📋 Policy: Minimum <strong>{minNotice} day(s)</strong> notice required. Max <strong>{maxConsecutive} consecutive days</strong> per request.
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Leave Type *</label>
@@ -1118,6 +1156,7 @@ const LeaveRequestModal: React.FC<{
                             <input
                                 type="date"
                                 value={formData.start_date}
+                                min={formData.is_emergency ? undefined : minDateStr}
                                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
                                 required
@@ -1137,6 +1176,7 @@ const LeaveRequestModal: React.FC<{
                     </div>
 
                     <div className="flex items-center gap-6">
+                        {allowHalfDays && (
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -1146,6 +1186,7 @@ const LeaveRequestModal: React.FC<{
                             />
                             <span className="text-sm text-slate-700">Half Day</span>
                         </label>
+                        )}
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"

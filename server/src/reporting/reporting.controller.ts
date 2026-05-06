@@ -21,13 +21,15 @@ export class ReportingController {
 
     @Post('daily')
     @Roles('BRANCH_MANAGER', 'RELATIONSHIP_OFFICER', 'BDM')
-    submitDailyReport(
+    async submitDailyReport(
         @Req() req: AuthenticatedRequest,
         @Body() dto: SubmitReportDto,
     ) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
-        return this.reportingService.submitReport(staffId, dto.branch_id, dto);
+        const branchId = dto.branch_id || (await this.reportingService.getStaffBranchId(staffId));
+        if (!branchId) throw new BadRequestException('Branch not found for this staff member');
+        return this.reportingService.submitReport(staffId, branchId, dto);
     }
 
     @Get('branch/:branchId')
@@ -158,6 +160,14 @@ export class ReportingController {
         const startDate = new Date(start || new Date().setDate(1));
         const endDate = new Date(end || Date.now());
         return this.kpiService.getRegionalPARSummary(regionId, startDate, endDate);
+    }
+
+    // ==================== PENDING REPORTS ====================
+
+    @Get('pending')
+    @Roles('REGIONAL_MANAGER', 'CEO')
+    getPendingReports() {
+        return this.reportingService.getPendingReports();
     }
 
     // ==================== GET SINGLE REPORT ====================

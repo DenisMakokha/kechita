@@ -6,7 +6,7 @@ import { InputDialog } from '../components/ui/InputDialog';
 import {
     BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Target, AlertTriangle,
     Download, FileSpreadsheet, FileText, RefreshCw, ChevronDown, Building2,
-    Calendar, Briefcase, UserCheck, Clock, Wallet, CalendarDays
+    Calendar, Briefcase, UserCheck, Clock, Wallet, CalendarDays, X
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -100,6 +100,8 @@ const ReportsPage: React.FC = () => {
     const [rejectReportId, setRejectReportId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [submitFormData, setSubmitFormData] = useState({ report_date: new Date().toISOString().split('T')[0], disbursements: '', collections: '', new_clients: '', par_30: '', notes: '' });
 
     const isCEO = user?.roles.some((r) => r.code === 'CEO');
     const isHR = user?.roles.some((r) => r.code === 'HR_MANAGER');
@@ -136,6 +138,33 @@ const ReportsPage: React.FC = () => {
         queryKey: ['my-reports'],
         queryFn: async () => (await api.get('/reporting/my/reports')).data,
         enabled: canSubmitReports,
+        refetchInterval: 60000,
+    });
+
+    const { data: pendingReports } = useQuery<BranchReport[]>({
+        queryKey: ['pending-reports'],
+        queryFn: async () => (await api.get('/reporting/pending')).data,
+        enabled: canApproveReports,
+        refetchInterval: 60000,
+    });
+
+    const { data: reportsPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['reports-settings'],
+        queryFn: async () => (await api.get('/settings/category/reports')).data,
+    });
+    const reportDeadlineHour = Number(reportsPolicy?.reports_submission_deadline_hour ?? 17);
+    const requireDailyReports = reportsPolicy?.reports_require_daily ?? true;
+    const allowLateSubmission = reportsPolicy?.reports_allow_late_submission ?? false;
+
+    const submitReportMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/reporting/daily', data)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+            setShowSubmitModal(false);
+            setSubmitFormData({ report_date: new Date().toISOString().split('T')[0], disbursements: '', collections: '', new_clients: '', par_30: '', notes: '' });
+            showToast('Report submitted successfully');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to submit report', 'error'),
     });
 
     const approveReportMutation = useMutation({
@@ -330,21 +359,54 @@ const ReportsPage: React.FC = () => {
                 })}
             </div>
 
+            {/* Policy Banner */}
+            {reportsPolicy && (
+                <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs flex items-center gap-4">
+                    <span>📋 Policy:</span>
+                    <span>Deadline <strong>{reportDeadlineHour}:00</strong></span>
+                    <span>·</span>
+                    <span>{requireDailyReports ? '✅ Daily reports required' : '⚠️ Daily reports optional'}</span>
+                    <span>·</span>
+                    <span>{allowLateSubmission ? '✅ Late submission allowed' : '⛔ Late submission not allowed'}</span>
+                </div>
+            )}
+
             {/* My Reports Tab for Branch Managers */}
-            {canSubmitReports && (
-                <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit">
-                    <button
-                        onClick={() => setActiveView('dashboard')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'dashboard' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                        Analytics
-                    </button>
-                    <button
-                        onClick={() => setActiveView('my-reports')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'my-reports' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                        My Reports ({myReports?.length || 0})
-                    </button>
+            {(canSubmitReports || canApproveReports) && (
+                <div className="flex items-center gap-3">
+                    <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setActiveView('dashboard')}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'dashboard' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                            Analytics
+                        </button>
+                        {canSubmitReports && (
+                            <button
+                                onClick={() => setActiveView('my-reports')}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'my-reports' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                            >
+                                My Reports ({myReports?.length || 0})
+                            </button>
+                        )}
+                        {canApproveReports && (
+                            <button
+                                onClick={() => setActiveView('pending')}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'pending' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                            >
+                                Pending ({pendingReports?.length || 0})
+                            </button>
+                        )}
+                    </div>
+                    {canSubmitReports && (
+                        <button
+                            onClick={() => setShowSubmitModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] font-medium"
+                        >
+                            <CalendarDays size={16} />
+                            Submit Daily Report
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -1073,6 +1135,106 @@ const ReportsPage: React.FC = () => {
                     </div>
                 </div>
             )}
+            {/* Pending Reports View for RM/CEO */}
+            {activeView === 'pending' && canApproveReports && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 className="font-semibold text-slate-900">Pending Reports for Approval</h3>
+                        <span className="text-sm text-slate-500">{pendingReports?.length || 0} report(s)</span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {!pendingReports || pendingReports.length === 0 ? (
+                            <div className="p-8 text-center text-slate-500">No pending reports</div>
+                        ) : pendingReports.map((report) => (
+                            <div key={report.id} className="p-4 hover:bg-slate-50 flex items-center justify-between">
+                                <div>
+                                    <p className="font-medium text-slate-900">{new Date(report.report_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                    <p className="text-sm text-slate-500">{report.branch?.name} · by {report.submitted_by?.full_name}</p>
+                                    <div className="flex gap-4 text-xs text-slate-500 mt-1">
+                                        <span>Disbursed: KES {(report.disbursements || 0).toLocaleString()}</span>
+                                        <span>Collections: KES {(report.collections || 0).toLocaleString()}</span>
+                                        <span>New Clients: {report.new_clients || 0}</span>
+                                        <span>PAR: {(report.par_30 || 0).toFixed(2)}%</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => approveReportMutation.mutate({ id: report.id })}
+                                        disabled={approveReportMutation.isPending}
+                                        className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 disabled:opacity-50"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => setRejectReportId(report.id)}
+                                        className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600"
+                                    >
+                                        Reject
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Submit Daily Report Modal */}
+            {showSubmitModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
+                            <h2 className="text-xl font-bold text-slate-900">Submit Daily Report</h2>
+                            <button onClick={() => setShowSubmitModal(false)} className="p-2 hover:bg-white rounded-lg"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {reportsPolicy && (
+                                <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
+                                    📋 Submit by <strong>{reportDeadlineHour}:00</strong>{!allowLateSubmission ? ' — late submissions are not accepted' : ''}
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Report Date</label>
+                                <input type="date" value={submitFormData.report_date} onChange={e => setSubmitFormData({ ...submitFormData, report_date: e.target.value })} max={new Date().toISOString().split('T')[0]} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:outline-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Disbursements (KES)</label>
+                                    <input type="number" min="0" value={submitFormData.disbursements} onChange={e => setSubmitFormData({ ...submitFormData, disbursements: e.target.value })} placeholder="0" className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Collections (KES)</label>
+                                    <input type="number" min="0" value={submitFormData.collections} onChange={e => setSubmitFormData({ ...submitFormData, collections: e.target.value })} placeholder="0" className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:outline-none" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">New Clients</label>
+                                    <input type="number" min="0" value={submitFormData.new_clients} onChange={e => setSubmitFormData({ ...submitFormData, new_clients: e.target.value })} placeholder="0" className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">PAR 30 (%)</label>
+                                    <input type="number" min="0" max="100" step="0.01" value={submitFormData.par_30} onChange={e => setSubmitFormData({ ...submitFormData, par_30: e.target.value })} placeholder="0.00" className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:outline-none" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Notes / Comments</label>
+                                <textarea value={submitFormData.notes} onChange={e => setSubmitFormData({ ...submitFormData, notes: e.target.value })} rows={3} placeholder="Any notable events, challenges, or highlights..." className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0066B3] focus:outline-none resize-none" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
+                            <button onClick={() => setShowSubmitModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
+                            <button
+                                onClick={() => submitReportMutation.mutate({ report_date: submitFormData.report_date, loans_disbursed_amount: parseFloat(submitFormData.disbursements) || 0, recoveries_amount: parseFloat(submitFormData.collections) || 0, loans_new_count: parseInt(submitFormData.new_clients) || 0, par_ratio: parseFloat(submitFormData.par_30) || 0, manager_comment: submitFormData.notes })}
+                                disabled={submitReportMutation.isPending || !submitFormData.report_date}
+                                className="px-6 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
+                            >
+                                {submitReportMutation.isPending ? 'Submitting...' : 'Submit Report'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Reject Report Dialog */}
             <InputDialog
                 isOpen={!!rejectReportId}

@@ -889,6 +889,17 @@ const ApprovalActionModal: React.FC<{
     const [comment, setComment] = useState('');
     const [delegateToStaffId, setDelegateToStaffId] = useState('');
 
+    const { data: approvalsPolicy } = useQuery<Record<string, any>>({
+        queryKey: ['approvals-settings'],
+        queryFn: async () => (await api.get('/settings/category/approvals')).data,
+    });
+    const requireCommentOnReject = approvalsPolicy?.approval_require_comment_on_reject ?? true;
+    const requireCommentOnApprove = approvalsPolicy?.approval_require_comment_on_approve ?? false;
+    const allowDelegation = approvalsPolicy?.approval_allow_delegation ?? true;
+
+    const commentRequired = (action === 'reject' && requireCommentOnReject) || (action === 'approve' && requireCommentOnApprove) || action === 'return';
+    const canSubmit = !isLoading && (!commentRequired || comment.trim().length > 0) && (action !== 'delegate' || delegateToStaffId);
+
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
@@ -943,7 +954,8 @@ const ApprovalActionModal: React.FC<{
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
                             <MessageSquare className="inline mr-1" size={14} />
-                            Comment {action === 'reject' && <span className="text-red-500">*</span>}
+                            Comment {commentRequired && <span className="text-red-500">*</span>}
+                            {!commentRequired && <span className="text-slate-400 text-xs font-normal ml-1">(optional)</span>}
                         </label>
                         <textarea
                             value={comment}
@@ -954,7 +966,13 @@ const ApprovalActionModal: React.FC<{
                         />
                     </div>
 
-                    {action === 'delegate' && (
+                    {action === 'delegate' && !allowDelegation && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm flex items-center gap-2">
+                            <AlertTriangle size={16} />
+                            Delegation is currently disabled by admin policy.
+                        </div>
+                    )}
+                    {action === 'delegate' && allowDelegation && (
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
                                 Delegate To <span className="text-red-500">*</span>
@@ -1004,7 +1022,7 @@ const ApprovalActionModal: React.FC<{
                         </button>
                         <button
                             onClick={() => onConfirm(comment, action === 'delegate' ? delegateToStaffId : undefined)}
-                            disabled={isLoading || (action === 'reject' && !comment.trim())}
+                            disabled={!canSubmit}
                             className={`flex-1 px-4 py-3 rounded-xl font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                 action === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600' :
                                 action === 'reject' ? 'bg-red-500 hover:bg-red-600' :

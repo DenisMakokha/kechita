@@ -6,10 +6,12 @@ import {
     Plus, Edit, Trash2,
     Settings, Receipt, Calendar, CalendarDays, GitBranch,
     PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle,
-    Mail, Send, Wifi, WifiOff, Loader2, MessageSquare, Smartphone
+    Mail, Send, Wifi, WifiOff, Loader2, MessageSquare, Smartphone,
+    Umbrella, FileCheck, Wallet, Users, Building2, Briefcase, ClipboardList,
+    BarChart3, ShieldCheck
 } from 'lucide-react';
 
-type Tab = 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings' | 'sms-settings';
+type Tab = 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings' | 'sms-settings' | 'leave-settings' | 'claims-settings' | 'petty-cash-settings' | 'recruitment-settings' | 'onboarding-settings' | 'reports-settings' | 'org-settings' | 'hr-settings' | 'approvals-settings';
 
 interface ClaimType {
     id: string;
@@ -100,6 +102,15 @@ const SettingsPage: React.FC = () => {
     const [approvalFlowOriginalStepIds, setApprovalFlowOriginalStepIds] = useState<string[]>([]);
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const [loanSettings, setLoanSettings] = useState<Record<string, any>>({});
+    const [leaveSettings, setLeaveSettings] = useState<Record<string, any>>({});
+    const [claimsSettings, setClaimsSettings] = useState<Record<string, any>>({});
+    const [pettyCashSettings, setPettyCashSettings] = useState<Record<string, any>>({});
+    const [recruitmentSettings, setRecruitmentSettings] = useState<Record<string, any>>({});
+    const [onboardingSettings, setOnboardingSettings] = useState<Record<string, any>>({});
+    const [reportsSettings, setReportsSettings] = useState<Record<string, any>>({});
+    const [orgSettings, setOrgSettings] = useState<Record<string, any>>({});
+    const [hrSettings, setHrSettings] = useState<Record<string, any>>({});
+    const [approvalsSettings, setApprovalsSettings] = useState<Record<string, any>>({});
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
     const queryClient = useQueryClient();
 
@@ -153,9 +164,34 @@ const SettingsPage: React.FC = () => {
         queryFn: async () => (await api.get('/settings/category/loans')).data,
     });
 
-    useEffect(() => {
-        if (loanSettingsData) setLoanSettings(loanSettingsData);
-    }, [loanSettingsData]);
+    useEffect(() => { if (loanSettingsData) setLoanSettings(loanSettingsData); }, [loanSettingsData]);
+
+    const { data: leaveSettingsData } = useQuery<Record<string, any>>({ queryKey: ['leave-settings'], queryFn: async () => (await api.get('/settings/category/leave')).data });
+    useEffect(() => { if (leaveSettingsData) setLeaveSettings(leaveSettingsData); }, [leaveSettingsData]);
+
+    const { data: claimsSettingsData } = useQuery<Record<string, any>>({ queryKey: ['claims-settings'], queryFn: async () => (await api.get('/settings/category/claims')).data });
+    useEffect(() => { if (claimsSettingsData) setClaimsSettings(claimsSettingsData); }, [claimsSettingsData]);
+
+    const { data: pettyCashSettingsData } = useQuery<Record<string, any>>({ queryKey: ['petty-cash-settings'], queryFn: async () => (await api.get('/settings/category/petty_cash')).data });
+    useEffect(() => { if (pettyCashSettingsData) setPettyCashSettings(pettyCashSettingsData); }, [pettyCashSettingsData]);
+
+    const { data: recruitmentSettingsData } = useQuery<Record<string, any>>({ queryKey: ['recruitment-settings'], queryFn: async () => (await api.get('/settings/category/recruitment')).data });
+    useEffect(() => { if (recruitmentSettingsData) setRecruitmentSettings(recruitmentSettingsData); }, [recruitmentSettingsData]);
+
+    const { data: onboardingSettingsData } = useQuery<Record<string, any>>({ queryKey: ['onboarding-settings'], queryFn: async () => (await api.get('/settings/category/onboarding')).data });
+    useEffect(() => { if (onboardingSettingsData) setOnboardingSettings(onboardingSettingsData); }, [onboardingSettingsData]);
+
+    const { data: reportsSettingsData } = useQuery<Record<string, any>>({ queryKey: ['reports-settings'], queryFn: async () => (await api.get('/settings/category/reports')).data });
+    useEffect(() => { if (reportsSettingsData) setReportsSettings(reportsSettingsData); }, [reportsSettingsData]);
+
+    const { data: orgSettingsData } = useQuery<Record<string, any>>({ queryKey: ['org-settings'], queryFn: async () => (await api.get('/settings/category/org')).data });
+    useEffect(() => { if (orgSettingsData) setOrgSettings(orgSettingsData); }, [orgSettingsData]);
+
+    const { data: hrSettingsData } = useQuery<Record<string, any>>({ queryKey: ['hr-settings'], queryFn: async () => (await api.get('/settings/category/hr')).data });
+    useEffect(() => { if (hrSettingsData) setHrSettings(hrSettingsData); }, [hrSettingsData]);
+
+    const { data: approvalsSettingsData } = useQuery<Record<string, any>>({ queryKey: ['approvals-settings'], queryFn: async () => (await api.get('/settings/category/approvals')).data });
+    useEffect(() => { if (approvalsSettingsData) setApprovalsSettings(approvalsSettingsData); }, [approvalsSettingsData]);
 
     // Mutations — Claim Types
     const createClaimTypeMutation = useMutation({
@@ -208,6 +244,16 @@ const SettingsPage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate leave type', 'error'),
     });
 
+    const makeSettingsMutation = (category: string, queryKey: string, label: string) =>
+        useMutation({
+            mutationFn: async (settings: Record<string, any>) => {
+                const entries = Object.entries(settings).map(([key, value]) => ({ key, value, category }));
+                return (await api.post('/settings/bulk', { entries })).data;
+            },
+            onSuccess: () => { queryClient.invalidateQueries({ queryKey: [queryKey] }); showToast(`${label} saved`); },
+            onError: (e: any) => showToast(e?.response?.data?.message || `Failed to save ${label}`, 'error'),
+        });
+
     // Mutations — Loan Settings
     const saveLoanSettingsMutation = useMutation({
         mutationFn: async (settings: Record<string, any>) => {
@@ -219,6 +265,16 @@ const SettingsPage: React.FC = () => {
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['loan-settings'] }); showToast('Loan settings saved'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save loan settings', 'error'),
     });
+
+    const saveLeaveSettingsMutation = makeSettingsMutation('leave', 'leave-settings', 'Leave settings');
+    const saveClaimsSettingsMutation = makeSettingsMutation('claims', 'claims-settings', 'Claims settings');
+    const savePettyCashSettingsMutation = makeSettingsMutation('petty_cash', 'petty-cash-settings', 'Petty Cash settings');
+    const saveRecruitmentSettingsMutation = makeSettingsMutation('recruitment', 'recruitment-settings', 'Recruitment settings');
+    const saveOnboardingSettingsMutation = makeSettingsMutation('onboarding', 'onboarding-settings', 'Onboarding settings');
+    const saveReportsSettingsMutation = makeSettingsMutation('reports', 'reports-settings', 'Reports settings');
+    const saveOrgSettingsMutation = makeSettingsMutation('org', 'org-settings', 'Organisation settings');
+    const saveHrSettingsMutation = makeSettingsMutation('hr', 'hr-settings', 'HR settings');
+    const saveApprovalsSettingsMutation = makeSettingsMutation('approvals', 'approvals-settings', 'Approvals settings');
 
     const saveApprovalFlowMutation = useMutation({
         mutationFn: async (payload: {
@@ -399,7 +455,16 @@ const SettingsPage: React.FC = () => {
         { key: 'leave-types' as Tab, label: 'Leave Types', icon: Calendar },
         { key: 'approval-flows' as Tab, label: 'Approval Flows', icon: GitBranch },
         { key: 'holidays' as Tab, label: 'Public Holidays', icon: CalendarDays },
-        { key: 'loan-settings' as Tab, label: 'Loan Settings', icon: PiggyBank },
+        { key: 'loan-settings' as Tab, label: 'Loans & Advances', icon: PiggyBank },
+        { key: 'leave-settings' as Tab, label: 'Leave Policy', icon: Umbrella },
+        { key: 'claims-settings' as Tab, label: 'Claims Policy', icon: FileCheck },
+        { key: 'petty-cash-settings' as Tab, label: 'Petty Cash Policy', icon: Wallet },
+        { key: 'recruitment-settings' as Tab, label: 'Recruitment Policy', icon: Users },
+        { key: 'onboarding-settings' as Tab, label: 'Onboarding Policy', icon: ClipboardList },
+        { key: 'reports-settings' as Tab, label: 'Reports Policy', icon: BarChart3 },
+        { key: 'org-settings' as Tab, label: 'Organisation', icon: Building2 },
+        { key: 'hr-settings' as Tab, label: 'HR Policy', icon: Briefcase },
+        { key: 'approvals-settings' as Tab, label: 'Approvals Policy', icon: ShieldCheck },
         { key: 'email-settings' as Tab, label: 'Email / SMTP', icon: Mail },
         { key: 'sms-settings' as Tab, label: 'Bulk SMS', icon: MessageSquare },
     ];
@@ -924,6 +989,398 @@ const SettingsPage: React.FC = () => {
         );
     };
 
+    const renderSettingsPanel = (
+        title: string,
+        subtitle: string,
+        icon: React.ReactNode,
+        settings: Record<string, any>,
+        setSettings: React.Dispatch<React.SetStateAction<Record<string, any>>>,
+        saveMutation: { mutate: (s: any) => void; isPending: boolean },
+        sections: {
+            title: string;
+            subtitle?: string;
+            fields?: { key: string; label: string; hint: string; type: 'number' | 'percent' | 'kes' | 'text' | 'select'; defaultVal?: any; min?: number; max?: number; options?: { value: string; label: string }[] }[];
+            toggles?: { key: string; label: string; hint: string; defaultVal?: boolean }[];
+            cols?: 2 | 3;
+        }[]
+    ) => (
+        <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#0066B3]/10 flex items-center justify-center text-[#0066B3]">{icon}</div>
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+                        <p className="text-sm text-slate-500">{subtitle}</p>
+                    </div>
+                </div>
+                <button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50 text-sm">
+                    <Save size={16} />{saveMutation.isPending ? 'Saving...' : 'Save All Settings'}
+                </button>
+            </div>
+            {sections.map((section, si) => (
+                <div key={si} className="p-6 bg-white border border-slate-200 rounded-xl">
+                    <h3 className="font-semibold text-slate-900 mb-0.5">{section.title}</h3>
+                    {section.subtitle && <p className="text-xs text-slate-400 mb-4">{section.subtitle}</p>}
+                    {!section.subtitle && <div className="mb-4" />}
+                    {section.fields && (
+                        <div className={`grid md:grid-cols-${section.cols ?? 2} gap-4 ${section.toggles ? 'mb-4' : ''}`}>
+                            {section.fields.map(f => (
+                                <div key={f.key}>
+                                    <label className="block text-sm font-medium text-slate-700 mb-0.5">{f.label}</label>
+                                    <p className="text-xs text-slate-400 mb-1">{f.hint}</p>
+                                    {f.type === 'select' ? (
+                                        <select value={settings[f.key] ?? f.defaultVal ?? ''} onChange={e => setSettings({ ...settings, [f.key]: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]">
+                                            {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>
+                                    ) : f.type === 'text' ? (
+                                        <input type="text" value={settings[f.key] ?? f.defaultVal ?? ''} onChange={e => setSettings({ ...settings, [f.key]: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
+                                    ) : (
+                                        <div className="relative">
+                                            {f.type === 'kes' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">KES</span>}
+                                            {f.type === 'percent' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>}
+                                            <input type="number" value={settings[f.key] ?? f.defaultVal ?? 0} min={f.min} max={f.max}
+                                                onChange={e => setSettings({ ...settings, [f.key]: Number(e.target.value) })}
+                                                className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3] ${f.type === 'kes' ? 'pl-12' : ''} ${f.type === 'percent' ? 'pr-8' : ''}`} />
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {section.toggles && (
+                        <div className={`grid md:grid-cols-2 gap-3`}>
+                            {section.toggles.map(t => (
+                                <label key={t.key} className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer border border-transparent hover:border-slate-200 transition-colors">
+                                    <input type="checkbox" checked={settings[t.key] ?? (t.defaultVal ?? true)}
+                                        onChange={e => setSettings({ ...settings, [t.key]: e.target.checked })}
+                                        className="w-4 h-4 mt-0.5 accent-[#0066B3] rounded" />
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-700">{t.label}</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">{t.hint}</p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+
+    const renderLeaveSettingsContent = () => renderSettingsPanel(
+        'Leave Policy', 'Configure rules governing leave requests and entitlements.', <Umbrella size={20} />,
+        leaveSettings, setLeaveSettings, saveLeaveSettingsMutation,
+        [
+            {
+                title: 'Request Rules', subtitle: 'Controls how and when staff can apply for leave.',
+                fields: [
+                    { key: 'leave_min_days_notice', label: 'Minimum Days Notice', hint: 'Staff must apply at least N days before the leave starts.', type: 'number', defaultVal: 3, min: 0 },
+                    { key: 'leave_max_consecutive_days', label: 'Max Consecutive Days', hint: 'Maximum consecutive days in a single request without HR override.', type: 'number', defaultVal: 21, min: 1 },
+                    { key: 'leave_min_days_per_request', label: 'Minimum Days Per Request', hint: 'The minimum number of days allowed per leave request.', type: 'number', defaultVal: 1, min: 1 },
+                    { key: 'leave_cancel_days_before', label: 'Cancel Allowed Days Before', hint: 'Staff can cancel approved leave up to N days before it starts.', type: 'number', defaultVal: 1, min: 0 },
+                    { key: 'leave_auto_approve_hours', label: 'Auto-Approve After (hours)', hint: 'Automatically approve leave if not actioned within N hours. Set 0 to disable.', type: 'number', defaultVal: 72, min: 0 },
+                    { key: 'leave_carry_forward_max', label: 'Max Carry-Forward Days', hint: 'Global cap on days that can be carried forward to the next year.', type: 'number', defaultVal: 10, min: 0 },
+                ],
+                cols: 3,
+            },
+            {
+                title: 'Accrual & Entitlement', subtitle: 'How leave is accrued and entitled.',
+                fields: [
+                    { key: 'leave_accrual_frequency', label: 'Accrual Frequency', hint: 'How often leave is accrued.', type: 'select', defaultVal: 'monthly', options: [{ value: 'monthly', label: 'Monthly' }, { value: 'quarterly', label: 'Quarterly' }, { value: 'annually', label: 'Annually' }] },
+                    { key: 'leave_accrual_start_month', label: 'Accrual Start Month', hint: 'Which month (1-12) accrual begins for new staff.', type: 'number', defaultVal: 1, min: 1, max: 12 },
+                    { key: 'leave_fiscal_year_start', label: 'Leave Year Start Month', hint: 'Month when the leave year resets (1=Jan, 7=Jul).', type: 'number', defaultVal: 1, min: 1, max: 12 },
+                ],
+            },
+            {
+                title: 'Eligibility & Restrictions',
+                toggles: [
+                    { key: 'leave_require_reliever', label: 'Require Reliever', hint: 'Staff must assign a reliever before applying for certain leave types.', defaultVal: true },
+                    { key: 'leave_allow_half_days', label: 'Allow Half-Day Requests', hint: 'Staff can apply for half-day leave (morning or afternoon).', defaultVal: false },
+                    { key: 'leave_probation_eligible', label: 'Probationary Staff Eligible', hint: 'Staff on probation can apply for leave.', defaultVal: false },
+                    { key: 'leave_blackout_december', label: 'Blackout December', hint: 'Disallow leave in the month of December.', defaultVal: false },
+                    { key: 'leave_notify_manager_on_apply', label: 'Notify Line Manager on Apply', hint: 'Line manager receives notification when a leave request is submitted.', defaultVal: true },
+                    { key: 'leave_notify_hr_on_apply', label: 'Notify HR on Apply', hint: 'HR Manager receives notification on every leave application.', defaultVal: false },
+                    { key: 'leave_notify_staff_on_action', label: 'Notify Staff on Approval/Rejection', hint: 'Staff receive notification when their leave is approved or rejected.', defaultVal: true },
+                    { key: 'leave_allow_negative_balance', label: 'Allow Negative Leave Balance', hint: 'Staff can apply for leave even if their balance is zero.', defaultVal: false },
+                ],
+            },
+        ]
+    );
+
+    const renderClaimsSettingsContent = () => renderSettingsPanel(
+        'Claims Policy', 'Configure rules governing expense claim submissions and approvals.', <FileCheck size={20} />,
+        claimsSettings, setClaimsSettings, saveClaimsSettingsMutation,
+        [
+            {
+                title: 'Submission Limits', subtitle: 'Control how much and how often staff can claim.',
+                fields: [
+                    { key: 'claims_max_per_month', label: 'Max Claims Per Month', hint: 'Maximum number of separate claim submissions per staff per month.', type: 'number', defaultVal: 10, min: 1 },
+                    { key: 'claims_max_single_amount', label: 'Max Single Claim Amount', hint: 'Maximum amount allowed for a single claim submission.', type: 'kes', defaultVal: 200000, min: 0 },
+                    { key: 'claims_max_item_amount', label: 'Max Amount Per Item', hint: 'Maximum amount for a single line item within a claim.', type: 'kes', defaultVal: 50000, min: 0 },
+                    { key: 'claims_high_value_threshold', label: 'High-Value Threshold', hint: 'Claims above this amount are routed to the high-value approval flow.', type: 'kes', defaultVal: 50000, min: 0 },
+                    { key: 'claims_require_receipt_above', label: 'Receipt Required Above', hint: 'Claims with items above this amount must have a receipt attached.', type: 'kes', defaultVal: 1000, min: 0 },
+                    { key: 'claims_retroactive_days', label: 'Max Retroactive Days', hint: 'Staff can only claim expenses incurred within the past N days.', type: 'number', defaultVal: 30, min: 1 },
+                ],
+                cols: 3,
+            },
+            {
+                title: 'Processing Rules',
+                fields: [
+                    { key: 'claims_auto_approve_hours', label: 'Auto-Approve After (hours)', hint: 'Automatically approve claims not actioned within N hours. Set 0 to disable.', type: 'number', defaultVal: 48, min: 0 },
+                    { key: 'claims_payment_days_sla', label: 'Payment SLA (days)', hint: 'Target number of days to process payment after approval.', type: 'number', defaultVal: 7, min: 1 },
+                ],
+            },
+            {
+                title: 'Policies & Notifications',
+                toggles: [
+                    { key: 'claims_require_pre_approval', label: 'Require Pre-Approval', hint: 'Staff must obtain pre-approval before incurring the expense.', defaultVal: false },
+                    { key: 'claims_allow_draft_save', label: 'Allow Draft Save', hint: 'Staff can save incomplete claims as drafts before submitting.', defaultVal: true },
+                    { key: 'claims_notify_finance_on_submit', label: 'Notify Finance on Submission', hint: 'Finance/Accountant receives notification when a claim is submitted.', defaultVal: true },
+                    { key: 'claims_notify_staff_on_action', label: 'Notify Staff on Status Change', hint: 'Staff receive notifications when their claim status changes.', defaultVal: true },
+                    { key: 'claims_require_manager_approval', label: 'Require Manager Approval', hint: 'Claims must be approved by the direct line manager.', defaultVal: true },
+                    { key: 'claims_allow_resubmission', label: 'Allow Resubmission After Rejection', hint: 'Staff can edit and resubmit rejected claims.', defaultVal: true },
+                ],
+            },
+        ]
+    );
+
+    const renderPettyCashSettingsContent = () => renderSettingsPanel(
+        'Petty Cash Policy', 'Configure rules governing petty cash floats, expenses, and replenishments.', <Wallet size={20} />,
+        pettyCashSettings, setPettyCashSettings, savePettyCashSettingsMutation,
+        [
+            {
+                title: 'Float Tier Limits', subtitle: 'Maximum balances for each float tier.',
+                fields: [
+                    { key: 'petty_cash_small_tier_limit', label: 'Small Tier Maximum (KES)', hint: 'Maximum allowed balance for a small-tier petty cash float.', type: 'kes', defaultVal: 5000 },
+                    { key: 'petty_cash_medium_tier_limit', label: 'Medium Tier Maximum (KES)', hint: 'Maximum allowed balance for a medium-tier petty cash float.', type: 'kes', defaultVal: 20000 },
+                    { key: 'petty_cash_large_tier_limit', label: 'Large Tier Maximum (KES)', hint: 'Maximum allowed balance for a large-tier petty cash float.', type: 'kes', defaultVal: 50000 },
+                ],
+                cols: 3,
+            },
+            {
+                title: 'Expense Controls',
+                fields: [
+                    { key: 'petty_cash_max_single_expense', label: 'Max Single Expense (KES)', hint: 'Maximum amount for a single petty cash disbursement.', type: 'kes', defaultVal: 5000 },
+                    { key: 'petty_cash_require_receipt_above', label: 'Receipt Required Above (KES)', hint: 'Receipts must be attached for expenses above this amount.', type: 'kes', defaultVal: 500 },
+                    { key: 'petty_cash_replenishment_trigger', label: 'Replenishment Trigger (%)', hint: 'Auto-flag float for replenishment when balance drops below this % of limit.', type: 'percent', defaultVal: 25, min: 5, max: 75 },
+                    { key: 'petty_cash_auto_deactivate_days', label: 'Auto-Deactivate After (days)', hint: 'Automatically deactivate float after N days of inactivity. Set 0 to disable.', type: 'number', defaultVal: 90, min: 0 },
+                ],
+            },
+            {
+                title: 'Policies',
+                toggles: [
+                    { key: 'petty_cash_replenishment_approval_required', label: 'Approval Required for Replenishment', hint: 'Replenishment requests must go through an approval workflow.', defaultVal: true },
+                    { key: 'petty_cash_notify_custodian_low', label: 'Notify Custodian on Low Balance', hint: 'Custodian receives a notification when float balance is low.', defaultVal: true },
+                    { key: 'petty_cash_allow_float_transfer', label: 'Allow Balance Transfer Between Floats', hint: 'Permit transferring balance from one float to another.', defaultVal: false },
+                    { key: 'petty_cash_require_witness', label: 'Require Witness for Large Expenses', hint: 'Expenses above the max require a witness/co-signer.', defaultVal: false },
+                    { key: 'petty_cash_notify_finance_on_replenishment', label: 'Notify Finance on Replenishment', hint: 'Finance team is notified when a replenishment is requested or approved.', defaultVal: true },
+                    { key: 'petty_cash_allow_staff_expenses', label: 'Allow Direct Staff Expenses', hint: 'Staff (non-custodians) can request petty cash expenses.', defaultVal: false },
+                ],
+            },
+        ]
+    );
+
+    const renderRecruitmentSettingsContent = () => renderSettingsPanel(
+        'Recruitment Policy', 'Configure rules governing job postings, interviews, and hiring.', <Users size={20} />,
+        recruitmentSettings, setRecruitmentSettings, saveRecruitmentSettingsMutation,
+        [
+            {
+                title: 'Job Postings & Pipeline',
+                fields: [
+                    { key: 'recruitment_max_active_jobs', label: 'Max Active Job Postings', hint: 'Maximum number of simultaneously active job postings.', type: 'number', defaultVal: 20, min: 1 },
+                    { key: 'recruitment_shortlist_quota', label: 'Max Shortlisted Candidates', hint: 'Maximum candidates to shortlist per job posting.', type: 'number', defaultVal: 10, min: 1 },
+                    { key: 'recruitment_interview_rounds', label: 'Default Interview Rounds', hint: 'Default number of interview rounds for a new job posting.', type: 'number', defaultVal: 2, min: 1, max: 5 },
+                    { key: 'recruitment_offer_expiry_days', label: 'Offer Letter Expiry (days)', hint: 'Number of days a candidate has to accept an offer before it expires.', type: 'number', defaultVal: 5, min: 1 },
+                    { key: 'recruitment_probation_months', label: 'Default Probation Period (months)', hint: 'Default probation period for new hires.', type: 'number', defaultVal: 3, min: 1, max: 12 },
+                ],
+                cols: 3,
+            },
+            {
+                title: 'Compliance & Requirements',
+                toggles: [
+                    { key: 'recruitment_require_background_check', label: 'Require Background Check', hint: 'Background check must be completed before an offer is issued.', defaultVal: true },
+                    { key: 'recruitment_allow_internal_applications', label: 'Allow Internal Applications', hint: 'Existing staff can apply for open positions.', defaultVal: true },
+                    { key: 'recruitment_pipeline_auto_advance', label: 'Auto-Advance Pipeline', hint: 'Automatically advance candidates to the next stage when all checks pass.', defaultVal: false },
+                    { key: 'recruitment_notify_hr_on_application', label: 'Notify HR on Each Application', hint: 'HR receives notification for every new application received.', defaultVal: true },
+                    { key: 'recruitment_notify_applicant_on_status', label: 'Notify Applicant on Status Change', hint: 'Applicants receive email notifications when their status changes.', defaultVal: true },
+                    { key: 'recruitment_require_panel_interview', label: 'Require Panel Interview', hint: 'At least one interview must be a panel interview.', defaultVal: false },
+                    { key: 'recruitment_approval_before_posting', label: 'Approval Before Posting', hint: 'Job postings require CEO/HR approval before going live.', defaultVal: true },
+                    { key: 'recruitment_allow_reapplication', label: 'Allow Re-Application', hint: 'Candidates rejected in the past can re-apply for the same role.', defaultVal: true },
+                ],
+            },
+        ]
+    );
+
+    const renderOnboardingSettingsContent = () => renderSettingsPanel(
+        'Onboarding Policy', 'Configure rules governing staff onboarding and probation.', <ClipboardList size={20} />,
+        onboardingSettings, setOnboardingSettings, saveOnboardingSettingsMutation,
+        [
+            {
+                title: 'Onboarding Timeline',
+                fields: [
+                    { key: 'onboarding_deadline_days', label: 'Onboarding Deadline (days)', hint: 'Number of days from join date to complete all onboarding tasks.', type: 'number', defaultVal: 30, min: 7 },
+                    { key: 'onboarding_reminder_days_before', label: 'Reminder Days Before Deadline', hint: 'Send reminder notifications this many days before the onboarding deadline.', type: 'number', defaultVal: 5, min: 1 },
+                    { key: 'onboarding_probation_months', label: 'Default Probation Period (months)', hint: 'Standard probation length for new staff.', type: 'number', defaultVal: 3, min: 1, max: 12 },
+                    { key: 'onboarding_probation_extension_months', label: 'Max Probation Extension (months)', hint: 'Maximum additional months probation can be extended.', type: 'number', defaultVal: 3, min: 0, max: 6 },
+                ],
+            },
+            {
+                title: 'Completion Requirements',
+                toggles: [
+                    { key: 'onboarding_auto_assign_template', label: 'Auto-Assign Template on Staff Creation', hint: 'Automatically assign the default onboarding template when a new staff member is created.', defaultVal: true },
+                    { key: 'onboarding_require_all_docs', label: 'Require All Documents for Confirmation', hint: 'Staff cannot be confirmed until all required documents have been uploaded and verified.', defaultVal: true },
+                    { key: 'onboarding_require_all_tasks', label: 'Require All Tasks Completed', hint: 'All onboarding tasks must be marked complete before confirmation.', defaultVal: true },
+                    { key: 'onboarding_notify_hr_on_complete', label: 'Notify HR on Completion', hint: 'HR receives notification when an onboarding instance is fully completed.', defaultVal: true },
+                    { key: 'onboarding_notify_manager_on_complete', label: 'Notify Manager on Completion', hint: 'Line manager is notified when onboarding is complete.', defaultVal: true },
+                    { key: 'onboarding_block_payroll_until_complete', label: 'Block Payroll Until Complete', hint: 'Staff member cannot be added to payroll until onboarding is complete.', defaultVal: false },
+                    { key: 'onboarding_send_welcome_email', label: 'Send Welcome Email', hint: 'Automatically send a welcome email to the staff member on their first day.', defaultVal: true },
+                    { key: 'onboarding_require_bank_details', label: 'Require Bank Details Before Payroll', hint: 'Bank details must be provided before the staff member can be paid.', defaultVal: true },
+                ],
+            },
+        ]
+    );
+
+    const renderReportsSettingsContent = () => renderSettingsPanel(
+        'Reports Policy', 'Configure data retention, export options, and report visibility.', <BarChart3 size={20} />,
+        reportsSettings, setReportsSettings, saveReportsSettingsMutation,
+        [
+            {
+                title: 'Data Retention & Archiving',
+                fields: [
+                    { key: 'reports_data_retention_months', label: 'Data Retention Period (months)', hint: 'How many months of historical data to retain in reports.', type: 'number', defaultVal: 24, min: 6 },
+                    { key: 'reports_archive_after_months', label: 'Archive After (months)', hint: 'Reports older than this are moved to archive.', type: 'number', defaultVal: 12, min: 3 },
+                ],
+            },
+            {
+                title: 'KPI Targets', subtitle: 'Targets used for KPI comparison in reports.',
+                fields: [
+                    { key: 'reports_kpi_target_headcount', label: 'Target Headcount', hint: 'Organisation target total headcount.', type: 'number', defaultVal: 100, min: 1 },
+                    { key: 'reports_kpi_target_turnover_percent', label: 'Target Turnover Rate (%)', hint: 'Acceptable staff turnover rate threshold.', type: 'percent', defaultVal: 15, min: 0, max: 100 },
+                    { key: 'reports_kpi_target_leave_utilization', label: 'Target Leave Utilization (%)', hint: 'Expected % of leave days utilized per staff per year.', type: 'percent', defaultVal: 70, min: 0, max: 100 },
+                    { key: 'reports_kpi_target_claims_processed_days', label: 'Claims Processing SLA (days)', hint: 'Target days to fully process a claim from submission to payment.', type: 'number', defaultVal: 7, min: 1 },
+                ],
+            },
+            {
+                title: 'Access & Distribution',
+                toggles: [
+                    { key: 'reports_auto_generate_monthly', label: 'Auto-Generate Monthly Summary', hint: 'Automatically generate a monthly summary report at month-end.', defaultVal: true },
+                    { key: 'reports_notify_ceo_monthly', label: 'Email CEO Monthly Summary', hint: 'CEO receives the monthly summary report by email.', defaultVal: true },
+                    { key: 'reports_allow_pdf_export', label: 'Allow PDF Export', hint: 'Reports can be exported as PDF.', defaultVal: true },
+                    { key: 'reports_allow_excel_export', label: 'Allow Excel Export', hint: 'Reports can be exported as Excel spreadsheets.', defaultVal: true },
+                    { key: 'reports_allow_csv_export', label: 'Allow CSV Export', hint: 'Reports can be exported as CSV files.', defaultVal: true },
+                    { key: 'reports_require_approval_to_view', label: 'Require Approval to View Sensitive Reports', hint: 'Payroll and salary reports require explicit approval to view.', defaultVal: false },
+                ],
+            },
+        ]
+    );
+
+    const renderOrgSettingsContent = () => renderSettingsPanel(
+        'Organisation Settings', 'Core organisation configuration — locale, working hours, and structure.', <Building2 size={20} />,
+        orgSettings, setOrgSettings, saveOrgSettingsMutation,
+        [
+            {
+                title: 'Identity & Locale',
+                fields: [
+                    { key: 'org_name', label: 'Organisation Name', hint: 'Full legal name of the organisation.', type: 'text', defaultVal: 'Kechita Capital' },
+                    { key: 'org_country', label: 'Country', hint: 'Country where the organisation is based.', type: 'text', defaultVal: 'Kenya' },
+                    { key: 'org_currency', label: 'Default Currency', hint: 'Currency used across all financial modules.', type: 'select', defaultVal: 'KES', options: [{ value: 'KES', label: 'KES — Kenyan Shilling' }, { value: 'USD', label: 'USD — US Dollar' }, { value: 'GBP', label: 'GBP — British Pound' }, { value: 'EUR', label: 'EUR — Euro' }] },
+                    { key: 'org_timezone', label: 'Timezone', hint: 'System timezone for dates and scheduling.', type: 'select', defaultVal: 'Africa/Nairobi', options: [{ value: 'Africa/Nairobi', label: 'Africa/Nairobi (EAT UTC+3)' }, { value: 'UTC', label: 'UTC' }, { value: 'Europe/London', label: 'Europe/London' }] },
+                ],
+            },
+            {
+                title: 'Working Hours & Calendar',
+                fields: [
+                    { key: 'org_working_days_per_week', label: 'Working Days Per Week', hint: '5 = Mon-Fri, 6 = Mon-Sat.', type: 'select', defaultVal: '5', options: [{ value: '5', label: '5 days (Mon–Fri)' }, { value: '6', label: '6 days (Mon–Sat)' }] },
+                    { key: 'org_working_hours_start', label: 'Office Start Time', hint: 'Official working hours start (24h format e.g. 08:00).', type: 'text', defaultVal: '08:00' },
+                    { key: 'org_working_hours_end', label: 'Office End Time', hint: 'Official working hours end (24h format e.g. 17:00).', type: 'text', defaultVal: '17:00' },
+                    { key: 'org_fiscal_year_start_month', label: 'Fiscal Year Start Month', hint: 'Month the financial year begins (1=January, 4=April, 7=July).', type: 'number', defaultVal: 1, min: 1, max: 12 },
+                ],
+            },
+            {
+                title: 'Structure Limits',
+                fields: [
+                    { key: 'org_max_branches', label: 'Max Branches', hint: 'Maximum number of branches/offices.', type: 'number', defaultVal: 50, min: 1 },
+                    { key: 'org_max_departments_per_branch', label: 'Max Departments Per Branch', hint: 'Maximum departments per branch.', type: 'number', defaultVal: 10, min: 1 },
+                ],
+                toggles: [
+                    { key: 'org_require_hod', label: 'Require Head of Department', hint: 'Every department must have an assigned Head of Department.', defaultVal: false },
+                    { key: 'org_allow_cross_branch_transfers', label: 'Allow Cross-Branch Transfers', hint: 'Staff can be transferred between different branches.', defaultVal: true },
+                ],
+            },
+        ]
+    );
+
+    const renderHrSettingsContent = () => renderSettingsPanel(
+        'HR Policy', 'Configure human resource management rules and staff lifecycle settings.', <Briefcase size={20} />,
+        hrSettings, setHrSettings, saveHrSettingsMutation,
+        [
+            {
+                title: 'Staff Lifecycle',
+                fields: [
+                    { key: 'hr_probation_default_months', label: 'Default Probation Period (months)', hint: 'Standard probation length for all new employees.', type: 'number', defaultVal: 3, min: 1, max: 12 },
+                    { key: 'hr_notice_period_months', label: 'Default Notice Period (months)', hint: 'Standard notice period for resignations/terminations.', type: 'number', defaultVal: 1, min: 1, max: 6 },
+                    { key: 'hr_salary_review_frequency', label: 'Salary Review Frequency', hint: 'How often salary reviews are conducted.', type: 'select', defaultVal: 'annual', options: [{ value: 'annual', label: 'Annually' }, { value: 'semi_annual', label: 'Semi-Annually' }, { value: 'quarterly', label: 'Quarterly' }] },
+                    { key: 'hr_document_expiry_warning_days', label: 'Document Expiry Warning (days)', hint: 'Warn N days before a staff document expires.', type: 'number', defaultVal: 30, min: 7 },
+                ],
+            },
+            {
+                title: 'Staff Numbering',
+                fields: [
+                    { key: 'hr_staff_number_prefix', label: 'Staff Number Prefix', hint: 'Prefix used when auto-generating staff numbers (e.g. KEC).', type: 'text', defaultVal: 'KEC' },
+                    { key: 'hr_staff_number_padding', label: 'Staff Number Padding (digits)', hint: 'Zero-pad staff numbers to this length (e.g. 4 = KEC0001).', type: 'number', defaultVal: 4, min: 2, max: 8 },
+                ],
+                toggles: [
+                    { key: 'hr_enable_staff_numbering', label: 'Auto-Generate Staff Numbers', hint: 'Automatically assign sequential staff numbers on creation.', defaultVal: true },
+                ],
+            },
+            {
+                title: 'Compliance & Policies',
+                toggles: [
+                    { key: 'hr_nok_required', label: 'Require Next of Kin', hint: 'Staff must provide next-of-kin details before confirmation.', defaultVal: true },
+                    { key: 'hr_allow_self_service_profile', label: 'Allow Staff Profile Self-Service', hint: 'Staff can edit their own profile details (address, phone, etc.).', defaultVal: false },
+                    { key: 'hr_confirm_auto_notify', label: 'Auto-Notify on Confirmation', hint: 'Automatically send confirmation letter when staff is confirmed.', defaultVal: true },
+                    { key: 'hr_require_exit_interview', label: 'Require Exit Interview', hint: 'Exit interview must be completed before termination is finalised.', defaultVal: true },
+                    { key: 'hr_notify_on_contract_expiry', label: 'Notify on Contract Expiry', hint: 'HR and manager are notified when a staff contract is about to expire.', defaultVal: true },
+                    { key: 'hr_allow_multiple_positions', label: 'Allow Multiple Positions', hint: 'Staff can hold more than one position simultaneously.', defaultVal: false },
+                    { key: 'hr_require_medical_on_join', label: 'Require Medical Certificate on Joining', hint: 'New staff must submit a medical certificate within 30 days of joining.', defaultVal: false },
+                    { key: 'hr_salary_confidential', label: 'Keep Salaries Confidential', hint: 'Staff cannot see each other\'s salary information.', defaultVal: true },
+                ],
+            },
+        ]
+    );
+
+    const renderApprovalsSettingsContent = () => renderSettingsPanel(
+        'Approvals Policy', 'Configure how approval workflows behave across all request types.', <ShieldCheck size={20} />,
+        approvalsSettings, setApprovalsSettings, saveApprovalsSettingsMutation,
+        [
+            {
+                title: 'SLA & Escalation',
+                fields: [
+                    { key: 'approval_default_sla_hours', label: 'Default Approval SLA (hours)', hint: 'Target hours for an approver to action a pending request.', type: 'number', defaultVal: 48, min: 1 },
+                    { key: 'approval_escalation_hours', label: 'Escalation After (hours)', hint: 'Escalate to the next approver after N hours of inaction.', type: 'number', defaultVal: 72, min: 1 },
+                    { key: 'approval_delegation_max_days', label: 'Max Delegation Period (days)', hint: 'Maximum number of days an approval can be delegated.', type: 'number', defaultVal: 14, min: 1, max: 30 },
+                    { key: 'approval_auto_approve_leave_hours', label: 'Auto-Approve Leave After (hours)', hint: 'Leave requests auto-approve after N hours if not actioned. Set 0 to disable.', type: 'number', defaultVal: 72, min: 0 },
+                ],
+            },
+            {
+                title: 'Workflow Rules',
+                toggles: [
+                    { key: 'approval_allow_delegation', label: 'Allow Approval Delegation', hint: 'Approvers can delegate their approval authority to another staff member.', defaultVal: true },
+                    { key: 'approval_require_comment_on_reject', label: 'Comment Required on Rejection', hint: 'Approvers must provide a reason when rejecting a request.', defaultVal: true },
+                    { key: 'approval_require_comment_on_approve', label: 'Comment Required on Approval', hint: 'Approvers must add a comment when approving a request.', defaultVal: false },
+                    { key: 'approval_allow_self_approval', label: 'Allow Self-Approval', hint: 'An approver can approve their own request in the absence of others.', defaultVal: false },
+                    { key: 'approval_notify_on_pending', label: 'Notify Approver on Assignment', hint: 'Approver receives immediate notification when a request is assigned to them.', defaultVal: true },
+                    { key: 'approval_notify_requester_on_action', label: 'Notify Requester on Every Step', hint: 'The requester is notified at each stage of the approval process.', defaultVal: true },
+                    { key: 'approval_allow_parallel_steps', label: 'Allow Parallel Approval Steps', hint: 'Multiple approvers can review simultaneously rather than sequentially.', defaultVal: false },
+                    { key: 'approval_retain_history', label: 'Retain Full Approval History', hint: 'Keep the complete trail of all approvals, rejections, and delegations.', defaultVal: true },
+                ],
+            },
+        ]
+    );
+
     const renderEmailSettingsContent = () => (
         <div className="p-6 space-y-6">
             {/* Status Banner */}
@@ -1396,6 +1853,15 @@ const SettingsPage: React.FC = () => {
             case 'approval-flows': return renderApprovalFlowsContent();
             case 'holidays': return renderHolidaysContent();
             case 'loan-settings': return renderLoanSettingsContent();
+            case 'leave-settings': return renderLeaveSettingsContent();
+            case 'claims-settings': return renderClaimsSettingsContent();
+            case 'petty-cash-settings': return renderPettyCashSettingsContent();
+            case 'recruitment-settings': return renderRecruitmentSettingsContent();
+            case 'onboarding-settings': return renderOnboardingSettingsContent();
+            case 'reports-settings': return renderReportsSettingsContent();
+            case 'org-settings': return renderOrgSettingsContent();
+            case 'hr-settings': return renderHrSettingsContent();
+            case 'approvals-settings': return renderApprovalsSettingsContent();
             case 'email-settings': return renderEmailSettingsContent();
             case 'sms-settings': return renderSmsSettingsContent();
         }
@@ -1410,7 +1876,8 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const showAddButton = activeTab !== 'approval-flows' && activeTab !== 'loan-settings' && activeTab !== 'email-settings' && activeTab !== 'sms-settings';
+    const settingsOnlyTabs: Tab[] = ['approval-flows', 'loan-settings', 'leave-settings', 'claims-settings', 'petty-cash-settings', 'recruitment-settings', 'onboarding-settings', 'reports-settings', 'org-settings', 'hr-settings', 'approvals-settings', 'email-settings', 'sms-settings'];
+    const showAddButton = !settingsOnlyTabs.includes(activeTab);
 
     return (
         <div className="space-y-6">
