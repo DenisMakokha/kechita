@@ -69,6 +69,23 @@ export class EmailService {
     }
 
     /**
+     * Health check for SMTP connection
+     */
+    async checkHealth(): Promise<{ status: 'up' | 'down' | 'degraded'; latency?: number; error?: string; configured: boolean }> {
+        if (!this.smtpConfigured) {
+            return { status: 'degraded', configured: false, error: 'SMTP not configured' };
+        }
+
+        const start = Date.now();
+        try {
+            await this.transporter.verify();
+            return { status: 'up', configured: true, latency: Date.now() - start };
+        } catch (error: any) {
+            return { status: 'down', configured: true, error: error.message };
+        }
+    }
+
+    /**
      * Reconfigure the SMTP transporter at runtime (called from settings UI).
      */
     reconfigure(config: {

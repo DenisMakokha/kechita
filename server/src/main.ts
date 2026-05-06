@@ -110,6 +110,11 @@ async function bootstrap() {
       .addTag('Recruitment', 'Job posts and candidate management')
       .addTag('Reports', 'Analytics and reports')
       .addTag('Notifications', 'In-app notifications')
+      .addTag('Petty Cash', 'Float management and expense tracking')
+      .addTag('Email Templates', 'Email template management')
+      .addTag('Audit', 'Audit logging and compliance')
+      .addTag('Settings', 'System settings and configuration')
+      .addTag('Health', 'Health checks and monitoring')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);

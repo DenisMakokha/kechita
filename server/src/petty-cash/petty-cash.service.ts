@@ -181,6 +181,60 @@ export class PettyCashService {
         return this.getFloat(floatId);
     }
 
+    async updateFloatTier(
+        floatId: string,
+        newTier: FloatTier,
+        updatedById: string,
+        reason?: string,
+    ): Promise<PettyCashFloat> {
+        const float = await this.getFloat(floatId);
+        const oldTier = float.tier;
+
+        // If tier hasn't changed, just return
+        if (oldTier === newTier) {
+            return float;
+        }
+
+        const newMaxLimit = FLOAT_TIER_LIMITS[newTier];
+
+        // When downgrading, ensure current balance doesn't exceed new tier limit
+        if (newMaxLimit < Number(float.maximum_limit)) {
+            if (Number(float.current_balance) > newMaxLimit) {
+                throw new BadRequestException(
+                    `Cannot downgrade tier: current balance (${float.current_balance}) exceeds ` +
+                    `new tier limit (${newMaxLimit}). Please reduce balance before downgrading.`
+                );
+            }
+        }
+
+        // Update the float
+        float.tier = newTier;
+        float.maximum_limit = newMaxLimit;
+
+        // Adjust minimum threshold if it exceeds new max (default to 20% of new max)
+        if (Number(float.minimum_threshold) > newMaxLimit) {
+            float.minimum_threshold = newMaxLimit * 0.2;
+        }
+
+        const saved = await this.floatRepo.save(float);
+
+        // Record tier change transaction
+        await this.recordTransaction({
+            float_id: floatId,
+            type: TransactionType.ADJUSTMENT,
+            description: `Tier changed from ${oldTier} to ${newTier}${reason ? `: ${reason}` : ''}`,
+            amount: 0,
+            balance_before: float.current_balance,
+            balance_after: float.current_balance,
+            transaction_date: new Date(),
+            status: TransactionStatus.APPROVED,
+            created_by_id: updatedById,
+            notes: `Tier limit: ${float.maximum_limit} → ${newMaxLimit}`,
+        });
+
+        return this.getFloat(saved.id);
+    }
+
     // ==================== TRANSACTIONS ====================
 
     private async recordTransaction(data: {

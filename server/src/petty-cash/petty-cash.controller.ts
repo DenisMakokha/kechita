@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Req, ParseUUIDPipe, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -14,8 +15,11 @@ import {
     ApproveReplenishmentDto,
     DisburseReplenishmentDto,
     VerifyReconciliationDto,
+    UpdateFloatTierDto,
 } from './dto/petty-cash.dto';
 
+@ApiTags('Petty Cash')
+@ApiBearerAuth('JWT-auth')
 @Controller('petty-cash')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PettyCashController {
@@ -63,6 +67,18 @@ export class PettyCashController {
     @Roles('CEO', 'HR_MANAGER', 'BRANCH_MANAGER')
     updateCustodian(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCustodianDto) {
         return this.pettyCashService.updateFloatCustodian(id, dto.custodian_id);
+    }
+
+    @Patch('floats/:id/tier')
+    @Roles('CEO', 'HR_MANAGER')
+    updateFloatTier(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: UpdateFloatTierDto,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.pettyCashService.updateFloatTier(id, dto.tier, staffId, dto.reason);
     }
 
     // ==================== TRANSACTIONS ====================

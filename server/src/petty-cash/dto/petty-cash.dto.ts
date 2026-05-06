@@ -146,3 +146,13 @@ export class VerifyReconciliationDto {
     @IsOptional()
     comment?: string;
 }
+
+export class UpdateFloatTierDto {
+    @IsEnum(FloatTier)
+    @IsNotEmpty()
+    tier: FloatTier;
+
+    @IsString()
+    @IsOptional()
+    reason?: string;
+}

@@ -9,6 +9,8 @@ import { Role } from './entities/role.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { EmailService } from '../email/email.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto, UpdateUserRolesDto, UpdateUserPasswordDto } from './dto/update-user.dto';
 
@@ -43,6 +45,7 @@ export class UserService {
         private staffRepository: Repository<Staff>,
         private emailService: EmailService,
         private configService: ConfigService,
+        private auditService: AuditService,
     ) {}
 
     // Role hierarchy: lower number = higher rank
@@ -200,8 +203,22 @@ export class UserService {
             throw new BadRequestException(`Invalid role code: ${dto.role_code}`);
         }
 
+        const oldRole = user.roles[0]?.code || 'none';
         user.roles = [role];
-        return this.userRepository.save(user);
+        const saved = await this.userRepository.save(user);
+
+        await this.auditService.log({
+            userId: id,
+            action: AuditAction.ROLE_ASSIGN,
+            entityType: 'User',
+            entityId: id,
+            description: `Role changed from ${oldRole} to ${role.code}`,
+            oldValues: { role: oldRole },
+            newValues: { role: role.code },
+            isSuccessful: true,
+        }).catch(() => {});
+
+        return saved;
     }
 
     async addRole(userId: string, roleCode: string, actorRoles?: { code: string }[]): Promise<User> {
@@ -215,9 +232,21 @@ export class UserService {
             throw new NotFoundException(`Role not found: ${roleCode}`);
         }
 
+        const oldRole = user.roles[0]?.code || 'none';
         // Single role enforcement: replace existing role
         user.roles = [role];
         await this.userRepository.save(user);
+
+        await this.auditService.log({
+            userId: userId,
+            action: AuditAction.ROLE_ASSIGN,
+            entityType: 'User',
+            entityId: userId,
+            description: `Role assigned: ${role.code} (replaced ${oldRole})`,
+            oldValues: { role: oldRole },
+            newValues: { role: role.code },
+            isSuccessful: true,
+        }).catch(() => {});
 
         return user;
     }
@@ -227,7 +256,20 @@ export class UserService {
         if (actorRoles) this.assertCanModifyUser(actorRoles, user);
 
         user.roles = user.roles.filter(r => r.code !== roleCode);
-        return this.userRepository.save(user);
+        const saved = await this.userRepository.save(user);
+
+        await this.auditService.log({
+            userId: userId,
+            action: AuditAction.ROLE_ASSIGN,
+            entityType: 'User',
+            entityId: userId,
+            description: `Role removed: ${roleCode}`,
+            oldValues: { roles: [roleCode] },
+            newValues: { roles: user.roles.map(r => r.code) },
+            isSuccessful: true,
+        }).catch(() => {});
+
+        return saved;
     }
 
     async updatePassword(id: string, dto: UpdateUserPasswordDto, actorRoles?: { code: string }[]): Promise<{ message: string }> {
@@ -239,6 +281,15 @@ export class UserService {
 
         await this.userRepository.update(id, { password_hash: passwordHash });
 
+        await this.auditService.log({
+            userId: id,
+            action: AuditAction.PASSWORD_CHANGE,
+            entityType: 'User',
+            entityId: id,
+            description: 'Password changed',
+            isSuccessful: true,
+        }).catch(() => {});
+
         return { message: 'Password updated successfully' };
     }
 
@@ -246,19 +297,51 @@ export class UserService {
         const user = await this.findOne(id);
         if (actorRoles) this.assertCanModifyUser(actorRoles, user);
         user.is_active = true;
-        return this.userRepository.save(user);
+        const saved = await this.userRepository.save(user);
+
+        await this.auditService.log({
+            userId: id,
+            action: AuditAction.ACTIVATE,
+            entityType: 'User',
+            entityId: id,
+            description: 'User account activated',
+            isSuccessful: true,
+        }).catch(() => {});
+
+        return saved;
     }
 
     async deactivate(id: string, actorRoles?: { code: string }[]): Promise<User> {
         const user = await this.findOne(id);
         if (actorRoles) this.assertCanModifyUser(actorRoles, user);
         user.is_active = false;
-        return this.userRepository.save(user);
+        const saved = await this.userRepository.save(user);
+
+        await this.auditService.log({
+            userId: id,
+            action: AuditAction.DEACTIVATE,
+            entityType: 'User',
+            entityId: id,
+            description: 'User account deactivated',
+            isSuccessful: true,
+        }).catch(() => {});
+
+        return saved;
     }
 
     async delete(id: string, actorRoles?: { code: string }[]): Promise<{ message: string }> {
         const user = await this.findOne(id);
         if (actorRoles) this.assertCanModifyUser(actorRoles, user);
+
+        await this.auditService.log({
+            userId: id,
+            action: AuditAction.DELETE,
+            entityType: 'User',
+            entityId: id,
+            description: `User deleted: ${user.email}`,
+            isSuccessful: true,
+        }).catch(() => {});
+
         await this.userRepository.remove(user);
         return { message: 'User deleted successfully' };
     }
