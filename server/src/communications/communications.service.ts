@@ -42,7 +42,17 @@ export class CommunicationsService {
 
     // ==================== ANNOUNCEMENTS ====================
 
-    async createAnnouncement(data: CreateAnnouncementDto, createdById: string): Promise<Announcement> {
+    async createAnnouncement(data: CreateAnnouncementDto, createdByUserId: string): Promise<Announcement> {
+        // Look up staff record for the user
+        const staff = await this.staffRepo.findOne({
+            where: { user: { id: createdByUserId } },
+            select: ['id'],
+        });
+
+        if (!staff) {
+            throw new BadRequestException('No staff profile found for this user. Cannot create announcement.');
+        }
+
         const announcement = this.announcementRepo.create({
             title: data.title,
             content: data.content,
@@ -59,7 +69,7 @@ export class CommunicationsService {
             expires_at: data.expires_at ? new Date(data.expires_at) : undefined,
             requires_acknowledgment: data.requires_acknowledgment || false,
             attachment_ids: data.attachment_ids,
-            createdBy: { id: createdById } as Staff,
+            createdBy: staff,
             status: data.publish_at ? AnnouncementStatus.SCHEDULED : AnnouncementStatus.DRAFT,
         });
 
@@ -106,15 +116,25 @@ export class CommunicationsService {
         });
     }
 
-    async publishAnnouncement(id: string, publishedById: string): Promise<Announcement> {
+    async publishAnnouncement(id: string, publishedByUserId: string): Promise<Announcement> {
         const announcement = await this.getAnnouncement(id);
 
         if (announcement.status === AnnouncementStatus.PUBLISHED) {
             throw new BadRequestException('Announcement is already published');
         }
 
+        // Look up staff record for the user
+        const staff = await this.staffRepo.findOne({
+            where: { user: { id: publishedByUserId } },
+            select: ['id'],
+        });
+
+        if (!staff) {
+            throw new BadRequestException('No staff profile found for this user. Cannot publish announcement.');
+        }
+
         announcement.status = AnnouncementStatus.PUBLISHED;
-        announcement.publishedBy = { id: publishedById } as Staff;
+        announcement.publishedBy = staff;
         announcement.published_at = new Date();
 
         const saved = await this.announcementRepo.save(announcement);

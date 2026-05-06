@@ -1,6 +1,7 @@
 import {
     IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, IsEnum, IsUUID, Min, Max, Matches,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { LoanType } from '../entities/staff-loan.entity';
 
 export class ApplyLoanDto {
@@ -42,6 +43,7 @@ export class ApplyLoanDto {
 
     @IsOptional()
     @IsUUID()
+    @Transform(({ value }) => value === '' ? undefined : value)
     guarantor_id?: string;
 }
 

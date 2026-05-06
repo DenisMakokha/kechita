@@ -51,7 +51,11 @@ export class PettyCashController {
     @Roles('CEO', 'HR_MANAGER')
     createFloat(@Body() data: CreateFloatDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
-        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!staffId) {
+            throw new BadRequestException(
+                'Your account does not have a staff profile. Petty Cash actions require a staff profile. Please contact HR to set up your staff profile or ensure you are logged in with a staff account.'
+            );
+        }
         return this.pettyCashService.createFloat(data, staffId);
     }
 

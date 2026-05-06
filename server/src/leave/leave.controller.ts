@@ -52,7 +52,11 @@ export class LeaveController {
     @Post('request')
     requestLeave(@Body() dto: CreateLeaveRequestDto, @Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
-        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!staffId) {
+            throw new BadRequestException(
+                'Your account does not have a staff profile. Leave requests require a staff profile. Please contact HR to set up your staff profile.'
+            );
+        }
         return this.leaveService.requestLeave(staffId, dto);
     }
 

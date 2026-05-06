@@ -164,9 +164,17 @@ export class AuthService {
 
     async login(user: any, userAgent?: string, ipAddress?: string): Promise<TokenPair> {
         const permissions = this.collectPermissions(user.roles || []);
+
+        // Look up staff_id for the user
+        const staff = await this.staffRepository.findOne({
+            where: { user: { id: user.id } },
+            select: ['id'],
+        });
+
         const payload = {
             email: user.email,
             sub: user.id,
+            staff_id: staff?.id,
             roles: user.roles.map((r: any) => r.code),
             permissions,
         };
@@ -224,10 +232,17 @@ export class AuthService {
         // Rotate refresh token (revoke old, create new)
         const newRefreshToken = await this.rotateRefreshToken(storedToken, userAgent, ipAddress);
 
+        // Look up staff_id for the user
+        const staff = await this.staffRepository.findOne({
+            where: { user: { id: storedToken.user.id } },
+            select: ['id'],
+        });
+
         // Generate new access token
         const payload = {
             email: storedToken.user.email,
             sub: storedToken.user.id,
+            staff_id: staff?.id,
             roles: storedToken.user.roles.map((r) => r.code),
         };
 

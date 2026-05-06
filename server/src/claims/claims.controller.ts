@@ -62,7 +62,11 @@ export class ClaimsController {
     @Post()
     submitClaim(@Req() req: AuthenticatedRequest, @Body() dto: SubmitClaimDto) {
         const staffId = req.user?.staff_id;
-        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        if (!staffId) {
+            throw new BadRequestException(
+                'Your account does not have a staff profile. Claims require a staff profile. Please contact HR to set up your staff profile.'
+            );
+        }
         if (!dto.items || dto.items.length === 0) {
             throw new BadRequestException('At least one claim item is required');
         }

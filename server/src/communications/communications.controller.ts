@@ -32,9 +32,9 @@ export class CommunicationsController {
     @Post('announcements')
     @Roles('CEO', 'HR_MANAGER', 'ADMIN')
     createAnnouncement(@Body() data: CreateAnnouncementDto, @Req() req: AuthenticatedRequest) {
-        const staffId = req.user?.staff_id;
-        if (!staffId) throw new BadRequestException('Staff ID not found in token');
-        return this.communicationsService.createAnnouncement(data, staffId);
+        const userId = req.user?.id;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        return this.communicationsService.createAnnouncement(data, userId);
     }
 
     @Put('announcements/:id')
@@ -46,9 +46,9 @@ export class CommunicationsController {
     @Patch('announcements/:id/publish')
     @Roles('CEO', 'HR_MANAGER', 'ADMIN')
     publishAnnouncement(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
-        const staffId = req.user?.staff_id;
-        if (!staffId) throw new BadRequestException('Staff ID not found in token');
-        return this.communicationsService.publishAnnouncement(id, staffId);
+        const userId = req.user?.id;
+        if (!userId) throw new BadRequestException('User ID not found in token');
+        return this.communicationsService.publishAnnouncement(id, userId);
     }
 
     @Patch('announcements/:id/archive')

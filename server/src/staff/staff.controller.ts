@@ -1,6 +1,6 @@
 import {
     Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
-    UseGuards, UseInterceptors, UploadedFile, Req, Res, BadRequestException,
+    UseGuards, UseInterceptors, UploadedFile, Req, Res, BadRequestException, NotFoundException,
     ParseFilePipeBuilder, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
@@ -543,9 +543,17 @@ export class StaffController {
 
     @Get('me/profile')
     async getMyProfile(@Req() req: AuthenticatedRequest) {
+        // Try staff_id from token first, fallback to user.id lookup
         const staffId = req.user?.staff_id;
-        if (!staffId) throw new BadRequestException('Staff ID not found in token');
-        return this.staffService.findOne(staffId);
+        if (staffId) {
+            return this.staffService.findOne(staffId);
+        }
+        // Fallback: look up staff by user ID
+        const staff = await this.staffService.findByUserId(req.user.id);
+        if (!staff) {
+            throw new NotFoundException('No staff profile found for your account. Please contact HR to set up your staff profile.');
+        }
+        return staff;
     }
 
     @Patch('me/profile')

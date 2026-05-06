@@ -156,6 +156,23 @@ const CLAIM_TYPES: Partial<ClaimType>[] = [
     },
 ];
 
+const DOCUMENT_TYPES = [
+    { code: 'ID_CARD', name: 'National ID Card', description: 'Copy of national identification card', is_required: true },
+    { code: 'PASSPORT', name: 'Passport', description: 'International passport copy', is_required: false },
+    { code: 'PIN_CERTIFICATE', name: 'KRA PIN Certificate', description: 'Tax identification certificate', is_required: true },
+    { code: 'NHIF_CARD', name: 'NHIF Card', description: 'National Hospital Insurance Fund card', is_required: true },
+    { code: 'NSSF_CARD', name: 'NSSF Card', description: 'National Social Security Fund card', is_required: true },
+    { code: 'CERTIFICATE_GOOD_CONDUCT', name: 'Certificate of Good Conduct', description: 'Police clearance certificate', is_required: true, expiry_warning_days: 30 },
+    { code: 'ACADEMIC_CERT', name: 'Academic Certificate', description: 'Degree, diploma, or certificate', is_required: true },
+    { code: 'CV', name: 'Curriculum Vitae', description: 'Staff CV/Resume', is_required: true },
+    { code: 'OFFER_LETTER', name: 'Offer Letter', description: 'Signed employment offer letter', is_required: true },
+    { code: 'CONTRACT', name: 'Employment Contract', description: 'Signed employment contract', is_required: true },
+    { code: 'REFERENCE_CHECK', name: 'Reference Check', description: 'Reference verification documents', is_required: false },
+    { code: 'BANK_PROOF', name: 'Bank Account Proof', description: 'Bank statement or ATM card copy', is_required: true },
+    { code: 'PHOTO', name: 'Passport Photo', description: 'Recent passport size photograph', is_required: true },
+    { code: 'MEDICAL_CERT', name: 'Medical Certificate', description: 'Pre-employment medical clearance', is_required: true, expiry_warning_days: 90 },
+];
+
 // Kenyan Public Holidays
 const HOLIDAYS_2025 = [
     { name: "New Year's Day", date: '2025-01-01', is_recurring: true },
@@ -280,6 +297,19 @@ async function seedProductionDefaults() {
             } else {
                 console.log(`  ⏭️  Claim type exists: ${ct.name}`);
             }
+        }
+    }
+
+    // Seed Document Types
+    console.log('📄 Seeding document types...');
+    const docTypeRepo = AppDataSource.getRepository(DocumentType);
+    for (const dt of DOCUMENT_TYPES) {
+        const existing = await docTypeRepo.findOneBy({ code: dt.code });
+        if (!existing) {
+            await docTypeRepo.save(docTypeRepo.create(dt));
+            console.log(`  📄 Created document type: ${dt.name}`);
+        } else {
+            console.log(`  📄 Document type exists: ${dt.name}`);
         }
     }
 
