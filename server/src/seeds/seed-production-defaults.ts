@@ -206,7 +206,7 @@ const HOLIDAYS_2026 = [
     { name: 'Boxing Day', date: '2026-12-26', is_recurring: true },
 ];
 
-async function seedProductionDefaults() {
+export async function seedProductionDefaults() {
     await AppDataSource.initialize();
     console.log('Connected to database for production seeding...');
 
@@ -370,7 +370,4 @@ async function seedProductionDefaults() {
     await AppDataSource.destroy();
 }
 
-seedProductionDefaults().catch((error) => {
-    console.error('Seeding failed:', error);
-    process.exit(1);
-});
+// Function is exported and called by run-seed.ts
