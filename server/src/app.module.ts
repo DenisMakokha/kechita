@@ -42,6 +42,7 @@ import { Document } from './staff/entities/document.entity';
 import { DocumentType } from './staff/entities/document-type.entity';
 import { StaffDocument } from './staff/entities/staff-document.entity';
 import { EmploymentHistory } from './staff/entities/employment-history.entity';
+import { StaffContract } from './staff/entities/staff-contract.entity';
 // Onboarding Entities
 import { OnboardingTemplate } from './staff/entities/onboarding-template.entity';
 import { OnboardingTask } from './staff/entities/onboarding-task.entity';
@@ -82,6 +83,8 @@ import { Notification } from './notifications/entities/notification.entity';
 import { NotificationPreference } from './notifications/entities/notification-preference.entity';
 // Audit Entities
 import { AuditLog } from './audit/entities/audit-log.entity';
+// Email Template Entities
+import { EmailTemplateEntity } from './email/entities/email-template.entity';
 // Petty Cash Entities
 import { PettyCashFloat } from './petty-cash/entities/petty-cash-float.entity';
 import { PettyCashTransaction } from './petty-cash/entities/petty-cash-transaction.entity';
@@ -117,13 +120,15 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         // Org
         Region, Branch, Department, Position,
         // Staff
-        Staff, Document, DocumentType, StaffDocument, EmploymentHistory,
+        Staff, Document, DocumentType, StaffDocument, EmploymentHistory, StaffContract,
         // Onboarding
         OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus,
         // Leave
         LeaveType, LeaveBalance, LeaveRequest, PublicHoliday,
         // Approval
         ApprovalFlow, ApprovalFlowStep, ApprovalInstance, ApprovalAction,
+        // Email
+        EmailTemplateEntity,
         // Claims
         ClaimType, Claim, ClaimItem,
         // Loans
