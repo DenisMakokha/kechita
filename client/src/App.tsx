@@ -6,6 +6,7 @@ import { ProtectedRoute, UnauthorizedPage, ROLES, ROLE_GROUPS } from './componen
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/ui/Toast';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Lazy-loaded pages — each becomes its own chunk
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
@@ -106,6 +107,7 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   return (
+    <ThemeProvider>
     <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
@@ -293,6 +295,7 @@ function App() {
       </ToastProvider>
     </QueryClientProvider>
     </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 

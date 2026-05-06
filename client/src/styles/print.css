@@ -1,0 +1,240 @@
+/* Print-friendly styles for Kechita Staff Portal */
+
+@media print {
+  /* Hide navigation and interactive elements */
+  nav,
+  aside,
+  .sidebar,
+  header button,
+  header .group\/notification,
+  .no-print,
+  [role="dialog"],
+  .fixed,
+  .Toastify__toast-container,
+  .react-confirm-alert-overlay {
+    display: none !important;
+  }
+
+  /* Show main content only */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Reset background colors for printing */
+  body,
+  .bg-white,
+  .bg-slate-50,
+  .bg-slate-100,
+  .dark .bg-white,
+  .dark .bg-slate-900,
+  .dark .bg-slate-800 {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure text is black for readability */
+  .text-slate-900,
+  .text-slate-800,
+  .text-slate-700,
+  .text-slate-600,
+  .dark .text-slate-100,
+  .dark .text-slate-200,
+  .dark .text-slate-300,
+  .dark .text-slate-400 {
+    color: black !important;
+  }
+
+  /* Remove shadows and borders that waste ink */
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl,
+  .drop-shadow,
+  .ring-1,
+  .ring-2 {
+    box-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* Make borders light gray instead of colored */
+  .border,
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-300 {
+    border-color: #ccc !important;
+  }
+
+  /* Ensure tables print nicely */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #ccc !important;
+    padding: 8px !important;
+    text-align: left !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .no-page-break {
+    page-break-inside: avoid;
+  }
+
+  /* Links - show URL after link text */
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Don't show URLs for internal links */
+  a[href^="#"]:after,
+  a[href^="javascript:"]:after {
+    content: "";
+  }
+
+  /* Cards - remove background and simplify */
+  .card,
+  .bg-white.rounded-xl,
+  .bg-white.rounded-lg,
+  .dark .bg-slate-800.rounded-xl {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* Grids - stack vertically if needed */
+  .grid {
+    display: block !important;
+  }
+
+  .grid > * {
+    margin-bottom: 16px !important;
+  }
+
+  /* Header adjustments */
+  header {
+    position: static !important;
+    border-bottom: 2px solid #333 !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* Add print header with logo text */
+  header::before {
+    content: "Kechita Capital - Staff Portal";
+    font-size: 1.5em;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  /* Buttons - hide or simplify */
+  button:not(.print-button),
+  .btn,
+  [type="button"],
+  [type="submit"] {
+    display: none !important;
+  }
+
+  /* Form inputs - show values only */
+  input,
+  select,
+  textarea {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  /* Status badges - ensure visibility */
+  .badge,
+  [class*="badge"],
+  .px-2.py-1.rounded-full {
+    border: 1px solid #666 !important;
+    background: transparent !important;
+  }
+
+  /* Charts and visualizations - ensure they print */
+  canvas,
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Expand collapsed sections for printing */
+  [aria-expanded="false"] + *,
+  .collapse:not(.show) {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Footer adjustments */
+  footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    border-top: 1px solid #ccc !important;
+    padding-top: 10px !important;
+    font-size: 0.8em !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 2cm;
+  }
+}
+
+/* Print button utility class */
+.print-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #0066B3;
+  color: white;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.print-button:hover {
+  background: #005291;
+}
+
+@media print {
+  .print-button {
+    display: none !important;
+  }
+}
+
+/* Utility classes for print control */
+@media print {
+  .print-only {
+    display: block !important;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
