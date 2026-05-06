@@ -167,7 +167,7 @@ export class StaffService {
 
     // ==================== STAFF RETRIEVAL ====================
 
-    async findAll(filter?: StaffFilterDto): Promise<Staff[]> {
+    async findAll(filter?: StaffFilterDto): Promise<{ data: Staff[]; total: number; page: number; limit: number }> {
         const qb = this.staffRepo.createQueryBuilder('staff')
             .leftJoinAndSelect('staff.user', 'user')
             .leftJoinAndSelect('staff.position', 'position')
@@ -223,8 +223,55 @@ export class StaffService {
                 .andWhere('role.name IN (:...roles)', { roles });
         }
 
+        // Advanced filters
+        if (filter?.hireDateFrom) {
+            qb.andWhere('staff.hire_date >= :hireDateFrom', { hireDateFrom: filter.hireDateFrom });
+        }
 
-        return qb.orderBy('staff.first_name', 'ASC').getMany();
+        if (filter?.hireDateTo) {
+            qb.andWhere('staff.hire_date <= :hireDateTo', { hireDateTo: filter.hireDateTo });
+        }
+
+        if (filter?.minSalary) {
+            qb.andWhere('staff.basic_salary >= :minSalary', { minSalary: filter.minSalary });
+        }
+
+        if (filter?.maxSalary) {
+            qb.andWhere('staff.basic_salary <= :maxSalary', { maxSalary: filter.maxSalary });
+        }
+
+        if (filter?.gender) {
+            qb.andWhere('staff.gender = :gender', { gender: filter.gender });
+        }
+
+        if (filter?.dateOfBirthFrom) {
+            qb.andWhere('staff.date_of_birth >= :dateOfBirthFrom', { dateOfBirthFrom: filter.dateOfBirthFrom });
+        }
+
+        if (filter?.dateOfBirthTo) {
+            qb.andWhere('staff.date_of_birth <= :dateOfBirthTo', { dateOfBirthTo: filter.dateOfBirthTo });
+        }
+
+        if (filter?.city) {
+            qb.andWhere('staff.city ILIKE :city', { city: `%${filter.city}%` });
+        }
+
+        // Get total count before pagination
+        const total = await qb.getCount();
+
+        // Sorting
+        const sortBy = filter?.sortBy || 'first_name';
+        const sortOrder = filter?.sortOrder || 'ASC';
+        qb.orderBy(`staff.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+
+        // Pagination
+        const page = filter?.page || 1;
+        const limit = filter?.limit || 50;
+        qb.skip((page - 1) * limit).take(limit);
+
+        const data = await qb.getMany();
+
+        return { data, total, page, limit };
     }
 
     async findOne(id: string): Promise<Staff> {

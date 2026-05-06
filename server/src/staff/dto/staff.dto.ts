@@ -251,4 +251,53 @@ export class StaffFilterDto {
     @IsOptional()
     @IsString()
     role?: string;
+
+    // Advanced search filters
+    @IsOptional()
+    @IsDateString()
+    hireDateFrom?: string;
+
+    @IsOptional()
+    @IsDateString()
+    hireDateTo?: string;
+
+    @IsOptional()
+    @IsNumber()
+    minSalary?: number;
+
+    @IsOptional()
+    @IsNumber()
+    maxSalary?: number;
+
+    @IsOptional()
+    @IsString()
+    gender?: string;
+
+    @IsOptional()
+    @IsDateString()
+    dateOfBirthFrom?: string;
+
+    @IsOptional()
+    @IsDateString()
+    dateOfBirthTo?: string;
+
+    @IsOptional()
+    @IsString()
+    city?: string;
+
+    @IsOptional()
+    @IsString()
+    sortBy?: 'first_name' | 'last_name' | 'hire_date' | 'created_at' | 'basic_salary';
+
+    @IsOptional()
+    @IsString()
+    sortOrder?: 'ASC' | 'DESC';
+
+    @IsOptional()
+    @IsNumber()
+    page?: number;
+
+    @IsOptional()
+    @IsNumber()
+    limit?: number;
 }

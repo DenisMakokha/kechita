@@ -10,7 +10,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { ApprovalInstanceStatus } from './entities/approval-instance.entity';
 import { CreateApprovalFlowDto, UpdateApprovalFlowDto } from './dto/approval-flow.dto';
 import { CreateApprovalStepDto } from './dto/approval-step.dto';
-import { ApproveDto, RejectDto, CancelDto } from './dto/approval-action.dto';
+import { ApproveDto, RejectDto, CancelDto, BulkApproveDto, BulkRejectDto } from './dto/approval-action.dto';
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('approvals')
@@ -122,6 +122,64 @@ export class ApprovalController {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');
         return this.approvalService.rejectStep(id, staffId, dto.comment, ip);
+    }
+
+    // ==================== BULK OPERATIONS ====================
+
+    @Post('bulk/approve')
+    async bulkApprove(
+        @Req() req: AuthenticatedRequest,
+        @Body() dto: BulkApproveDto,
+        @Ip() ip?: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+
+        const results = { success: [] as string[], failed: [] as { id: string; error: string }[] };
+
+        for (const instanceId of dto.instanceIds) {
+            try {
+                await this.approvalService.approveStep(instanceId, staffId, dto.comment, ip);
+                results.success.push(instanceId);
+            } catch (error: any) {
+                results.failed.push({ id: instanceId, error: error.message });
+            }
+        }
+
+        return {
+            message: `Processed ${dto.instanceIds.length} approvals`,
+            successful: results.success.length,
+            failed: results.failed.length,
+            results,
+        };
+    }
+
+    @Post('bulk/reject')
+    async bulkReject(
+        @Req() req: AuthenticatedRequest,
+        @Body() dto: BulkRejectDto,
+        @Ip() ip?: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+
+        const results = { success: [] as string[], failed: [] as { id: string; error: string }[] };
+
+        for (const instanceId of dto.instanceIds) {
+            try {
+                await this.approvalService.rejectStep(instanceId, staffId, dto.comment, ip);
+                results.success.push(instanceId);
+            } catch (error: any) {
+                results.failed.push({ id: instanceId, error: error.message });
+            }
+        }
+
+        return {
+            message: `Processed ${dto.instanceIds.length} rejections`,
+            successful: results.success.length,
+            failed: results.failed.length,
+            results,
+        };
     }
 
     @Post('instances/:id/cancel')
