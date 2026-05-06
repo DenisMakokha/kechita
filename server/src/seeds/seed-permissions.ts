@@ -213,6 +213,16 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
         'notifications.read',
         'security.sessions', 'security.2fa',
     ],
+
+    STAFF: [
+        'leave.request', 'leave.read',
+        'claims.create', 'claims.read',
+        'loans.apply', 'loans.read',
+        'org.read',
+        'announcements.read',
+        'notifications.read',
+        'security.sessions', 'security.2fa',
+    ],
 };
 
 export async function seedPermissions(dataSource: DataSource) {
