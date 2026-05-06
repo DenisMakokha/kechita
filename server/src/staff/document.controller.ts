@@ -10,6 +10,7 @@ import { AuthenticatedRequest } from '../common/interfaces/authenticated-request
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CreateDocumentTypeDto, UpdateDocumentTypeDto } from './dto/document.dto';
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,13 +31,13 @@ export class DocumentController {
 
     @Post('types')
     @Roles('CEO', 'HR_MANAGER')
-    createDocumentType(@Body() data: any) {
+    createDocumentType(@Body() data: CreateDocumentTypeDto) {
         return this.documentService.createDocumentType(data);
     }
 
     @Patch('types/:id')
     @Roles('CEO', 'HR_MANAGER')
-    updateDocumentType(@Param('id') id: string, @Body() data: any) {
+    updateDocumentType(@Param('id') id: string, @Body() data: UpdateDocumentTypeDto) {
         return this.documentService.updateDocumentType(id, data);
     }
 

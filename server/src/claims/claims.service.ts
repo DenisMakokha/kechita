@@ -182,6 +182,62 @@ export class ClaimsService {
                     );
                 }
 
+                // Check monthly limit
+                if (claimType.max_amount_per_month) {
+                    const now = new Date();
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+                    const monthlyTotal = await queryRunner.manager
+                        .createQueryBuilder(ClaimItem, 'item')
+                        .leftJoin('item.claim', 'claim')
+                        .leftJoin('claim.staff', 'staff')
+                        .select('COALESCE(SUM(item.amount), 0)', 'total')
+                        .where('item.claim_type_id = :claimTypeId', { claimTypeId: claimType.id })
+                        .andWhere('staff.id = :staffId', { staffId })
+                        .andWhere('claim.status NOT IN (:...excludedStatuses)', {
+                            excludedStatuses: [ClaimStatus.CANCELLED, ClaimStatus.REJECTED],
+                        })
+                        .andWhere('claim.created_at BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd })
+                        .getRawOne();
+
+                    const currentMonthlyTotal = parseFloat(monthlyTotal?.total || '0');
+                    if (currentMonthlyTotal + itemAmount > Number(claimType.max_amount_per_month)) {
+                        throw new BadRequestException(
+                            `This claim would exceed your monthly limit of ${claimType.max_amount_per_month} for ${claimType.name}. ` +
+                            `Current monthly total: ${currentMonthlyTotal}, this claim: ${itemAmount}`
+                        );
+                    }
+                }
+
+                // Check yearly limit
+                if (claimType.max_amount_per_year) {
+                    const now = new Date();
+                    const yearStart = new Date(now.getFullYear(), 0, 1);
+                    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+
+                    const yearlyTotal = await queryRunner.manager
+                        .createQueryBuilder(ClaimItem, 'item')
+                        .leftJoin('item.claim', 'claim')
+                        .leftJoin('claim.staff', 'staff')
+                        .select('COALESCE(SUM(item.amount), 0)', 'total')
+                        .where('item.claim_type_id = :claimTypeId', { claimTypeId: claimType.id })
+                        .andWhere('staff.id = :staffId', { staffId })
+                        .andWhere('claim.status NOT IN (:...excludedStatuses)', {
+                            excludedStatuses: [ClaimStatus.CANCELLED, ClaimStatus.REJECTED],
+                        })
+                        .andWhere('claim.created_at BETWEEN :yearStart AND :yearEnd', { yearStart, yearEnd })
+                        .getRawOne();
+
+                    const currentYearlyTotal = parseFloat(yearlyTotal?.total || '0');
+                    if (currentYearlyTotal + itemAmount > Number(claimType.max_amount_per_year)) {
+                        throw new BadRequestException(
+                            `This claim would exceed your yearly limit of ${claimType.max_amount_per_year} for ${claimType.name}. ` +
+                            `Current yearly total: ${currentYearlyTotal}, this claim: ${itemAmount}`
+                        );
+                    }
+                }
+
                 // Check receipts requirement
                 if (claimType.requires_receipt && !itemData.document_id && !itemData.receipt_number) {
                     throw new BadRequestException(`${claimType.name} requires a receipt or document`);

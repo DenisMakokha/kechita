@@ -54,11 +54,44 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 30_000,        // Data considered fresh for 30 seconds
+      gcTime: 10 * 60_000,      // Keep unused data in cache for 10 minutes
+      refetchOnReconnect: true, // Refetch when network reconnects
+      networkMode: 'online',    // Only fetch when online
     },
   },
 });
+
+// Cache time presets for different data types
+export const CachePresets = {
+  // Reference data (branches, departments, positions, roles) - changes rarely
+  reference: {
+    staleTime: 5 * 60 * 1000,  // 5 minutes
+    gcTime: 30 * 60 * 1000,    // 30 minutes
+  },
+  // Master data (staff, users) - changes occasionally
+  master: {
+    staleTime: 2 * 60 * 1000,  // 2 minutes
+    gcTime: 15 * 60 * 1000,    // 15 minutes
+  },
+  // Transactional data (claims, leave, loans, petty cash) - changes frequently
+  transactional: {
+    staleTime: 30_000,         // 30 seconds
+    gcTime: 5 * 60_000,        // 5 minutes
+  },
+  // Real-time data (notifications, dashboard) - always fresh
+  realtime: {
+    staleTime: 0,              // Always stale (fetch immediately)
+    gcTime: 60_000,            // 1 minute
+    refetchInterval: 30_000,   // Auto-refetch every 30 seconds
+  },
+  // Static data (document types, claim types, leave types) - almost never changes
+  static: {
+    staleTime: 60 * 60 * 1000, // 1 hour
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+  },
+};
 
 // Simple auth check for main layout
 const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
