@@ -7,6 +7,7 @@ import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StaffService } from './staff.service';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
+import { CreateContractDto, UpdateContractDto } from './dto/contract.dto';
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
 import { ContractService } from './services/contract.service';
@@ -641,18 +642,7 @@ export class StaffController {
     @Roles('CEO', 'HR_MANAGER')
     createContract(
         @Param('staffId', ParseUUIDPipe) staffId: string,
-        @Body() data: {
-            contract_type: ContractType;
-            start_date: string;
-            end_date?: string;
-            salary?: number;
-            salary_currency?: string;
-            job_title?: string;
-            title?: string;
-            terms?: string;
-            special_conditions?: string;
-            notice_period_days?: number;
-        },
+        @Body() data: CreateContractDto,
         @Req() req: AuthenticatedRequest,
     ) {
         return this.contractService.create(
@@ -670,9 +660,12 @@ export class StaffController {
     @Roles('CEO', 'HR_MANAGER')
     updateContract(
         @Param('contractId', ParseUUIDPipe) contractId: string,
-        @Body() data: any,
+        @Body() data: UpdateContractDto,
     ) {
-        return this.contractService.update(contractId, data);
+        const updateData: any = { ...data };
+        if (data.start_date) updateData.start_date = new Date(data.start_date);
+        if (data.end_date) updateData.end_date = new Date(data.end_date);
+        return this.contractService.update(contractId, updateData);
     }
 
     @Patch('contracts/:contractId/activate')
