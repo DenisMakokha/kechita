@@ -687,27 +687,17 @@ const LoansPage: React.FC = () => {
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Interest Rate (% p.a.)
                                     </label>
-                                    <input
-                                        type="number"
-                                        value={formData.interest_rate}
-                                        onChange={(e) => setFormData(p => ({ ...p, interest_rate: parseFloat(e.target.value) || 0 }))}
-                                        min={0}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                        disabled={formData.loan_type === 'salary_advance'}
-                                    />
+                                    <div className="w-full px-4 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-600">
+                                        {formData.interest_rate}%
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Max Salary Deduction (%)
                                     </label>
-                                    <input
-                                        type="number"
-                                        value={formData.max_salary_deduction_percent}
-                                        onChange={(e) => setFormData(p => ({ ...p, max_salary_deduction_percent: parseInt(e.target.value) || 33 }))}
-                                        min={10}
-                                        max={50}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                                    />
+                                    <div className="w-full px-4 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-600">
+                                        {formData.max_salary_deduction_percent}%
+                                    </div>
                                 </div>
                             </div>
 
