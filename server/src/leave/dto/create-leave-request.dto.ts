@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsUUID, IsDateString, IsOptional, IsBoolean, IsString, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateLeaveRequestDto {
     @IsUUID()
@@ -27,6 +28,7 @@ export class CreateLeaveRequestDto {
     reason?: string;
 
     @IsOptional()
+    @Transform(({ value }) => value === '' ? null : value)
     @IsUUID()
     reliever_id?: string;
 
