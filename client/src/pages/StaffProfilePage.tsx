@@ -629,6 +629,7 @@ export const StaffProfilePage: React.FC = () => {
             <div className="bg-white rounded-xl border border-slate-200 p-6">
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
+                    <div className="space-y-6">
                     <div className="grid gap-6 md:grid-cols-2">
                         {/* Personal Information */}
                         <div>
@@ -778,7 +779,7 @@ export const StaffProfilePage: React.FC = () => {
                     </div>
                     {/* Direct Reports */}
                     {directReports.length > 0 && (
-                        <div className="md:col-span-2">
+                        <div>
                             <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2"><MapPin size={18} className="text-[#0066B3]" />Direct Reports ({directReports.length})</h3>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {directReports.map((dr) => (
