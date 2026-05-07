@@ -12,7 +12,7 @@ import {
     Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Eye,
     Key, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Clock,
     Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
-    Upload, Download, FileSpreadsheet
+    Upload, Download, FileSpreadsheet, SlidersHorizontal, Save
 } from 'lucide-react';
 
 type Tab = 'directory' | 'users' | 'roles';
@@ -87,6 +87,15 @@ export const StaffManagementPage: React.FC = () => {
     const [permRoleId, setPermRoleId] = useState<string | null>(null);
     const [permRoleName, setPermRoleName] = useState<string>('');
 
+    // Manage Role drawer state
+    const [manageRole, setManageRole] = useState<Role | null>(null);
+    const [manageRoleTab, setManageRoleTab] = useState<'details' | 'permissions' | 'users'>('permissions');
+    const [permSearch, setPermSearch] = useState('');
+    const [pendingPermIds, setPendingPermIds] = useState<Set<string>>(new Set());
+    const [permsDirty, setPermsDirty] = useState(false);
+    const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
+    const [editDetailsData, setEditDetailsData] = useState<Partial<Role>>({});
+
     // Bulk import state
     const [showBulkImportModal, setShowBulkImportModal] = useState(false);
     const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
@@ -133,6 +142,8 @@ export const StaffManagementPage: React.FC = () => {
     const { data: roleStats = [] } = useQuery<RoleStats[]>({ queryKey: ['role-stats'], queryFn: async () => { const res = (await api.get('/roles/stats')).data; return Array.isArray(res) ? res : []; } });
     const { data: allPermissions = [] } = useQuery<Permission[]>({ queryKey: ['permissions-all'], queryFn: async () => (await api.get('/roles/permissions/all')).data, enabled: activeTab === 'roles' });
     const { data: rolePermissions = [] } = useQuery<Permission[]>({ queryKey: ['role-permissions', permRoleId], queryFn: async () => (await api.get(`/roles/${permRoleId}/permissions`)).data, enabled: !!permRoleId });
+    const { data: manageRolePerms = [], isLoading: manageRolePermsLoading } = useQuery<Permission[]>({ queryKey: ['role-perms-manage', manageRole?.id], queryFn: async () => (await api.get(`/roles/${manageRole!.id}/permissions`)).data, enabled: !!manageRole, onSuccess: (data: Permission[]) => { if (!permsDirty) setPendingPermIds(new Set(data.map((p: Permission) => p.id))); } } as any);
+    const { data: roleUsers = [], isLoading: roleUsersLoading } = useQuery<User[]>({ queryKey: ['users-by-role', manageRole?.code], queryFn: async () => (await api.get(`/users/by-role/${manageRole!.code}`)).data, enabled: !!manageRole && manageRoleTab === 'users' });
 
     // Mutations
     const deactivateStaffMutation = useMutation({ mutationFn: (id: string) => api.post(`/staff/${id}/deactivate`), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); showToast('Staff deactivated'); setShowDeactivateConfirm(false); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate staff', 'error') });
@@ -157,6 +168,8 @@ export const StaffManagementPage: React.FC = () => {
     const deleteRoleMutation = useMutation({ mutationFn: async (id: string) => (await api.delete(`/roles/${id}`)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['roles'] }); showToast('Role deleted'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete role', 'error') });
     const activateRoleMutation = useMutation({ mutationFn: async (id: string) => (await api.post(`/roles/${id}/activate`)).data, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }), onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to activate role', 'error') });
     const deactivateRoleMutation = useMutation({ mutationFn: async (id: string) => (await api.post(`/roles/${id}/deactivate`)).data, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }), onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate role', 'error') });
+    const savePermsMutation = useMutation({ mutationFn: async ({ roleId, permissionIds }: { roleId: string; permissionIds: string[] }) => (await api.post(`/roles/${roleId}/permissions`, { permissionIds })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['role-perms-manage', manageRole?.id] }); setPermsDirty(false); showToast('Permissions saved'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save permissions', 'error') });
+    const updateRoleDetailsMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: Partial<Role> }) => (await api.patch(`/roles/${id}`, data)).data, onSuccess: (updated: Role) => { queryClient.invalidateQueries({ queryKey: ['roles'] }); setManageRole(updated); showToast('Role updated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error') });
 
     const bulkImportMutation = useMutation({
         mutationFn: async (file: File) => {
@@ -280,11 +293,107 @@ export const StaffManagementPage: React.FC = () => {
 
             {/* ROLES */}
             {activeTab === 'roles' && (<>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">{roleStats.slice(0, 5).map((stat) => <div key={stat.code} className={`relative overflow-hidden rounded-xl p-4 text-white bg-gradient-to-br ${getRoleColor(stat.code)}`}><div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" /><Shield className="mb-2 opacity-80" size={24} /><p className="text-3xl font-bold">{stat.userCount}</p><p className="text-sm opacity-80">{stat.name}</p></div>)}</div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4"><div className="flex flex-col md:flex-row gap-4 items-center"><div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Search roles..." value={roleSearch} onChange={(e) => setRoleSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div></div></div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{filteredRoles.map((role) => { const stats = roleStats.find((s) => s.code === role.code); return (
-                    <div key={role.id} className={`bg-white rounded-xl border ${role.is_active ? 'border-slate-200' : 'border-slate-200 opacity-60'} overflow-hidden hover:shadow-md transition-shadow`}><div className={`h-2 bg-gradient-to-r ${getRoleColor(role.code)}`} /><div className="p-5"><div className="flex items-start justify-between mb-3"><div className="flex items-center gap-3"><div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getRoleColor(role.code)} flex items-center justify-center`}><Shield className="text-white" size={24} /></div><div><h3 className="font-semibold text-slate-900">{role.name}</h3><p className="text-sm text-slate-500 font-mono">{role.code}</p></div></div>{role.is_active ? <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"><CheckCircle size={12} />Active</span> : <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-full"><AlertCircle size={12} />Inactive</span>}</div>{role.description && <p className="text-sm text-slate-500 mb-4 line-clamp-2">{role.description}</p>}<div className="flex items-center justify-between pt-4 border-t border-slate-100"><div className="flex items-center gap-2 text-slate-600"><Users size={16} /><span className="text-sm font-medium">{stats?.userCount ?? 0} users</span></div><div className="flex items-center gap-1"><button onClick={() => { setPermRoleId(role.id); setPermRoleName(role.name); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-purple-600" title="Manage permissions"><Key size={16} /></button><button onClick={() => { setSelectedRole(role); setRoleFormData({ code: role.code, name: role.name, description: role.description, is_active: role.is_active }); setShowRoleModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600"><Edit size={16} /></button><button onClick={() => role.is_active ? deactivateRoleMutation.mutate(role.id) : activateRoleMutation.mutate(role.id)} className={`p-2 hover:bg-slate-100 rounded-lg ${role.is_active ? 'text-slate-400 hover:text-amber-600' : 'text-slate-400 hover:text-emerald-600'}`}>{role.is_active ? <ShieldOff size={16} /> : <ShieldCheck size={16} />}</button><button onClick={() => handleDeleteRole(role)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600" disabled={(stats?.userCount ?? 0) > 0}><Trash2 size={16} /></button></div></div></div></div>
-                ); })}</div>
+                {/* Summary stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"><Shield size={20} className="text-[#0066B3]" /></div>
+                        <div><p className="text-2xl font-bold text-slate-900">{roles.length}</p><p className="text-xs text-slate-500">Total Roles</p></div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center"><CheckCircle size={20} className="text-emerald-600" /></div>
+                        <div><p className="text-2xl font-bold text-slate-900">{roles.filter(r => r.is_active).length}</p><p className="text-xs text-slate-500">Active</p></div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center"><Key size={20} className="text-purple-600" /></div>
+                        <div><p className="text-2xl font-bold text-slate-900">{allPermissions.length}</p><p className="text-xs text-slate-500">Permissions</p></div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center"><Users size={20} className="text-amber-600" /></div>
+                        <div><p className="text-2xl font-bold text-slate-900">{roleStats.reduce((s, r) => s + r.userCount, 0)}</p><p className="text-xs text-slate-500">Users w/ Roles</p></div>
+                    </div>
+                </div>
+                {/* Search */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                    <div className="flex flex-col md:flex-row gap-3 items-center">
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input type="text" placeholder="Search roles by name or code…" value={roleSearch} onChange={(e) => setRoleSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
+                        </div>
+                        <p className="text-sm text-slate-500 whitespace-nowrap">{filteredRoles.length} of {roles.length} roles</p>
+                    </div>
+                </div>
+                {/* Role cards */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredRoles.map((role) => {
+                        const roleStat = roleStats.find((s) => s.code === role.code);
+                        const rank = ROLE_HIERARCHY[role.code];
+                        return (
+                            <div key={role.id} className={"bg-white rounded-2xl border overflow-hidden transition-all hover:shadow-lg " + (role.is_active ? "border-slate-200" : "border-slate-200 opacity-60")}>
+                                <div className={"h-1.5 bg-gradient-to-r " + getRoleColor(role.code)} />
+                                <div className="p-5">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={"w-12 h-12 rounded-xl bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center shadow-sm"}>
+                                                <Shield className="text-white" size={22} />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-slate-900 leading-tight">{role.name}</h3>
+                                                <p className="text-xs text-slate-400 font-mono mt-0.5">{role.code}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1.5">
+                                            {role.is_active
+                                                ? <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"><CheckCircle size={10} />Active</span>
+                                                : <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-xs font-medium rounded-full"><AlertCircle size={10} />Inactive</span>}
+                                            {rank && <span className="text-xs text-slate-400 font-mono">Rank #{rank}</span>}
+                                        </div>
+                                    </div>
+                                    {role.description && <p className="text-sm text-slate-500 mb-4 line-clamp-2">{role.description}</p>}
+                                    <div className="grid grid-cols-2 gap-2 mb-4">
+                                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
+                                            <Users size={14} className="text-slate-400" />
+                                            <span className="text-sm font-semibold text-slate-800">{roleStat?.userCount ?? 0}</span>
+                                            <span className="text-xs text-slate-500">users</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg">
+                                            <Key size={14} className="text-purple-400" />
+                                            <span className="text-xs text-slate-500">click Manage</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                                        <button
+                                            onClick={() => {
+                                                setManageRole(role);
+                                                setManageRoleTab('permissions');
+                                                setPendingPermIds(new Set());
+                                                setPermsDirty(false);
+                                                setPermSearch('');
+                                                setCollapsedModules(new Set());
+                                                setEditDetailsData({ name: role.name, description: role.description });
+                                            }}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-[#0066B3] text-white text-sm font-medium rounded-lg hover:bg-[#005299]"
+                                        >
+                                            <SlidersHorizontal size={14} />Manage
+                                        </button>
+                                        <div className="flex items-center gap-0.5">
+                                            <button onClick={() => { setSelectedRole(role); setRoleFormData({ code: role.code, name: role.name, description: role.description, is_active: role.is_active }); setShowRoleModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600" title="Quick edit"><Edit size={15} /></button>
+                                            {role.is_active
+                                                ? <button onClick={() => deactivateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600" title="Deactivate"><ShieldOff size={15} /></button>
+                                                : <button onClick={() => activateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-600" title="Activate"><ShieldCheck size={15} /></button>}
+                                            <button onClick={() => handleDeleteRole(role)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600" disabled={(roleStat?.userCount ?? 0) > 0}><Trash2 size={15} /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {filteredRoles.length === 0 && (
+                        <div className="col-span-3 text-center py-16">
+                            <Shield className="mx-auto text-slate-300 mb-3" size={48} />
+                            <p className="text-slate-500 font-medium">No roles found</p>
+                        </div>
+                    )}
+                </div>
             </>)}
 
             {/* MODALS */}
@@ -762,8 +871,245 @@ export const StaffManagementPage: React.FC = () => {
                 </div>
             )}
 
-            {/* PERMISSIONS PANEL */}
-            {permRoleId && (
+            {/* MANAGE ROLE DRAWER */}
+            {manageRole && (
+                <div className="fixed inset-0 bg-black/60 flex items-stretch justify-end z-50">
+                    <div className="bg-white w-full max-w-3xl flex flex-col shadow-2xl">
+                        {/* Header */}
+                        <div className={"flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r " + getRoleColor(manageRole.code)}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                                    <Shield className="text-white" size={22} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">{manageRole.name}</h2>
+                                    <p className="text-xs text-white/70 font-mono">{manageRole.code}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setManageRole(null); setPermsDirty(false); }} className="p-2 hover:bg-white/20 rounded-lg text-white"><X size={20} /></button>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex border-b border-slate-200 bg-slate-50 px-6">
+                            {(['details', 'permissions', 'users'] as const).map((t) => (
+                                <button
+                                    key={t}
+                                    onClick={() => setManageRoleTab(t)}
+                                    className={"px-4 py-3 text-sm font-medium border-b-2 transition-colors capitalize " + (manageRoleTab === t ? "border-[#0066B3] text-[#0066B3]" : "border-transparent text-slate-500 hover:text-slate-700")}
+                                >
+                                    {t === 'details' ? 'Details' : t === 'permissions' ? `Permissions (${allPermissions.length})` : `Users (${roleStats.find(s => s.code === manageRole.code)?.userCount ?? 0})`}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Tab content */}
+                        <div className="flex-1 overflow-y-auto">
+                            {/* DETAILS TAB */}
+                            {manageRoleTab === 'details' && (
+                                <div className="p-6 space-y-5">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Role Code</p>
+                                            <p className="font-mono font-semibold text-slate-800">{manageRole.code}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Status</p>
+                                            {manageRole.is_active
+                                                ? <span className="flex items-center gap-1 text-emerald-700 text-sm font-medium"><CheckCircle size={14} />Active</span>
+                                                : <span className="flex items-center gap-1 text-slate-500 text-sm font-medium"><AlertCircle size={14} />Inactive</span>}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Users Assigned</p>
+                                            <p className="font-semibold text-slate-800">{roleStats.find(s => s.code === manageRole.code)?.userCount ?? 0}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Hierarchy Rank</p>
+                                            <p className="font-semibold text-slate-800">{ROLE_HIERARCHY[manageRole.code] ? `#${ROLE_HIERARCHY[manageRole.code]}` : 'Custom'}</p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Role Name</label>
+                                        <input type="text" value={editDetailsData.name ?? ''} onChange={(e) => setEditDetailsData({ ...editDetailsData, name: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                                        <textarea value={editDetailsData.description ?? ''} onChange={(e) => setEditDetailsData({ ...editDetailsData, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" placeholder="Brief description of this role..." />
+                                    </div>
+                                    <div className="flex items-center justify-between pt-2">
+                                        <div className="flex gap-2">
+                                            {manageRole.is_active
+                                                ? <button onClick={() => { deactivateRoleMutation.mutate(manageRole.id); setManageRole({ ...manageRole, is_active: false }); }} className="flex items-center gap-2 px-4 py-2 border border-amber-300 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-50"><ShieldOff size={15} />Deactivate</button>
+                                                : <button onClick={() => { activateRoleMutation.mutate(manageRole.id); setManageRole({ ...manageRole, is_active: true }); }} className="flex items-center gap-2 px-4 py-2 border border-emerald-300 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-50"><ShieldCheck size={15} />Activate</button>}
+                                        </div>
+                                        <button
+                                            onClick={() => updateRoleDetailsMutation.mutate({ id: manageRole.id, data: { name: editDetailsData.name, description: editDetailsData.description } })}
+                                            disabled={updateRoleDetailsMutation.isPending}
+                                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] disabled:opacity-50"
+                                        >
+                                            {updateRoleDetailsMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PERMISSIONS TAB */}
+                            {manageRoleTab === 'permissions' && (
+                                <div className="flex flex-col h-full">
+                                    {/* Permissions search + actions */}
+                                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3 sticky top-0 z-10">
+                                        <div className="flex-1 relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                            <input type="text" placeholder="Search permissions..." value={permSearch} onChange={(e) => setPermSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
+                                        </div>
+                                        <span className="text-xs text-slate-500 whitespace-nowrap">{pendingPermIds.size} selected</span>
+                                        {permsDirty && (
+                                            <button
+                                                onClick={() => savePermsMutation.mutate({ roleId: manageRole.id, permissionIds: Array.from(pendingPermIds) })}
+                                                disabled={savePermsMutation.isPending}
+                                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 animate-pulse"
+                                            >
+                                                {savePermsMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                Save
+                                            </button>
+                                        )}
+                                    </div>
+                                    {manageRolePermsLoading ? (
+                                        <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin text-[#0066B3]" size={32} /></div>
+                                    ) : (
+                                        <div className="p-5 space-y-6">
+                                            {Object.entries(
+                                                allPermissions
+                                                    .filter(p => !permSearch || p.name.toLowerCase().includes(permSearch.toLowerCase()) || p.code.toLowerCase().includes(permSearch.toLowerCase()))
+                                                    .reduce((acc: Record<string, Permission[]>, p) => { (acc[p.module] = acc[p.module] || []).push(p); return acc; }, {})
+                                            ).map(([module, perms]) => {
+                                                const modulePerms = perms as Permission[];
+                                                const allChecked = modulePerms.every(p => pendingPermIds.has(p.id));
+                                                const someChecked = modulePerms.some(p => pendingPermIds.has(p.id));
+                                                const collapsed = collapsedModules.has(module);
+                                                return (
+                                                    <div key={module} className="border border-slate-200 rounded-xl overflow-hidden">
+                                                        <div
+                                                            className={"flex items-center justify-between px-4 py-3 cursor-pointer select-none " + (allChecked ? "bg-blue-50 border-b border-blue-100" : someChecked ? "bg-amber-50 border-b border-amber-100" : "bg-slate-50 border-b border-slate-100")}
+                                                            onClick={() => setCollapsedModules(prev => { const next = new Set(prev); collapsed ? next.delete(module) : next.add(module); return next; })}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={allChecked}
+                                                                    ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setPendingPermIds(prev => {
+                                                                            const next = new Set(prev);
+                                                                            if (allChecked) { modulePerms.forEach(p => next.delete(p.id)); }
+                                                                            else { modulePerms.forEach(p => next.add(p.id)); }
+                                                                            return next;
+                                                                        });
+                                                                        setPermsDirty(true);
+                                                                    }}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    className="w-4 h-4 text-[#0066B3] rounded"
+                                                                />
+                                                                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{module}</span>
+                                                                <span className={"text-xs px-1.5 py-0.5 rounded font-medium " + (allChecked ? "bg-blue-200 text-blue-800" : someChecked ? "bg-amber-200 text-amber-800" : "bg-slate-200 text-slate-600")}>{modulePerms.filter(p => pendingPermIds.has(p.id)).length}/{modulePerms.length}</span>
+                                                            </div>
+                                                            <span className="text-slate-400 text-xs">{collapsed ? '▶' : '▼'}</span>
+                                                        </div>
+                                                        {!collapsed && (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-slate-100">
+                                                                {modulePerms.map((perm) => {
+                                                                    const checked = pendingPermIds.has(perm.id);
+                                                                    return (
+                                                                        <label key={perm.id} className={"flex items-center gap-3 p-3 cursor-pointer transition-colors bg-white " + (checked ? "bg-blue-50" : "hover:bg-slate-50")}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={checked}
+                                                                                onChange={() => {
+                                                                                    setPendingPermIds(prev => {
+                                                                                        const next = new Set(prev);
+                                                                                        checked ? next.delete(perm.id) : next.add(perm.id);
+                                                                                        return next;
+                                                                                    });
+                                                                                    setPermsDirty(true);
+                                                                                }}
+                                                                                className="w-4 h-4 text-[#0066B3] rounded flex-shrink-0"
+                                                                            />
+                                                                            <div>
+                                                                                <p className={"text-sm font-medium " + (checked ? "text-[#0066B3]" : "text-slate-800")}>{perm.name}</p>
+                                                                                <p className="text-xs text-slate-400 font-mono">{perm.code}</p>
+                                                                            </div>
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                            {allPermissions.length === 0 && (
+                                                <div className="text-center py-12 text-slate-500">
+                                                    <Key className="mx-auto mb-3 text-slate-300" size={40} />
+                                                    <p>No permissions defined yet</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* USERS TAB */}
+                            {manageRoleTab === 'users' && (
+                                <div className="p-5">
+                                    {roleUsersLoading ? (
+                                        <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin text-[#0066B3]" size={32} /></div>
+                                    ) : roleUsers.length === 0 ? (
+                                        <div className="text-center py-16">
+                                            <Users className="mx-auto text-slate-300 mb-3" size={48} />
+                                            <p className="text-slate-500">No users assigned to this role</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <p className="text-sm text-slate-500 mb-3">{roleUsers.length} user{roleUsers.length !== 1 ? 's' : ''} with this role</p>
+                                            {roleUsers.map((u: User) => (
+                                                <div key={u.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0066B3] to-[#00AEEF] flex items-center justify-center text-white text-sm font-medium">
+                                                            {u.staff ? `${u.staff.first_name[0]}${u.staff.last_name[0]}` : u.email[0].toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-slate-900">{u.staff ? `${u.staff.first_name} ${u.staff.last_name}` : u.email.split('@')[0]}</p>
+                                                            <p className="text-xs text-slate-500">{u.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {u.is_active
+                                                            ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">Active</span>
+                                                            : <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full font-medium">Inactive</span>}
+                                                        {u.staff && (
+                                                            <button onClick={() => { setManageRole(null); navigate(`/staff/${u.staff!.id}`); }} className="p-1.5 hover:bg-blue-100 rounded-lg text-slate-400 hover:text-[#0066B3]" title="View profile">
+                                                                <Eye size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                            <p className="text-xs text-slate-400">Role ID: {manageRole.id.slice(0, 8)}…</p>
+                            <button onClick={() => { setManageRole(null); setPermsDirty(false); }} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* LEGACY PERMISSIONS PANEL (kept for backward compat, now superseded by Manage drawer) */}
+            {permRoleId && !manageRole && (
                 <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -775,10 +1121,10 @@ export const StaffManagementPage: React.FC = () => {
                                 <div key={module} className="mb-6">
                                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{module}</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {perms.map((perm) => {
+                                        {(perms as Permission[]).map((perm) => {
                                             const hasIt = rolePermissions.some((rp) => rp.id === perm.id);
                                             return (
-                                                <label key={perm.id} className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${hasIt ? 'border-[#0066B3] bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                                <label key={perm.id} className={"flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors " + (hasIt ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
                                                     <input type="checkbox" checked={hasIt} onChange={() => { const newIds = hasIt ? rolePermissions.filter((rp) => rp.id !== perm.id).map((rp) => rp.id) : [...rolePermissions.map((rp) => rp.id), perm.id]; setRolePermissionsMutation.mutate({ roleId: permRoleId!, permissionIds: newIds }); }} className="w-4 h-4 text-[#0066B3] rounded" />
                                                     <div><p className="text-sm font-medium text-slate-900">{perm.name}</p><p className="text-xs text-slate-500 font-mono">{perm.code}</p></div>
                                                 </label>
