@@ -645,9 +645,11 @@ export const UsersPage: React.FC = () => {
                 title="Reset Password"
                 message="Enter the new password for this user (minimum 8 characters)."
                 inputLabel="New Password"
+                inputType="password"
+                minLength={8}
                 placeholder="Min 8 characters"
                 confirmLabel="Reset Password"
-                onConfirm={(password) => { if (password.length >= 8 && resetPwUserId) resetPasswordMutation.mutate({ id: resetPwUserId, password }); setResetPwUserId(null); }}
+                onConfirm={(password) => { if (resetPwUserId) resetPasswordMutation.mutate({ id: resetPwUserId, password }); setResetPwUserId(null); }}
                 onCancel={() => setResetPwUserId(null)}
                 isLoading={resetPasswordMutation.isPending}
             />

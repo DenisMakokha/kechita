@@ -6,7 +6,8 @@ interface InputDialogProps {
     title: string;
     message?: string;
     inputLabel: string;
-    inputType?: 'text' | 'number' | 'textarea';
+    inputType?: 'text' | 'number' | 'textarea' | 'password';
+    minLength?: number;
     placeholder?: string;
     confirmLabel?: string;
     cancelLabel?: string;
@@ -26,6 +27,7 @@ export const InputDialog: React.FC<InputDialogProps> = ({
     confirmLabel = 'Submit',
     cancelLabel = 'Cancel',
     required = true,
+    minLength,
     onConfirm,
     onCancel,
     isLoading = false,
@@ -38,6 +40,10 @@ export const InputDialog: React.FC<InputDialogProps> = ({
     const handleSubmit = () => {
         if (required && !value.trim()) {
             setError('This field is required');
+            return;
+        }
+        if (minLength && value.trim().length < minLength) {
+            setError(`Must be at least ${minLength} characters`);
             return;
         }
         onConfirm(value.trim());
@@ -76,6 +82,7 @@ export const InputDialog: React.FC<InputDialogProps> = ({
                             value={value}
                             onChange={e => { setValue(e.target.value); setError(''); }}
                             placeholder={placeholder}
+                            autoComplete={inputType === 'password' ? 'new-password' : undefined}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3]"
                         />
                     )}
