@@ -102,7 +102,7 @@ export const StaffManagementPage: React.FC = () => {
     const hrRequireNok = hrPolicy?.hr_nok_required ?? true;
 
     // Queries
-    const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => (await api.get('/staff')).data, refetchInterval: 60000 });
+    const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => { const res = (await api.get('/staff')).data; return Array.isArray(res) ? res : (res?.data ?? []); }, refetchInterval: 60000 });
     const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data });
     const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data });
     const { data: regions = [] } = useQuery({ queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data });
