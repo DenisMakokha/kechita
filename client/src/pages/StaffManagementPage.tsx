@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -142,7 +142,8 @@ export const StaffManagementPage: React.FC = () => {
     const { data: roleStats = [] } = useQuery<RoleStats[]>({ queryKey: ['role-stats'], queryFn: async () => { const res = (await api.get('/roles/stats')).data; return Array.isArray(res) ? res : []; } });
     const { data: allPermissions = [] } = useQuery<Permission[]>({ queryKey: ['permissions-all'], queryFn: async () => (await api.get('/roles/permissions/all')).data, enabled: activeTab === 'roles' });
     const { data: rolePermissions = [] } = useQuery<Permission[]>({ queryKey: ['role-permissions', permRoleId], queryFn: async () => (await api.get(`/roles/${permRoleId}/permissions`)).data, enabled: !!permRoleId });
-    const { data: manageRolePerms = [], isLoading: manageRolePermsLoading } = useQuery<Permission[]>({ queryKey: ['role-perms-manage', manageRole?.id], queryFn: async () => (await api.get(`/roles/${manageRole!.id}/permissions`)).data, enabled: !!manageRole, onSuccess: (data: Permission[]) => { if (!permsDirty) setPendingPermIds(new Set(data.map((p: Permission) => p.id))); } } as any);
+    const { data: manageRolePermsData = [], isLoading: manageRolePermsLoading } = useQuery<Permission[]>({ queryKey: ['role-perms-manage', manageRole?.id], queryFn: async () => (await api.get(`/roles/${manageRole!.id}/permissions`)).data, enabled: !!manageRole });
+    useEffect(() => { if (manageRolePermsData.length > 0 && !permsDirty) { setPendingPermIds(new Set(manageRolePermsData.map((p: Permission) => p.id))); } }, [manageRolePermsData]);
     const { data: roleUsers = [], isLoading: roleUsersLoading } = useQuery<User[]>({ queryKey: ['users-by-role', manageRole?.code], queryFn: async () => (await api.get(`/users/by-role/${manageRole!.code}`)).data, enabled: !!manageRole && manageRoleTab === 'users' });
 
     // Mutations
