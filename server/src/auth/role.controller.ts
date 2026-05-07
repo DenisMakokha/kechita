@@ -85,6 +85,15 @@ export class RoleController {
         return this.roleService.delete(id);
     }
 
+    @Post(':id/duplicate')
+    @Roles('CEO')
+    async duplicate(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() body: { code: string; name: string },
+    ) {
+        return this.roleService.duplicateRole(id, body);
+    }
+
     // ==================== ROLE-SPECIFIC PERMISSIONS ====================
 
     @Get(':id/permissions')

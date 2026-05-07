@@ -12,7 +12,8 @@ import {
     Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Eye,
     Key, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Clock,
     Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
-    Upload, Download, FileSpreadsheet, SlidersHorizontal, Save
+    Upload, Download, FileSpreadsheet, SlidersHorizontal, Save,
+    Copy, Link2, LinkOff, LayoutList, LayoutGrid, GitCompare, Lock, Unlock
 } from 'lucide-react';
 
 type Tab = 'directory' | 'users' | 'roles';
@@ -20,7 +21,7 @@ type Tab = 'directory' | 'users' | 'roles';
 interface Staff { id: string; first_name: string; last_name: string; employee_number: string; status: string; phone?: string; position?: { id: string; name: string }; branch?: { id: string; name: string }; region?: { id: string; name: string }; department?: { id: string; name: string }; user?: { email: string }; }
 interface User { id: string; email: string; is_active: boolean; two_factor_enabled: boolean; last_login_at?: string; roles: { id: string; code: string; name: string }[]; staff?: { id: string; first_name: string; last_name: string; employee_number: string; branch?: { name: string }; }; }
 interface Role { id: string; code: string; name: string; description?: string; is_active: boolean; }
-interface RoleStats { code: string; name: string; userCount: number; }
+interface RoleStats { code: string; name: string; userCount: number; permissionCount: number; }
 interface Permission { id: string; code: string; name: string; module: string; description?: string; }
 
 const ROLE_HIERARCHY: Record<string, number> = {
@@ -70,6 +71,36 @@ export const StaffManagementPage: React.FC = () => {
     const [resetPwUserId, setResetPwUserId] = useState<string | null>(null);
     const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [deleteRoleTarget, setDeleteRoleTarget] = useState<Role | null>(null);
+
+    // User detail drawer state
+    const [drawerUser, setDrawerUser] = useState<User | null>(null);
+    const [drawerTab, setDrawerTab] = useState<'overview' | 'security' | 'stafflink'>('overview');
+    const [drawerRoleCode, setDrawerRoleCode] = useState('');
+    const [drawerPwForm, setDrawerPwForm] = useState({ newPw: '', confirm: '' });
+    const [drawerPwError, setDrawerPwError] = useState('');
+
+    // Bulk selection state
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+    const [bulkRoleCode, setBulkRoleCode] = useState('');
+    const [showBulkRoleModal, setShowBulkRoleModal] = useState(false);
+
+    // Staff link search (inside user drawer)
+    const [staffLinkSearch, setStaffLinkSearch] = useState('');
+
+    // Duplicate role state
+    const [duplicateRoleSource, setDuplicateRoleSource] = useState<Role | null>(null);
+    const [duplicateForm, setDuplicateForm] = useState({ code: '', name: '' });
+
+    // Compare roles state
+    const [compareRoleA, setCompareRoleA] = useState<Role | null>(null);
+    const [compareRoleB, setCompareRoleB] = useState<Role | null>(null);
+    const [showCompareModal, setShowCompareModal] = useState(false);
+    const [compareRoleAPerms, setCompareRoleAPerms] = useState<Permission[]>([]);
+    const [compareRoleBPerms, setCompareRoleBPerms] = useState<Permission[]>([]);
+    const [compareLoading, setCompareLoading] = useState(false);
+
+    // Roles view mode
+    const [rolesViewMode, setRolesViewMode] = useState<'cards' | 'table'>('cards');
 
     // Edit staff state
     const [showEditStaffModal, setShowEditStaffModal] = useState(false);
@@ -145,6 +176,9 @@ export const StaffManagementPage: React.FC = () => {
     const { data: manageRolePermsData = [], isLoading: manageRolePermsLoading } = useQuery<Permission[]>({ queryKey: ['role-perms-manage', manageRole?.id], queryFn: async () => (await api.get(`/roles/${manageRole!.id}/permissions`)).data, enabled: !!manageRole });
     useEffect(() => { if (manageRolePermsData.length > 0 && !permsDirty) { setPendingPermIds(new Set(manageRolePermsData.map((p: Permission) => p.id))); } }, [manageRolePermsData]);
     const { data: roleUsers = [], isLoading: roleUsersLoading } = useQuery<User[]>({ queryKey: ['users-by-role', manageRole?.code], queryFn: async () => (await api.get(`/users/by-role/${manageRole!.code}`)).data, enabled: !!manageRole && manageRoleTab === 'users' });
+    const { data: unlinkedStaff = [] } = useQuery<any[]>({ queryKey: ['staff-unlinked'], queryFn: async () => { const res = (await api.get('/staff')).data; const all = Array.isArray(res) ? res : (res?.data ?? []); return all.filter((s: any) => !s.user); }, enabled: !!drawerUser && drawerTab === 'stafflink' && !drawerUser.staff });
+    const { data: drawerUserPermsRole } = useQuery<Permission[]>({ queryKey: ['role-perms-compare-a', compareRoleA?.id], queryFn: async () => (await api.get(`/roles/${compareRoleA!.id}/permissions`)).data, enabled: !!compareRoleA && showCompareModal });
+    const { data: drawerRoleBPerms } = useQuery<Permission[]>({ queryKey: ['role-perms-compare-b', compareRoleB?.id], queryFn: async () => (await api.get(`/roles/${compareRoleB!.id}/permissions`)).data, enabled: !!compareRoleB && showCompareModal });
 
     // Mutations
     const deactivateStaffMutation = useMutation({ mutationFn: (id: string) => api.post(`/staff/${id}/deactivate`), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); showToast('Staff deactivated'); setShowDeactivateConfirm(false); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate staff', 'error') });
@@ -171,6 +205,12 @@ export const StaffManagementPage: React.FC = () => {
     const deactivateRoleMutation = useMutation({ mutationFn: async (id: string) => (await api.post(`/roles/${id}/deactivate`)).data, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }), onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate role', 'error') });
     const savePermsMutation = useMutation({ mutationFn: async ({ roleId, permissionIds }: { roleId: string; permissionIds: string[] }) => (await api.post(`/roles/${roleId}/permissions`, { permissionIds })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['role-perms-manage', manageRole?.id] }); setPermsDirty(false); showToast('Permissions saved'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save permissions', 'error') });
     const updateRoleDetailsMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: Partial<Role> }) => (await api.patch(`/roles/${id}`, data)).data, onSuccess: (updated: Role) => { queryClient.invalidateQueries({ queryKey: ['roles'] }); setManageRole(updated); showToast('Role updated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error') });
+    const duplicateRoleMutation = useMutation({ mutationFn: async ({ id, code, name }: { id: string; code: string; name: string }) => (await api.post(`/roles/${id}/duplicate`, { code, name })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['roles'] }); queryClient.invalidateQueries({ queryKey: ['role-stats'] }); setDuplicateRoleSource(null); setDuplicateForm({ code: '', name: '' }); showToast('Role duplicated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to duplicate role', 'error') });
+    const updateDrawerRoleMutation = useMutation({ mutationFn: async ({ id, role_code }: { id: string; role_code: string }) => (await api.patch(`/users/${id}/roles`, { role_code })).data, onSuccess: (updated: User) => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['role-stats'] }); setDrawerUser(updated); showToast('Role updated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error') });
+    const linkStaffMutation = useMutation({ mutationFn: async ({ staffId, userId }: { staffId: string; userId: string | null }) => (await api.patch(`/staff/${staffId}`, { user_id: userId })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-unlinked'] }); showToast(userId ? 'User linked to staff' : 'User unlinked from staff'); if (drawerUser) { const updated = { ...drawerUser }; if (!userId) updated.staff = undefined; setDrawerUser(updated); } }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update link', 'error') });
+    const bulkActivateMutation = useMutation({ mutationFn: async (ids: string[]) => Promise.allSettled(ids.map(id => api.post(`/users/${id}/activate`))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setSelectedUserIds(new Set()); showToast(`Activated ${selectedUserIds.size} users`); } });
+    const bulkDeactivateMutation = useMutation({ mutationFn: async (ids: string[]) => Promise.allSettled(ids.map(id => api.post(`/users/${id}/deactivate`))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setSelectedUserIds(new Set()); showToast(`Deactivated ${selectedUserIds.size} users`); } });
+    const bulkAssignRoleMutation = useMutation({ mutationFn: async ({ ids, role_code }: { ids: string[]; role_code: string }) => Promise.allSettled(ids.map(id => api.patch(`/users/${id}/roles`, { role_code }))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['role-stats'] }); setSelectedUserIds(new Set()); setShowBulkRoleModal(false); showToast(`Role assigned to ${selectedUserIds.size} users`); } });
 
     const bulkImportMutation = useMutation({
         mutationFn: async (file: File) => {
@@ -224,6 +264,12 @@ export const StaffManagementPage: React.FC = () => {
     const handleDeleteUser = (u: User) => { setDeleteUserTarget(u); setUserActionMenu(null); };
     const handleDeleteRole = (role: Role) => { const s = roleStats.find((x) => x.code === role.code); if (s && s.userCount > 0) { showToast(`Cannot delete - has ${s.userCount} users`, 'error'); return; } setDeleteRoleTarget(role); };
 
+    const openUserDrawer = (u: User) => { setDrawerUser(u); setDrawerTab('overview'); setDrawerRoleCode(u.roles[0]?.code || ''); setDrawerPwForm({ newPw: '', confirm: '' }); setDrawerPwError(''); };
+    const toggleUserSelect = (id: string) => setSelectedUserIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    const selectAllUsers = () => setSelectedUserIds(new Set(users.map((u: User) => u.id)));
+    const getRoleColor2 = (code: string): string => ({ CEO: 'bg-purple-100 text-purple-700', HR_MANAGER: 'bg-pink-100 text-pink-700', REGIONAL_MANAGER: 'bg-blue-100 text-blue-700', BRANCH_MANAGER: 'bg-emerald-100 text-emerald-700', ACCOUNTANT: 'bg-amber-100 text-amber-700', HR_ASSISTANT: 'bg-indigo-100 text-indigo-700', BDM: 'bg-teal-100 text-teal-700', RELATIONSHIP_OFFICER: 'bg-cyan-100 text-cyan-700' }[code] || 'bg-slate-100 text-slate-700');
+    const formatRelTime = (dateStr?: string) => { if (!dateStr) return 'Never'; const diff = Date.now() - new Date(dateStr).getTime(); if (diff < 60000) return 'Just now'; if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`; if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`; return `${Math.floor(diff/86400000)}d ago`; };
+
     const tabs = [{ id: 'directory' as Tab, label: 'Staff Directory', icon: Users, count: staff.length }, { id: 'users' as Tab, label: 'User Accounts', icon: UserPlus, count: usersTotal }, { id: 'roles' as Tab, label: 'Roles', icon: Shield, count: roles.length }];
 
     return (
@@ -272,23 +318,152 @@ export const StaffManagementPage: React.FC = () => {
 
             {/* USERS */}
             {activeTab === 'users' && (<>
+                {/* Stats row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <div className="bg-white rounded-xl border border-slate-200 p-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"><Users size={20} className="text-[#0066B3]" /></div><div><p className="text-2xl font-bold text-slate-900">{usersTotal}</p><p className="text-xs text-slate-500">Total</p></div></div></div>
-                    {roleStats.slice(0, 5).map((stat) => <div key={stat.code} className="bg-white rounded-xl border border-slate-200 p-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center"><Shield size={20} className="text-slate-600" /></div><div><p className="text-2xl font-bold text-slate-900">{stat.userCount}</p><p className="text-xs text-slate-500 truncate">{stat.name}</p></div></div></div>)}
+                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"><Users size={20} className="text-[#0066B3]" /></div>
+                            <div><p className="text-2xl font-bold text-slate-900">{usersTotal}</p><p className="text-xs text-slate-500">Total</p></div>
+                        </div>
+                    </div>
+                    {roleStats.slice(0, 5).map((stat) => (
+                        <div key={stat.code} className="bg-white rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-center gap-3">
+                                <div className={"w-10 h-10 rounded-lg flex items-center justify-center " + getRoleColor2(stat.code).split(' ')[0]}><Shield size={18} className={getRoleColor2(stat.code).split(' ')[1]} /></div>
+                                <div><p className="text-2xl font-bold text-slate-900">{stat.userCount}</p><p className="text-xs text-slate-500 truncate">{stat.name}</p></div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4"><div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Search..." value={userSearch} onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                    <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setUserPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white"><option value="">All Roles</option>{roles.map((r) => <option key={r.id} value={r.code}>{r.name}</option>)}</select>
-                </div></div>
+
+                {/* Bulk action toolbar */}
+                {selectedUserIds.size > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#0066B3] text-white rounded-xl shadow-lg">
+                        <span className="font-semibold text-sm">{selectedUserIds.size} selected</span>
+                        <div className="h-4 w-px bg-white/30" />
+                        <button onClick={() => bulkActivateMutation.mutate(Array.from(selectedUserIds))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><CheckCircle size={14} />Activate</button>
+                        <button onClick={() => bulkDeactivateMutation.mutate(Array.from(selectedUserIds))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><AlertCircle size={14} />Deactivate</button>
+                        <button onClick={() => setShowBulkRoleModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><Shield size={14} />Assign Role</button>
+                        <div className="ml-auto"><button onClick={() => setSelectedUserIds(new Set())} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} /></button></div>
+                    </div>
+                )}
+
+                {/* Search + filter */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                    <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search by name or email..." value={userSearch} onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                        <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setUserPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white text-sm">
+                            <option value="">All Roles</option>
+                            {roles.map((r) => <option key={r.id} value={r.code}>{r.name}</option>)}
+                        </select>
+                        <button onClick={selectAllUsers} className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Select All</button>
+                    </div>
+                </div>
+
+                {/* User table */}
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    {usersLoading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3]" /></div> : users.length === 0 ? <div className="text-center py-12"><Users className="mx-auto text-slate-300 mb-4" size={48} /><p className="text-slate-500">No users</p></div> : <>
-                        <table className="w-full"><thead className="bg-slate-50 border-b border-slate-200"><tr><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">User</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Roles</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden lg:table-cell">Last Login</th><th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th></tr></thead><tbody>
-                            {users.map((u: User) => (
-                                <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50"><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0066B3] to-[#00AEEF] flex items-center justify-center text-white font-medium">{u.staff ? `${u.staff.first_name[0]}${u.staff.last_name[0]}` : u.email[0].toUpperCase()}</div><div><p className="font-medium text-slate-900">{u.staff ? `${u.staff.first_name} ${u.staff.last_name}` : u.email.split('@')[0]}</p><p className="text-sm text-slate-500">{u.email}</p></div></div></td><td className="px-6 py-4"><div className="flex flex-wrap gap-1">{u.roles.length === 0 ? <span className="text-sm text-slate-400">None</span> : u.roles.slice(0, 2).map((r) => <span key={r.id} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">{r.code}</span>)}{u.roles.length > 2 && <span className="px-2 py-0.5 bg-slate-100 text-xs rounded">+{u.roles.length - 2}</span>}</div></td><td className="px-6 py-4 hidden md:table-cell">{u.staff?.branch ? <span className="flex items-center gap-1 text-sm text-slate-600"><Building size={14} />{u.staff.branch.name}</span> : <span className="text-slate-400">-</span>}</td><td className="px-6 py-4">{u.is_active ? <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"><CheckCircle size={12} />Active</span> : <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full"><AlertCircle size={12} />Inactive</span>}</td><td className="px-6 py-4 hidden lg:table-cell">{u.last_login_at ? <span className="flex items-center gap-1.5 text-sm text-slate-600"><Clock size={14} />{new Date(u.last_login_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span> : <span className="text-sm text-slate-400">Never</span>}</td><td className="px-6 py-4">{(() => { const myRank = getHighestRank(currentUser?.roles || []); const targetRank = getHighestRank(u.roles || []); const canModify = myRank < targetRank; return (<div className="flex items-center justify-end gap-2 relative">{!canModify && <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Protected</span>}<button onClick={() => setUserActionMenu(userActionMenu === u.id ? null : u.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MoreVertical size={18} /></button>{userActionMenu === u.id && <><div className="fixed inset-0 z-10" onClick={() => setUserActionMenu(null)} /><div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">{canModify ? <><button onClick={() => { setSelectedUser(u); setShowRoleAssignModal(true); setUserActionMenu(null); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><Shield size={16} />Manage Roles</button><button onClick={() => handleResetPassword(u.id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><Key size={16} />Reset Password</button><hr className="my-1" /><button onClick={() => handleUserToggleStatus(u)} className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${u.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}>{u.is_active ? <><UserX size={16} />Deactivate</> : <><UserCheck size={16} />Activate</>}</button><button onClick={() => handleDeleteUser(u)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={16} />Delete</button></> : <div className="px-4 py-3 text-xs text-slate-500 text-center"><ShieldCheck size={16} className="mx-auto mb-1 text-slate-400" />This user has a higher role.<br />You cannot modify their account.</div>}</div></>}</div>); })()}</td></tr>
-                            ))}
-                        </tbody></table>
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200"><p className="text-sm text-slate-500">Showing {users.length} of {usersTotal}</p><div className="flex items-center gap-2"><button onClick={() => setUserPage(Math.max(1, userPage - 1))} disabled={userPage === 1} className="p-2 hover:bg-slate-100 rounded-lg disabled:opacity-50"><ChevronLeft size={20} /></button><span className="px-4 py-2 text-sm text-slate-600">Page {userPage} of {usersTotalPages}</span><button onClick={() => setUserPage(Math.min(usersTotalPages, userPage + 1))} disabled={userPage === usersTotalPages} className="p-2 hover:bg-slate-100 rounded-lg disabled:opacity-50"><ChevronRight size={20} /></button></div></div>
-                    </>}
+                    {usersLoading ? (
+                        <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3]" /></div>
+                    ) : users.length === 0 ? (
+                        <div className="text-center py-16"><Users className="mx-auto text-slate-300 mb-4" size={48} /><p className="text-slate-500">No users found</p></div>
+                    ) : (
+                        <>
+                            <table className="w-full">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-4 py-3 w-10"><input type="checkbox" checked={selectedUserIds.size === users.length && users.length > 0} onChange={(e) => e.target.checked ? selectAllUsers() : setSelectedUserIds(new Set())} className="w-4 h-4 text-[#0066B3] rounded" /></th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">User</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Role</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600 hidden lg:table-cell">2FA</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600 hidden lg:table-cell">Last Login</th>
+                                        <th className="text-right px-4 py-3 text-sm font-semibold text-slate-600">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {users.map((u: User) => {
+                                        const myRank = getHighestRank(currentUser?.roles || []);
+                                        const targetRank = getHighestRank(u.roles || []);
+                                        const canModify = myRank < targetRank;
+                                        const isSelected = selectedUserIds.has(u.id);
+                                        return (
+                                            <tr key={u.id} className={"border-b border-slate-100 hover:bg-slate-50 transition-colors " + (isSelected ? "bg-blue-50" : "")}>
+                                                <td className="px-4 py-3"><input type="checkbox" checked={isSelected} onChange={() => toggleUserSelect(u.id)} className="w-4 h-4 text-[#0066B3] rounded" /></td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => openUserDrawer(u)}>
+                                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0066B3] to-[#00AEEF] flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                                                            {u.staff ? `${u.staff.first_name[0]}${u.staff.last_name[0]}` : u.email[0].toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-slate-900 text-sm hover:text-[#0066B3]">{u.staff ? `${u.staff.first_name} ${u.staff.last_name}` : u.email.split('@')[0]}</p>
+                                                            <p className="text-xs text-slate-500">{u.email}</p>
+                                                            {u.staff?.employee_number && <p className="text-xs text-slate-400 font-mono">{u.staff.employee_number}</p>}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {u.roles.length === 0
+                                                        ? <span className="text-xs text-slate-400 italic">No role</span>
+                                                        : <span className={"px-2.5 py-1 text-xs font-semibold rounded-full " + getRoleColor2(u.roles[0].code)}>{u.roles[0].name}</span>}
+                                                </td>
+                                                <td className="px-4 py-3 hidden md:table-cell">
+                                                    {u.staff?.branch ? <span className="flex items-center gap-1 text-sm text-slate-600"><Building size={13} />{u.staff.branch.name}</span> : <span className="text-slate-300">—</span>}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {u.is_active
+                                                        ? <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"><CheckCircle size={10} />Active</span>
+                                                        : <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-xs font-medium rounded-full"><AlertCircle size={10} />Inactive</span>}
+                                                </td>
+                                                <td className="px-4 py-3 hidden lg:table-cell">
+                                                    {u.two_factor_enabled
+                                                        ? <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium"><Lock size={12} />On</span>
+                                                        : <span className="flex items-center gap-1 text-xs text-slate-400"><Unlock size={12} />Off</span>}
+                                                </td>
+                                                <td className="px-4 py-3 hidden lg:table-cell">
+                                                    <span className="text-xs text-slate-500">{formatRelTime(u.last_login_at)}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <button onClick={() => openUserDrawer(u)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-[#0066B3]" title="Open details"><Eye size={15} /></button>
+                                                        {!canModify && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Protected</span>}
+                                                        <div className="relative">
+                                                            <button onClick={() => setUserActionMenu(userActionMenu === u.id ? null : u.id)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><MoreVertical size={15} /></button>
+                                                            {userActionMenu === u.id && (
+                                                                <>
+                                                                    <div className="fixed inset-0 z-10" onClick={() => setUserActionMenu(null)} />
+                                                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+                                                                        <button onClick={() => { openUserDrawer(u); setUserActionMenu(null); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><Eye size={15} />View Details</button>
+                                                                        {canModify && <>
+                                                                            <button onClick={() => { setSelectedUser(u); setShowRoleAssignModal(true); setUserActionMenu(null); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><Shield size={15} />Change Role</button>
+                                                                            <button onClick={() => handleResetPassword(u.id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><Key size={15} />Reset Password</button>
+                                                                            <hr className="my-1 border-slate-100" />
+                                                                            <button onClick={() => handleUserToggleStatus(u)} className={"w-full flex items-center gap-2 px-4 py-2 text-sm " + (u.is_active ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50")}>
+                                                                                {u.is_active ? <><UserX size={15} />Deactivate</> : <><UserCheck size={15} />Activate</>}
+                                                                            </button>
+                                                                            <button onClick={() => handleDeleteUser(u)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={15} />Delete</button>
+                                                                        </>}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
+                                <p className="text-sm text-slate-500">Showing {users.length} of {usersTotal} users</p>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setUserPage(Math.max(1, userPage - 1))} disabled={userPage === 1} className="p-2 hover:bg-white rounded-lg disabled:opacity-40 border border-slate-200"><ChevronLeft size={16} /></button>
+                                    <span className="px-3 py-1 text-sm text-slate-600">Page {userPage} of {usersTotalPages}</span>
+                                    <button onClick={() => setUserPage(Math.min(usersTotalPages, userPage + 1))} disabled={userPage === usersTotalPages} className="p-2 hover:bg-white rounded-lg disabled:opacity-40 border border-slate-200"><ChevronRight size={16} /></button>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </>)}
 
@@ -313,7 +488,7 @@ export const StaffManagementPage: React.FC = () => {
                         <div><p className="text-2xl font-bold text-slate-900">{roleStats.reduce((s, r) => s + r.userCount, 0)}</p><p className="text-xs text-slate-500">Users w/ Roles</p></div>
                     </div>
                 </div>
-                {/* Search */}
+                {/* Search + view toggle */}
                 <div className="bg-white rounded-xl border border-slate-200 p-4">
                     <div className="flex flex-col md:flex-row gap-3 items-center">
                         <div className="flex-1 relative">
@@ -321,80 +496,145 @@ export const StaffManagementPage: React.FC = () => {
                             <input type="text" placeholder="Search roles by name or code…" value={roleSearch} onChange={(e) => setRoleSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
                         </div>
                         <p className="text-sm text-slate-500 whitespace-nowrap">{filteredRoles.length} of {roles.length} roles</p>
+                        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+                            <button onClick={() => setRolesViewMode('cards')} className={"p-1.5 rounded " + (rolesViewMode === 'cards' ? "bg-white shadow text-[#0066B3]" : "text-slate-500 hover:text-slate-700")}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setRolesViewMode('table')} className={"p-1.5 rounded " + (rolesViewMode === 'table' ? "bg-white shadow text-[#0066B3]" : "text-slate-500 hover:text-slate-700")}><LayoutList size={16} /></button>
+                        </div>
                     </div>
                 </div>
-                {/* Role cards */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredRoles.map((role) => {
-                        const roleStat = roleStats.find((s) => s.code === role.code);
-                        const rank = ROLE_HIERARCHY[role.code];
-                        return (
-                            <div key={role.id} className={"bg-white rounded-2xl border overflow-hidden transition-all hover:shadow-lg " + (role.is_active ? "border-slate-200" : "border-slate-200 opacity-60")}>
-                                <div className={"h-1.5 bg-gradient-to-r " + getRoleColor(role.code)} />
-                                <div className="p-5">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={"w-12 h-12 rounded-xl bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center shadow-sm"}>
-                                                <Shield className="text-white" size={22} />
+                {/* Role cards / table */}
+                {rolesViewMode === 'cards' ? (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {filteredRoles.map((role) => {
+                            const roleStat = roleStats.find((s) => s.code === role.code);
+                            const rank = ROLE_HIERARCHY[role.code];
+                            return (
+                                <div key={role.id} className={"bg-white rounded-2xl border overflow-hidden transition-all hover:shadow-lg " + (role.is_active ? "border-slate-200" : "border-slate-200 opacity-60")}>
+                                    <div className={"h-1.5 bg-gradient-to-r " + getRoleColor(role.code)} />
+                                    <div className="p-5">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={"w-12 h-12 rounded-xl bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center shadow-sm"}>
+                                                    <Shield className="text-white" size={22} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 leading-tight">{role.name}</h3>
+                                                    <p className="text-xs text-slate-400 font-mono mt-0.5">{role.code}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="font-semibold text-slate-900 leading-tight">{role.name}</h3>
-                                                <p className="text-xs text-slate-400 font-mono mt-0.5">{role.code}</p>
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                {role.is_active
+                                                    ? <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"><CheckCircle size={10} />Active</span>
+                                                    : <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-xs font-medium rounded-full"><AlertCircle size={10} />Inactive</span>}
+                                                {rank && <span className="text-xs text-slate-400 font-mono">Rank #{rank}</span>}
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end gap-1.5">
-                                            {role.is_active
-                                                ? <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"><CheckCircle size={10} />Active</span>
-                                                : <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-xs font-medium rounded-full"><AlertCircle size={10} />Inactive</span>}
-                                            {rank && <span className="text-xs text-slate-400 font-mono">Rank #{rank}</span>}
+                                        {role.description && <p className="text-sm text-slate-500 mb-4 line-clamp-2">{role.description}</p>}
+                                        <div className="grid grid-cols-2 gap-2 mb-4">
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
+                                                <Users size={14} className="text-slate-400" />
+                                                <span className="text-sm font-semibold text-slate-800">{roleStat?.userCount ?? 0}</span>
+                                                <span className="text-xs text-slate-500">users</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg">
+                                                <Key size={14} className="text-purple-400" />
+                                                <span className="text-sm font-semibold text-slate-800">{roleStat?.permissionCount ?? 0}</span>
+                                                <span className="text-xs text-slate-500">perms</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    {role.description && <p className="text-sm text-slate-500 mb-4 line-clamp-2">{role.description}</p>}
-                                    <div className="grid grid-cols-2 gap-2 mb-4">
-                                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                                            <Users size={14} className="text-slate-400" />
-                                            <span className="text-sm font-semibold text-slate-800">{roleStat?.userCount ?? 0}</span>
-                                            <span className="text-xs text-slate-500">users</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg">
-                                            <Key size={14} className="text-purple-400" />
-                                            <span className="text-xs text-slate-500">click Manage</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                                        <button
-                                            onClick={() => {
-                                                setManageRole(role);
-                                                setManageRoleTab('permissions');
-                                                setPendingPermIds(new Set());
-                                                setPermsDirty(false);
-                                                setPermSearch('');
-                                                setCollapsedModules(new Set());
-                                                setEditDetailsData({ name: role.name, description: role.description });
-                                            }}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-[#0066B3] text-white text-sm font-medium rounded-lg hover:bg-[#005299]"
-                                        >
-                                            <SlidersHorizontal size={14} />Manage
-                                        </button>
-                                        <div className="flex items-center gap-0.5">
-                                            <button onClick={() => { setSelectedRole(role); setRoleFormData({ code: role.code, name: role.name, description: role.description, is_active: role.is_active }); setShowRoleModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600" title="Quick edit"><Edit size={15} /></button>
-                                            {role.is_active
-                                                ? <button onClick={() => deactivateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600" title="Deactivate"><ShieldOff size={15} /></button>
-                                                : <button onClick={() => activateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-600" title="Activate"><ShieldCheck size={15} /></button>}
-                                            <button onClick={() => handleDeleteRole(role)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600" disabled={(roleStat?.userCount ?? 0) > 0}><Trash2 size={15} /></button>
+                                        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                                            <button
+                                                onClick={() => { setManageRole(role); setManageRoleTab('permissions'); setPendingPermIds(new Set()); setPermsDirty(false); setPermSearch(''); setCollapsedModules(new Set()); setEditDetailsData({ name: role.name, description: role.description }); }}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-[#0066B3] text-white text-sm font-medium rounded-lg hover:bg-[#005299]"
+                                            >
+                                                <SlidersHorizontal size={14} />Manage
+                                            </button>
+                                            <div className="flex items-center gap-0.5">
+                                                <button onClick={() => { setCompareRoleA(role); setCompareRoleB(null); setShowCompareModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-indigo-600" title="Compare"><GitCompare size={15} /></button>
+                                                <button onClick={() => { setDuplicateRoleSource(role); setDuplicateForm({ code: 'COPY_OF_' + role.code, name: 'Copy of ' + role.name }); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-teal-600" title="Duplicate"><Copy size={15} /></button>
+                                                <button onClick={() => { setSelectedRole(role); setRoleFormData({ code: role.code, name: role.name, description: role.description, is_active: role.is_active }); setShowRoleModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600" title="Edit"><Edit size={15} /></button>
+                                                {role.is_active
+                                                    ? <button onClick={() => deactivateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600" title="Deactivate"><ShieldOff size={15} /></button>
+                                                    : <button onClick={() => activateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-600" title="Activate"><ShieldCheck size={15} /></button>}
+                                                <button onClick={() => handleDeleteRole(role)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600" disabled={(roleStat?.userCount ?? 0) > 0}><Trash2 size={15} /></button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            );
+                        })}
+                        {filteredRoles.length === 0 && (
+                            <div className="col-span-3 text-center py-16">
+                                <Shield className="mx-auto text-slate-300 mb-3" size={48} />
+                                <p className="text-slate-500 font-medium">No roles found</p>
                             </div>
-                        );
-                    })}
-                    {filteredRoles.length === 0 && (
-                        <div className="col-span-3 text-center py-16">
-                            <Shield className="mx-auto text-slate-300 mb-3" size={48} />
-                            <p className="text-slate-500 font-medium">No roles found</p>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                ) : (
+                    /* Hierarchy table view */
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Rank</th>
+                                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Role</th>
+                                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Code</th>
+                                    <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Users</th>
+                                    <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Permissions</th>
+                                    <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+                                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {[...filteredRoles].sort((a, b) => (ROLE_HIERARCHY[a.code] ?? 999) - (ROLE_HIERARCHY[b.code] ?? 999)).map((role) => {
+                                    const roleStat = roleStats.find((s) => s.code === role.code);
+                                    const rank = ROLE_HIERARCHY[role.code];
+                                    return (
+                                        <tr key={role.id} className={"hover:bg-slate-50 " + (role.is_active ? "" : "opacity-60")}>
+                                            <td className="px-5 py-3">
+                                                {rank ? <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold flex items-center justify-center">#{rank}</span> : <span className="text-xs text-slate-400">—</span>}
+                                            </td>
+                                            <td className="px-5 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={"w-9 h-9 rounded-lg bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center flex-shrink-0"}>
+                                                        <Shield className="text-white" size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold text-slate-900 text-sm">{role.name}</p>
+                                                        {role.description && <p className="text-xs text-slate-400 truncate max-w-[200px]">{role.description}</p>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-3"><span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{role.code}</span></td>
+                                            <td className="px-5 py-3 text-center">
+                                                <span className="font-semibold text-slate-800">{roleStat?.userCount ?? 0}</span>
+                                            </td>
+                                            <td className="px-5 py-3 text-center">
+                                                <span className="font-semibold text-purple-700">{roleStat?.permissionCount ?? 0}</span>
+                                            </td>
+                                            <td className="px-5 py-3 text-center">
+                                                <button
+                                                    onClick={() => role.is_active ? deactivateRoleMutation.mutate(role.id) : activateRoleMutation.mutate(role.id)}
+                                                    className={"px-2.5 py-1 text-xs font-medium rounded-full " + (role.is_active ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}
+                                                >
+                                                    {role.is_active ? "Active" : "Inactive"}
+                                                </button>
+                                            </td>
+                                            <td className="px-5 py-3">
+                                                <div className="flex items-center justify-end gap-0.5">
+                                                    <button onClick={() => { setManageRole(role); setManageRoleTab('permissions'); setPendingPermIds(new Set()); setPermsDirty(false); setPermSearch(''); setCollapsedModules(new Set()); setEditDetailsData({ name: role.name, description: role.description }); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-[#0066B3]" title="Manage"><SlidersHorizontal size={14} /></button>
+                                                    <button onClick={() => { setCompareRoleA(role); setCompareRoleB(null); setShowCompareModal(true); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600" title="Compare"><GitCompare size={14} /></button>
+                                                    <button onClick={() => { setDuplicateRoleSource(role); setDuplicateForm({ code: 'COPY_OF_' + role.code, name: 'Copy of ' + role.name }); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-teal-600" title="Duplicate"><Copy size={14} /></button>
+                                                    <button onClick={() => handleDeleteRole(role)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600" disabled={(roleStat?.userCount ?? 0) > 0}><Trash2 size={14} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </>)}
 
             {/* MODALS */}
@@ -958,12 +1198,36 @@ export const StaffManagementPage: React.FC = () => {
                             {manageRoleTab === 'permissions' && (
                                 <div className="flex flex-col h-full">
                                     {/* Permissions search + actions */}
-                                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3 sticky top-0 z-10">
-                                        <div className="flex-1 relative">
+                                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-2 sticky top-0 z-10">
+                                        <div className="flex-1 relative min-w-[160px]">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                             <input type="text" placeholder="Search permissions..." value={permSearch} onChange={(e) => setPermSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
                                         </div>
                                         <span className="text-xs text-slate-500 whitespace-nowrap">{pendingPermIds.size} selected</span>
+                                        <div className="relative group">
+                                            <button className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-100 bg-white">
+                                                <Copy size={13} />Copy from…
+                                            </button>
+                                            <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-20 hidden group-hover:block">
+                                                <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase">Load permissions from:</p>
+                                                {roles.filter(r => r.id !== manageRole.id).map(r => (
+                                                    <button
+                                                        key={r.id}
+                                                        onClick={async () => {
+                                                            const confirmed = window.confirm(`Replace current selection with ${r.name}'s permissions?`);
+                                                            if (!confirmed) return;
+                                                            const perms = await api.get(`/roles/${r.id}/permissions`).then(res => res.data as Permission[]);
+                                                            setPendingPermIds(new Set(perms.map(p => p.id)));
+                                                            setPermsDirty(true);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2"
+                                                    >
+                                                        <div className={"w-5 h-5 rounded bg-gradient-to-br " + getRoleColor(r.code) + " flex-shrink-0"} />
+                                                        {r.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                         {permsDirty && (
                                             <button
                                                 onClick={() => savePermsMutation.mutate({ roleId: manageRole.id, permissionIds: Array.from(pendingPermIds) })}
@@ -1142,6 +1406,384 @@ export const StaffManagementPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* ══════════════ USER DETAIL DRAWER ══════════════ */}
+            {drawerUser && (
+                <div className="fixed inset-0 bg-black/60 flex items-stretch justify-end z-50">
+                    <div className="bg-white w-full max-w-xl flex flex-col shadow-2xl">
+                        {/* Header */}
+                        <div className="flex items-center gap-4 px-6 py-5 bg-gradient-to-r from-[#0066B3] to-[#00AEEF]">
+                            <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+                                {drawerUser.staff ? `${drawerUser.staff.first_name[0]}${drawerUser.staff.last_name[0]}` : drawerUser.email[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-lg font-bold text-white truncate">
+                                    {drawerUser.staff ? `${drawerUser.staff.first_name} ${drawerUser.staff.last_name}` : drawerUser.email.split('@')[0]}
+                                </h2>
+                                <p className="text-sm text-white/70 truncate">{drawerUser.email}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    {drawerUser.roles[0] && <span className="px-2 py-0.5 bg-white/20 text-white text-xs rounded-full font-medium">{drawerUser.roles[0].name}</span>}
+                                    {drawerUser.is_active
+                                        ? <span className="px-2 py-0.5 bg-emerald-400/30 text-white text-xs rounded-full">Active</span>
+                                        : <span className="px-2 py-0.5 bg-white/10 text-white/60 text-xs rounded-full">Inactive</span>}
+                                </div>
+                            </div>
+                            <button onClick={() => setDrawerUser(null)} className="p-2 hover:bg-white/20 rounded-lg text-white"><X size={20} /></button>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex border-b border-slate-200 bg-slate-50 px-6">
+                            {(['overview', 'security', 'stafflink'] as const).map((t) => (
+                                <button key={t} onClick={() => setDrawerTab(t)} className={"px-4 py-3 text-sm font-medium border-b-2 transition-colors " + (drawerTab === t ? "border-[#0066B3] text-[#0066B3]" : "border-transparent text-slate-500 hover:text-slate-700")}>
+                                    {t === 'overview' ? 'Overview' : t === 'security' ? 'Security' : 'Staff Link'}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto">
+                            {/* OVERVIEW */}
+                            {drawerTab === 'overview' && (
+                                <div className="p-6 space-y-5">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <p className="text-xs text-slate-400 mb-0.5">Employee No.</p>
+                                            <p className="font-mono text-sm font-semibold text-slate-700">{drawerUser.staff?.employee_number || '—'}</p>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <p className="text-xs text-slate-400 mb-0.5">Branch</p>
+                                            <p className="text-sm font-semibold text-slate-700">{drawerUser.staff?.branch?.name || '—'}</p>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <p className="text-xs text-slate-400 mb-0.5">2FA</p>
+                                            <p className={"text-sm font-semibold " + (drawerUser.two_factor_enabled ? "text-emerald-600" : "text-slate-400")}>{drawerUser.two_factor_enabled ? '✓ Enabled' : 'Disabled'}</p>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <p className="text-xs text-slate-400 mb-0.5">Last Login</p>
+                                            <p className="text-sm font-semibold text-slate-700">{formatRelTime(drawerUser.last_login_at)}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Inline role change */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Assigned Role</label>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {roles.map((role) => (
+                                                <label key={role.id} className={"flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors " + (drawerRoleCode === role.code ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
+                                                    <input type="radio" name="drawer-role" checked={drawerRoleCode === role.code} onChange={() => setDrawerRoleCode(role.code)} className="w-4 h-4 text-[#0066B3]" />
+                                                    <div className={"w-7 h-7 rounded-lg bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center flex-shrink-0"}>
+                                                        <Shield size={13} className="text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-slate-900">{role.name}</p>
+                                                        <p className="text-xs text-slate-400 font-mono">{role.code}</p>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        <button
+                                            onClick={() => updateDrawerRoleMutation.mutate({ id: drawerUser.id, role_code: drawerRoleCode })}
+                                            disabled={drawerRoleCode === drawerUser.roles[0]?.code || updateDrawerRoleMutation.isPending}
+                                            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] disabled:opacity-40"
+                                        >
+                                            {updateDrawerRoleMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                            Save Role Change
+                                        </button>
+                                    </div>
+
+                                    {/* Active toggle */}
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div>
+                                            <p className="font-medium text-slate-800">Account Active</p>
+                                            <p className="text-xs text-slate-500">User can log in when active</p>
+                                        </div>
+                                        <button
+                                            onClick={() => { handleUserToggleStatus(drawerUser); setDrawerUser({ ...drawerUser, is_active: !drawerUser.is_active }); }}
+                                            className={"relative inline-flex h-6 w-11 items-center rounded-full transition-colors " + (drawerUser.is_active ? "bg-emerald-500" : "bg-slate-300")}
+                                        >
+                                            <span className={"inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform " + (drawerUser.is_active ? "translate-x-6" : "translate-x-1")} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SECURITY */}
+                            {drawerTab === 'security' && (
+                                <div className="p-6 space-y-5">
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                                        <h3 className="font-semibold text-slate-800">Reset Password</h3>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">New Password</label>
+                                            <input type="password" value={drawerPwForm.newPw} onChange={(e) => setDrawerPwForm(f => ({ ...f, newPw: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="Min 8 characters" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Confirm Password</label>
+                                            <input type="password" value={drawerPwForm.confirm} onChange={(e) => setDrawerPwForm(f => ({ ...f, confirm: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="Repeat password" />
+                                        </div>
+                                        {drawerPwError && <p className="text-xs text-red-600">{drawerPwError}</p>}
+                                        <button
+                                            onClick={() => {
+                                                if (drawerPwForm.newPw.length < 8) { setDrawerPwError('Minimum 8 characters'); return; }
+                                                if (drawerPwForm.newPw !== drawerPwForm.confirm) { setDrawerPwError('Passwords do not match'); return; }
+                                                setDrawerPwError('');
+                                                resetPasswordMutation.mutate({ id: drawerUser.id, password: drawerPwForm.newPw });
+                                                setDrawerPwForm({ newPw: '', confirm: '' });
+                                            }}
+                                            disabled={resetPasswordMutation.isPending}
+                                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] disabled:opacity-40"
+                                        >
+                                            {resetPasswordMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Key size={14} />}
+                                            Reset Password
+                                        </button>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            {drawerUser.two_factor_enabled ? <Lock size={16} className="text-emerald-600" /> : <Unlock size={16} className="text-slate-400" />}
+                                            <h3 className="font-semibold text-slate-800">Two-Factor Authentication</h3>
+                                        </div>
+                                        <p className="text-sm text-slate-500">{drawerUser.two_factor_enabled ? 'Enabled — user has set up 2FA.' : 'Disabled — user has not set up 2FA.'}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                                        <h3 className="font-semibold text-red-700 mb-1">Danger Zone</h3>
+                                        <p className="text-sm text-red-600 mb-3">Permanently delete this user account. This cannot be undone.</p>
+                                        <button
+                                            onClick={() => { handleDeleteUser(drawerUser); setDrawerUser(null); }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+                                        >
+                                            <Trash2 size={14} />Delete User
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STAFF LINK */}
+                            {drawerTab === 'stafflink' && (
+                                <div className="p-6 space-y-4">
+                                    {drawerUser.staff ? (
+                                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Link2 size={16} className="text-[#0066B3]" />Linked Staff Record</h3>
+                                                <button
+                                                    onClick={() => linkStaffMutation.mutate({ staffId: drawerUser.staff!.id, userId: null })}
+                                                    disabled={linkStaffMutation.isPending}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-50"
+                                                >
+                                                    <LinkOff size={13} />Unlink
+                                                </button>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div><p className="text-xs text-slate-400">Name</p><p className="font-medium text-slate-800">{drawerUser.staff.first_name} {drawerUser.staff.last_name}</p></div>
+                                                <div><p className="text-xs text-slate-400">Employee No.</p><p className="font-mono text-sm font-medium text-slate-700">{drawerUser.staff.employee_number}</p></div>
+                                                <div><p className="text-xs text-slate-400">Branch</p><p className="text-sm text-slate-700">{drawerUser.staff.branch?.name || '—'}</p></div>
+                                            </div>
+                                            <button onClick={() => { setDrawerUser(null); navigate(`/staff/${drawerUser.staff!.id}`); }} className="mt-3 flex items-center gap-2 text-sm text-[#0066B3] hover:underline"><Eye size={14} />View Staff Profile</button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <p className="text-sm text-slate-600">This user is not linked to a staff record. Search below to link one.</p>
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                <input type="text" placeholder="Search unlinked staff..." value={staffLinkSearch} onChange={(e) => setStaffLinkSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
+                                            </div>
+                                            <div className="space-y-2 max-h-72 overflow-y-auto">
+                                                {unlinkedStaff.filter((s: any) => !staffLinkSearch || `${s.first_name} ${s.last_name}`.toLowerCase().includes(staffLinkSearch.toLowerCase()) || s.employee_number?.includes(staffLinkSearch)).map((s: any) => (
+                                                    <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-200">
+                                                        <div>
+                                                            <p className="font-medium text-slate-900 text-sm">{s.first_name} {s.last_name}</p>
+                                                            <p className="text-xs text-slate-500">{s.employee_number} · {s.branch?.name || 'No branch'}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => linkStaffMutation.mutate({ staffId: s.id, userId: drawerUser.id })}
+                                                            disabled={linkStaffMutation.isPending}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299]"
+                                                        >
+                                                            <Link2 size={13} />Link
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {unlinkedStaff.length === 0 && <p className="text-center text-slate-400 text-sm py-8">No unlinked staff found</p>}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                            <p className="text-xs text-slate-400">ID: {drawerUser.id.slice(0, 8)}…</p>
+                            <button onClick={() => setDrawerUser(null)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════ DUPLICATE ROLE MODAL ══════════════ */}
+            {duplicateRoleSource && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-semibold text-slate-900">Duplicate Role</h2>
+                            <button onClick={() => setDuplicateRoleSource(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                                <div className={"w-10 h-10 rounded-lg bg-gradient-to-br " + getRoleColor(duplicateRoleSource.code) + " flex items-center justify-center"}>
+                                    <Shield className="text-white" size={18} />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-slate-800">{duplicateRoleSource.name}</p>
+                                    <p className="text-xs text-slate-500">Source role — all permissions will be copied</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">New Role Code</label>
+                                <input type="text" value={duplicateForm.code} onChange={(e) => setDuplicateForm(f => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., SENIOR_MANAGER" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">New Role Name</label>
+                                <input type="text" value={duplicateForm.name} onChange={(e) => setDuplicateForm(f => ({ ...f, name: e.target.value }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., Senior Manager" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setDuplicateRoleSource(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => duplicateRoleMutation.mutate({ id: duplicateRoleSource.id, code: duplicateForm.code, name: duplicateForm.name })}
+                                disabled={!duplicateForm.code || !duplicateForm.name || duplicateRoleMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
+                            >
+                                {duplicateRoleMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
+                                Duplicate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════ COMPARE ROLES MODAL ══════════════ */}
+            {showCompareModal && compareRoleA && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2"><GitCompare size={20} className="text-indigo-600" />Compare Roles</h2>
+                            <button onClick={() => setShowCompareModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-px bg-slate-200 p-4 border-b border-slate-200">
+                            <div className="bg-white p-3 rounded-l-xl flex items-center gap-3">
+                                <div className={"w-10 h-10 rounded-lg bg-gradient-to-br " + getRoleColor(compareRoleA.code) + " flex items-center justify-center flex-shrink-0"}>
+                                    <Shield className="text-white" size={18} />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-slate-900">{compareRoleA.name}</p>
+                                    <p className="text-xs text-slate-400 font-mono">{compareRoleA.code}</p>
+                                </div>
+                            </div>
+                            <div className="bg-white p-3 rounded-r-xl flex items-center gap-3">
+                                <select
+                                    value={compareRoleB?.id || ''}
+                                    onChange={(e) => { const r = roles.find(r => r.id === e.target.value) || null; setCompareRoleB(r); }}
+                                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                >
+                                    <option value="">— Select role to compare —</option>
+                                    {roles.filter(r => r.id !== compareRoleA.id).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        {compareRoleB && drawerUserPermsRole && drawerRoleBPerms ? (
+                            <div className="flex-1 overflow-y-auto p-5">
+                                {(() => {
+                                    const setA = new Set((drawerUserPermsRole || []).map((p: Permission) => p.id));
+                                    const setB = new Set((drawerRoleBPerms || []).map((p: Permission) => p.id));
+                                    const aOnly = (drawerUserPermsRole || []).filter((p: Permission) => !setB.has(p.id));
+                                    const bOnly = (drawerRoleBPerms || []).filter((p: Permission) => !setA.has(p.id));
+                                    const shared = (drawerUserPermsRole || []).filter((p: Permission) => setB.has(p.id));
+                                    return (
+                                        <div className="space-y-5">
+                                            <div className="flex items-center gap-4 text-sm">
+                                                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg font-medium"><span className="w-3 h-3 rounded-full bg-blue-500" />{aOnly.length} unique to {compareRoleA.name}</span>
+                                                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg font-medium"><span className="w-3 h-3 rounded-full bg-amber-500" />{bOnly.length} unique to {compareRoleB.name}</span>
+                                                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg font-medium"><span className="w-3 h-3 rounded-full bg-slate-400" />{shared.length} shared</span>
+                                            </div>
+                                            {Object.entries(allPermissions.reduce((acc: Record<string, Permission[]>, p) => { (acc[p.module] = acc[p.module] || []).push(p); return acc; }, {})).map(([module, perms]) => (
+                                                <div key={module} className="border border-slate-200 rounded-xl overflow-hidden">
+                                                    <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{module}</span>
+                                                    </div>
+                                                    <div className="divide-y divide-slate-100">
+                                                        {(perms as Permission[]).map((perm) => {
+                                                            const inA = setA.has(perm.id);
+                                                            const inB = setB.has(perm.id);
+                                                            return (
+                                                                <div key={perm.id} className={"flex items-center px-4 py-2.5 " + (!inA && !inB ? "opacity-30" : inA && inB ? "" : inA ? "bg-blue-50" : "bg-amber-50")}>
+                                                                    <div className="flex-1">
+                                                                        <p className="text-sm font-medium text-slate-800">{perm.name}</p>
+                                                                        <p className="text-xs text-slate-400 font-mono">{perm.code}</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-6 ml-4">
+                                                                        <span className={"w-6 h-6 rounded-full flex items-center justify-center " + (inA ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-300")}>{inA ? "✓" : "✗"}</span>
+                                                                        <span className={"w-6 h-6 rounded-full flex items-center justify-center " + (inB ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-300")}>{inB ? "✓" : "✗"}</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        ) : compareRoleB ? (
+                            <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin text-[#0066B3]" size={32} /></div>
+                        ) : (
+                            <div className="flex items-center justify-center py-16 text-slate-400"><p>Select a role to compare</p></div>
+                        )}
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end rounded-b-2xl">
+                            <button onClick={() => setShowCompareModal(false)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════ BULK ROLE ASSIGN MODAL ══════════════ */}
+            {showBulkRoleModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-semibold text-slate-900">Assign Role to {selectedUserIds.size} Users</h2>
+                            <button onClick={() => setShowBulkRoleModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="p-6">
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {roles.map((role) => (
+                                    <label key={role.id} className={"flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors " + (bulkRoleCode === role.code ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
+                                        <input type="radio" name="bulk-role" checked={bulkRoleCode === role.code} onChange={() => setBulkRoleCode(role.code)} className="w-4 h-4 text-[#0066B3]" />
+                                        <div className={"w-8 h-8 rounded-lg bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center"}>
+                                            <Shield size={15} className="text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-900 text-sm">{role.name}</p>
+                                            <p className="text-xs text-slate-400 font-mono">{role.code}</p>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setShowBulkRoleModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => bulkAssignRoleMutation.mutate({ ids: Array.from(selectedUserIds), role_code: bulkRoleCode })}
+                                disabled={!bulkRoleCode || bulkAssignRoleMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
+                            >
+                                {bulkAssignRoleMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Shield size={15} />}
+                                Assign to {selectedUserIds.size} Users
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

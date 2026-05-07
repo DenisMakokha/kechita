@@ -347,6 +347,15 @@ export class StaffService {
         if (dto.manager_id) {
             staff.manager = await this.staffRepo.findOneBy({ id: dto.manager_id }) ?? undefined;
         }
+        if (dto.user_id !== undefined) {
+            if (dto.user_id === null) {
+                (staff as any).user = null;
+            } else {
+                const userToLink = await this.userRepo.findOneBy({ id: dto.user_id });
+                if (!userToLink) throw new BadRequestException('User not found');
+                (staff as any).user = userToLink;
+            }
+        }
 
         // Create employment history if position or branch changed
         if ((dto.position_id && oldPosition?.id !== dto.position_id) ||

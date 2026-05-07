@@ -214,6 +214,9 @@ export class UpdateStaffDto {
     @IsOptional()
     @IsString()
     nhif_number?: string;
+
+    @IsOptional()
+    user_id?: string | null;
 }
 
 export class StaffFilterDto {

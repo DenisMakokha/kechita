@@ -110,9 +110,9 @@ export class RoleService {
         return role?.users?.length || 0;
     }
 
-    async getRoleStats(): Promise<{ code: string; name: string; userCount: number }[]> {
+    async getRoleStats(): Promise<{ code: string; name: string; userCount: number; permissionCount: number }[]> {
         const roles = await this.roleRepository.find({
-            relations: ['users'],
+            relations: ['users', 'permissions'],
             where: { is_active: true },
         });
 
@@ -120,7 +120,29 @@ export class RoleService {
             code: role.code,
             name: role.name,
             userCount: role.users?.length || 0,
+            permissionCount: role.permissions?.length || 0,
         }));
+    }
+
+    async duplicateRole(sourceId: string, dto: { code: string; name: string }): Promise<Role> {
+        const source = await this.roleRepository.findOne({
+            where: { id: sourceId },
+            relations: ['permissions'],
+        });
+        if (!source) throw new NotFoundException('Source role not found');
+
+        const existing = await this.findByCode(dto.code.toUpperCase());
+        if (existing) throw new ConflictException('Role with this code already exists');
+
+        const newRole = this.roleRepository.create({
+            code: dto.code.toUpperCase(),
+            name: dto.name,
+            description: source.description,
+            is_active: true,
+            permissions: source.permissions || [],
+        });
+
+        return this.roleRepository.save(newRole);
     }
 
     // ==================== PERMISSIONS ====================
