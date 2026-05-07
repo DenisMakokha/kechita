@@ -10,10 +10,10 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
     Users, Plus, Search, MoreVertical, Edit, Trash2, X,
     Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Eye,
-    Key, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Clock,
+    Key, ChevronLeft, ChevronRight, CheckCircle, AlertCircle,
     Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
     Upload, Download, FileSpreadsheet, SlidersHorizontal, Save,
-    Copy, Link2, LinkOff, LayoutList, LayoutGrid, GitCompare, Lock, Unlock
+    Copy, Link2, Link2Off, LayoutList, LayoutGrid, GitCompare, Lock, Unlock
 } from 'lucide-react';
 
 type Tab = 'directory' | 'users' | 'roles';
@@ -95,9 +95,6 @@ export const StaffManagementPage: React.FC = () => {
     const [compareRoleA, setCompareRoleA] = useState<Role | null>(null);
     const [compareRoleB, setCompareRoleB] = useState<Role | null>(null);
     const [showCompareModal, setShowCompareModal] = useState(false);
-    const [compareRoleAPerms, setCompareRoleAPerms] = useState<Permission[]>([]);
-    const [compareRoleBPerms, setCompareRoleBPerms] = useState<Permission[]>([]);
-    const [compareLoading, setCompareLoading] = useState(false);
 
     // Roles view mode
     const [rolesViewMode, setRolesViewMode] = useState<'cards' | 'table'>('cards');
@@ -207,7 +204,7 @@ export const StaffManagementPage: React.FC = () => {
     const updateRoleDetailsMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: Partial<Role> }) => (await api.patch(`/roles/${id}`, data)).data, onSuccess: (updated: Role) => { queryClient.invalidateQueries({ queryKey: ['roles'] }); setManageRole(updated); showToast('Role updated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error') });
     const duplicateRoleMutation = useMutation({ mutationFn: async ({ id, code, name }: { id: string; code: string; name: string }) => (await api.post(`/roles/${id}/duplicate`, { code, name })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['roles'] }); queryClient.invalidateQueries({ queryKey: ['role-stats'] }); setDuplicateRoleSource(null); setDuplicateForm({ code: '', name: '' }); showToast('Role duplicated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to duplicate role', 'error') });
     const updateDrawerRoleMutation = useMutation({ mutationFn: async ({ id, role_code }: { id: string; role_code: string }) => (await api.patch(`/users/${id}/roles`, { role_code })).data, onSuccess: (updated: User) => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['role-stats'] }); setDrawerUser(updated); showToast('Role updated'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error') });
-    const linkStaffMutation = useMutation({ mutationFn: async ({ staffId, userId }: { staffId: string; userId: string | null }) => (await api.patch(`/staff/${staffId}`, { user_id: userId })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-unlinked'] }); showToast(userId ? 'User linked to staff' : 'User unlinked from staff'); if (drawerUser) { const updated = { ...drawerUser }; if (!userId) updated.staff = undefined; setDrawerUser(updated); } }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update link', 'error') });
+    const linkStaffMutation = useMutation({ mutationFn: async ({ staffId, userId }: { staffId: string; userId: string | null }) => (await api.patch(`/staff/${staffId}`, { user_id: userId })).data, onSuccess: (_data: any, variables: { staffId: string; userId: string | null }) => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-unlinked'] }); showToast(variables.userId ? 'User linked to staff' : 'User unlinked from staff'); if (drawerUser) { const updated = { ...drawerUser }; if (!variables.userId) updated.staff = undefined; setDrawerUser(updated); } }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update link', 'error') });
     const bulkActivateMutation = useMutation({ mutationFn: async (ids: string[]) => Promise.allSettled(ids.map(id => api.post(`/users/${id}/activate`))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setSelectedUserIds(new Set()); showToast(`Activated ${selectedUserIds.size} users`); } });
     const bulkDeactivateMutation = useMutation({ mutationFn: async (ids: string[]) => Promise.allSettled(ids.map(id => api.post(`/users/${id}/deactivate`))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setSelectedUserIds(new Set()); showToast(`Deactivated ${selectedUserIds.size} users`); } });
     const bulkAssignRoleMutation = useMutation({ mutationFn: async ({ ids, role_code }: { ids: string[]; role_code: string }) => Promise.allSettled(ids.map(id => api.patch(`/users/${id}/roles`, { role_code }))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['role-stats'] }); setSelectedUserIds(new Set()); setShowBulkRoleModal(false); showToast(`Role assigned to ${selectedUserIds.size} users`); } });
@@ -1569,7 +1566,7 @@ export const StaffManagementPage: React.FC = () => {
                                                     disabled={linkStaffMutation.isPending}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-50"
                                                 >
-                                                    <LinkOff size={13} />Unlink
+                                                    <Link2Off size={13} />Unlink
                                                 </button>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
