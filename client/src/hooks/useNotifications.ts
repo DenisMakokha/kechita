@@ -3,7 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/auth.store';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+const getSocketUrl = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    if (apiUrl.startsWith('http')) return apiUrl.replace(/\/api$/, '');
+    return window.location.origin;
+};
+const SOCKET_URL = getSocketUrl();
 
 interface Notification {
     id: string;
