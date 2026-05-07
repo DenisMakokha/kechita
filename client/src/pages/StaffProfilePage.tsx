@@ -12,7 +12,38 @@ import {
     FileCheck, Plus, RotateCcw, Ban, Play
 } from 'lucide-react';
 
-type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'actions';
+type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'actions';
+
+interface OnboardingTask {
+    id: string;
+    task?: { id: string; title: string; description?: string; task_type: string; is_required: boolean; due_days_after_start?: number };
+    status: string;
+    due_date?: string;
+    completed_at?: string;
+    completed_by_user?: { id: string; first_name: string; last_name: string };
+    notes?: string;
+    skipped_reason?: string;
+}
+
+interface OnboardingInstance {
+    id: string;
+    status: string;
+    started_at?: string;
+    completed_at?: string;
+    template?: { id: string; name: string };
+    task_statuses: OnboardingTask[];
+    progress_percentage?: number;
+}
+
+interface DirectReport {
+    id: string;
+    first_name: string;
+    last_name: string;
+    employee_number: string;
+    status: string;
+    position?: { name: string };
+    branch?: { name: string };
+}
 
 interface StaffDetail {
     id: string;
@@ -158,6 +189,16 @@ export const StaffProfilePage: React.FC = () => {
     const [contractFormData, setContractFormData] = useState<any>({});
     const [rejectDocId, setRejectDocId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
+    const [showPhotoInput, setShowPhotoInput] = useState(false);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [showTerminateContractModal, setShowTerminateContractModal] = useState(false);
+    const [terminateContractTarget, setTerminateContractTarget] = useState<string | null>(null);
+    const [terminateContractReason, setTerminateContractReason] = useState('');
+    const [terminateContractDate, setTerminateContractDate] = useState('');
+    const [showRenewModal, setShowRenewModal] = useState(false);
+    const [renewContractTarget, setRenewContractTarget] = useState<string | null>(null);
+    const [renewEndDate, setRenewEndDate] = useState('');
+    const [renewSalary, setRenewSalary] = useState('');
 
     // Fetch staff details
     const { data: staff, isLoading } = useQuery<StaffDetail>({
@@ -194,6 +235,20 @@ export const StaffProfilePage: React.FC = () => {
         enabled: !!id && activeTab === 'employment',
     });
 
+    // Fetch onboarding
+    const { data: onboarding, refetch: refetchOnboarding } = useQuery<OnboardingInstance | null>({
+        queryKey: ['staff-onboarding', id],
+        queryFn: async () => { try { return (await api.get(`/staff/${id}/onboarding`)).data; } catch { return null; } },
+        enabled: !!id && activeTab === 'onboarding',
+    });
+
+    // Fetch direct reports (always, used in overview)
+    const { data: directReports = [] } = useQuery<DirectReport[]>({
+        queryKey: ['staff-direct-reports', id],
+        queryFn: async () => (await api.get(`/staff/${id}/direct-reports`)).data,
+        enabled: !!id && activeTab === 'overview',
+    });
+
     // Fetch org data for transfer
     const { data: regions } = useQuery({
         queryKey: ['regions'],
@@ -213,6 +268,17 @@ export const StaffProfilePage: React.FC = () => {
     const { data: departments } = useQuery({
         queryKey: ['departments'],
         queryFn: async () => (await api.get('/org/departments')).data,
+    });
+
+    // Photo upload mutation
+    const uploadPhotoMutation = useMutation({
+        mutationFn: async (file: File) => {
+            const fd = new FormData();
+            fd.append('photo', file);
+            return (await api.post(`/staff/${id}/photo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff', id] }); setShowPhotoInput(false); setPhotoFile(null); showToast('Photo updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to upload photo', 'error'),
     });
 
     // Update staff mutation
@@ -280,15 +346,34 @@ export const StaffProfilePage: React.FC = () => {
     });
 
     const terminateContractMutation = useMutation({
-        mutationFn: async ({ contractId, reason }: { contractId: string; reason: string }) => (await api.patch(`/staff/contracts/${contractId}/terminate`, { reason })).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-contracts', id] }); showToast('Contract terminated'); },
+        mutationFn: async ({ contractId, reason, termination_date }: { contractId: string; reason: string; termination_date?: string }) => (await api.patch(`/staff/contracts/${contractId}/terminate`, { reason, termination_date })).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-contracts', id] }); setShowTerminateContractModal(false); setTerminateContractTarget(null); setTerminateContractReason(''); setTerminateContractDate(''); showToast('Contract terminated'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to terminate contract', 'error'),
     });
 
     const renewContractMutation = useMutation({
         mutationFn: async ({ contractId, data }: { contractId: string; data: any }) => (await api.post(`/staff/contracts/${contractId}/renew`, data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-contracts', id] }); showToast('Contract renewed'); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-contracts', id] }); setShowRenewModal(false); setRenewContractTarget(null); setRenewEndDate(''); setRenewSalary(''); showToast('Contract renewed'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to renew contract', 'error'),
+    });
+
+    // Onboarding mutations
+    const startOnboardingMutation = useMutation({
+        mutationFn: async () => (await api.post(`/staff/${id}/onboarding`)).data,
+        onSuccess: () => { refetchOnboarding(); showToast('Onboarding started'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to start onboarding', 'error'),
+    });
+
+    const completeTaskMutation = useMutation({
+        mutationFn: async ({ taskStatusId, notes }: { taskStatusId: string; notes?: string }) => (await api.patch(`/staff/onboarding/tasks/${taskStatusId}/complete`, { notes })).data,
+        onSuccess: () => { refetchOnboarding(); showToast('Task completed'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
+
+    const skipTaskMutation = useMutation({
+        mutationFn: async ({ taskStatusId, reason }: { taskStatusId: string; reason: string }) => (await api.patch(`/staff/onboarding/tasks/${taskStatusId}/skip`, { reason })).data,
+        onSuccess: () => { refetchOnboarding(); showToast('Task skipped'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
     });
 
     // Delete document mutation
@@ -407,6 +492,7 @@ export const StaffProfilePage: React.FC = () => {
         { key: 'documents' as Tab, label: 'Documents', icon: FileText },
         { key: 'contracts' as Tab, label: 'Contracts', icon: FileCheck },
         { key: 'employment' as Tab, label: 'History', icon: History },
+        { key: 'onboarding' as Tab, label: 'Onboarding', icon: CheckCircle },
         { key: 'actions' as Tab, label: 'Actions', icon: Shield },
     ];
 
@@ -462,7 +548,7 @@ export const StaffProfilePage: React.FC = () => {
                                 `${staff.first_name?.[0]}${staff.last_name?.[0]}`
                             )}
                         </div>
-                        <button className="absolute -bottom-2 -right-2 p-2 bg-white border border-slate-200 rounded-full shadow-sm hover:bg-slate-50">
+                        <button onClick={() => setShowPhotoInput(true)} className="absolute -bottom-2 -right-2 p-2 bg-white border border-slate-200 rounded-full shadow-sm hover:bg-slate-50" title="Change photo">
                             <Camera size={14} className="text-slate-500" />
                         </button>
                     </div>
@@ -510,6 +596,10 @@ export const StaffProfilePage: React.FC = () => {
                         <div className="text-center px-4 py-2 bg-slate-50 rounded-xl">
                             <p className="text-2xl font-bold text-slate-900">{documents?.length || 0}</p>
                             <p className="text-xs text-slate-500">Documents</p>
+                        </div>
+                        <div className="text-center px-4 py-2 bg-slate-50 rounded-xl">
+                            <p className="text-2xl font-bold text-slate-900">{directReports.length}</p>
+                            <p className="text-xs text-slate-500">Reports</p>
                         </div>
                     </div>
                 </div>
@@ -685,6 +775,21 @@ export const StaffProfilePage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    {/* Direct Reports */}
+                    {directReports.length > 0 && (
+                        <div className="md:col-span-2">
+                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2"><MapPin size={18} className="text-[#0066B3]" />Direct Reports ({directReports.length})</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {directReports.map((dr) => (
+                                    <button key={dr.id} onClick={() => navigate(`/staff/${dr.id}`)} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-blue-50 transition-colors text-left">
+                                        <div className="w-9 h-9 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{dr.first_name[0]}{dr.last_name[0]}</div>
+                                        <div className="min-w-0"><p className="text-sm font-medium text-slate-900 truncate">{dr.first_name} {dr.last_name}</p><p className="text-xs text-slate-500 truncate">{dr.position?.name || '-'}</p></div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     </div>
                 )}
 
@@ -863,13 +968,13 @@ export const StaffProfilePage: React.FC = () => {
                                                         <Play size={12} /> Activate
                                                     </button>
                                                 )}
-                                                {c.status === 'active' && c.end_date && (
-                                                    <button onClick={() => renewContractMutation.mutate({ contractId: c.id, data: { new_end_date: new Date(new Date(c.end_date!).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] } })} className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1">
-                                                        <RotateCcw size={12} /> Renew (+1yr)
+                                                {c.status === 'active' && (
+                                                    <button onClick={() => { setRenewContractTarget(c.id); setRenewEndDate(c.end_date ? new Date(new Date(c.end_date).getTime() + 365*24*60*60*1000).toISOString().split('T')[0] : ''); setRenewSalary(c.salary ? String(c.salary) : ''); setShowRenewModal(true); }} className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1">
+                                                        <RotateCcw size={12} /> Renew
                                                     </button>
                                                 )}
                                                 {c.status === 'active' && (
-                                                    <button onClick={() => terminateContractMutation.mutate({ contractId: c.id, reason: 'Contract terminated by HR' })} className="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-1">
+                                                    <button onClick={() => { setTerminateContractTarget(c.id); setTerminateContractDate(new Date().toISOString().split('T')[0]); setShowTerminateContractModal(true); }} className="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-1">
                                                         <Ban size={12} /> Terminate
                                                     </button>
                                                 )}
@@ -950,6 +1055,78 @@ export const StaffProfilePage: React.FC = () => {
                                                         <p className="text-sm text-slate-500 mt-2 italic">{entry.change_reason}</p>
                                                     )}
                                                 </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Onboarding Tab */}
+                {activeTab === 'onboarding' && (
+                    <div>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-semibold text-slate-900">Onboarding Progress</h3>
+                            {!onboarding && (
+                                <button onClick={() => startOnboardingMutation.mutate()} disabled={startOnboardingMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
+                                    <Plus size={18} />{startOnboardingMutation.isPending ? 'Starting...' : 'Start Onboarding'}
+                                </button>
+                            )}
+                        </div>
+                        {!onboarding ? (
+                            <div className="text-center py-12">
+                                <CheckCircle className="mx-auto text-slate-300 mb-4" size={48} />
+                                <p className="text-slate-500">No active onboarding</p>
+                                <p className="text-sm text-slate-400 mt-1">Start onboarding to track tasks and document completion</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="font-medium text-slate-900">{onboarding.template?.name || 'Onboarding'}</p>
+                                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${{ in_progress: 'bg-blue-100 text-blue-700', completed: 'bg-emerald-100 text-emerald-700', overdue: 'bg-red-100 text-red-700' }[onboarding.status] || 'bg-slate-100 text-slate-600'}`}>{onboarding.status.replace('_',' ')}</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 rounded-full h-2">
+                                            <div className="bg-[#0066B3] h-2 rounded-full transition-all" style={{ width: `${onboarding.progress_percentage ?? 0}%` }} />
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-1">{onboarding.progress_percentage ?? 0}% complete</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {onboarding.task_statuses?.map((ts) => {
+                                        const isDone = ts.status === 'completed';
+                                        const isSkipped = ts.status === 'skipped';
+                                        const isOverdue = ts.due_date && !isDone && !isSkipped && new Date(ts.due_date) < new Date();
+                                        return (
+                                            <div key={ts.id} className={`flex items-center gap-4 p-4 rounded-xl border ${isDone ? 'bg-emerald-50 border-emerald-200' : isSkipped ? 'bg-slate-50 border-slate-200 opacity-60' : isOverdue ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'}`}>
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-emerald-500' : isSkipped ? 'bg-slate-300' : 'bg-slate-200'}`}>
+                                                    {isDone ? <CheckCircle size={16} className="text-white" /> : isSkipped ? <XCircle size={16} className="text-white" /> : <Clock size={16} className="text-slate-500" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className={`text-sm font-medium ${isDone ? 'text-emerald-700 line-through' : 'text-slate-900'}`}>{ts.task?.title || 'Task'}</p>
+                                                        {ts.task?.is_required && <span className="text-xs text-red-500 font-medium">Required</span>}
+                                                    </div>
+                                                    {ts.task?.description && <p className="text-xs text-slate-500 truncate">{ts.task.description}</p>}
+                                                    {ts.due_date && <p className={`text-xs mt-0.5 ${isOverdue ? 'text-red-600 font-medium' : 'text-slate-400'}`}>Due: {new Date(ts.due_date).toLocaleDateString('en-GB')}</p>}
+                                                    {ts.notes && <p className="text-xs text-slate-500 italic mt-0.5">{ts.notes}</p>}
+                                                    {ts.skipped_reason && <p className="text-xs text-amber-600 italic mt-0.5">Skipped: {ts.skipped_reason}</p>}
+                                                </div>
+                                                {!isDone && !isSkipped && (
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        <button onClick={() => completeTaskMutation.mutate({ taskStatusId: ts.id })} disabled={completeTaskMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 flex items-center gap-1">
+                                                            <CheckCircle size={12} /> Complete
+                                                        </button>
+                                                        {!ts.task?.is_required && (
+                                                            <button onClick={() => { const reason = prompt('Reason for skipping?'); if (reason) skipTaskMutation.mutate({ taskStatusId: ts.id, reason }); }} disabled={skipTaskMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+                                                                Skip
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1578,6 +1755,66 @@ export const StaffProfilePage: React.FC = () => {
                             <button onClick={() => promoteMutation.mutate(formData)} disabled={!formData.new_position_id || promoteMutation.isPending} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50">
                                 {promoteMutation.isPending ? 'Promoting...' : 'Promote'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Photo Upload Modal */}
+            {showPhotoInput && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-semibold text-slate-900">Change Photo</h2>
+                            <button onClick={() => { setShowPhotoInput(false); setPhotoFile(null); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <input type="file" accept="image/jpeg,image/png,image/gif" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                            {photoFile && <p className="text-sm text-slate-500">Selected: {photoFile.name}</p>}
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => { setShowPhotoInput(false); setPhotoFile(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
+                            <button onClick={() => { if (photoFile) uploadPhotoMutation.mutate(photoFile); }} disabled={!photoFile || uploadPhotoMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">{uploadPhotoMutation.isPending ? 'Uploading...' : 'Upload'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Terminate Contract Modal */}
+            {showTerminateContractModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-semibold text-red-600">Terminate Contract</h2>
+                            <button onClick={() => { setShowTerminateContractModal(false); setTerminateContractTarget(null); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Termination Date</label><input type="date" value={terminateContractDate} onChange={(e) => setTerminateContractDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason *</label><textarea value={terminateContractReason} onChange={(e) => setTerminateContractReason(e.target.value)} rows={3} placeholder="Reason for contract termination..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => { setShowTerminateContractModal(false); setTerminateContractTarget(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
+                            <button onClick={() => { if (terminateContractTarget) terminateContractMutation.mutate({ contractId: terminateContractTarget, reason: terminateContractReason, termination_date: terminateContractDate || undefined }); }} disabled={!terminateContractReason || terminateContractMutation.isPending} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">{terminateContractMutation.isPending ? 'Terminating...' : 'Terminate Contract'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Renew Contract Modal */}
+            {showRenewModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-semibold text-slate-900">Renew Contract</h2>
+                            <button onClick={() => { setShowRenewModal(false); setRenewContractTarget(null); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New End Date *</label><input type="date" value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Salary (KES)</label><input type="number" value={renewSalary} onChange={(e) => setRenewSalary(e.target.value)} placeholder="Leave blank to keep current" className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => { setShowRenewModal(false); setRenewContractTarget(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
+                            <button onClick={() => { if (renewContractTarget) renewContractMutation.mutate({ contractId: renewContractTarget, data: { new_end_date: renewEndDate, ...(renewSalary && { new_salary: Number(renewSalary) }) } }); }} disabled={!renewEndDate || renewContractMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{renewContractMutation.isPending ? 'Renewing...' : 'Renew Contract'}</button>
                         </div>
                     </div>
                 </div>
