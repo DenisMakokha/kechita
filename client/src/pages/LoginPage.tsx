@@ -58,8 +58,8 @@ export const LoginPage: React.FC = () => {
 
     return (
         <div className="min-h-screen flex">
-            {/* Left Panel - Login Form */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 bg-white">
+            {/* Login Form (right on desktop) */}
+            <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 bg-white order-1 lg:order-2">
                 <div className="w-full max-w-md mx-auto">
                     {/* Logo */}
                     <div className="mb-10">
@@ -162,8 +162,8 @@ export const LoginPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Right Panel - Hero/Features */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0066B3] via-[#0077CC] to-[#00AEEF] p-12 flex-col justify-between relative overflow-hidden">
+            {/* Marketing/Hero Panel (left on desktop) */}
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0066B3] via-[#0077CC] to-[#00AEEF] p-12 flex-col justify-between relative overflow-hidden order-2 lg:order-1">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full blur-3xl" />
