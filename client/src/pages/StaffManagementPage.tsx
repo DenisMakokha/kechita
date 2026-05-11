@@ -7,6 +7,8 @@ import { useFormValidation, validators } from '../hooks/useFormValidation';
 import type { ValidationRules } from '../hooks/useFormValidation';
 import { InputDialog } from '../components/ui/InputDialog';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
+import { Drawer, DrawerCloseButton } from '../components/ui/Drawer';
 import {
     Users, Plus, Search, MoreVertical, Edit, Trash2, X,
     Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Eye,
@@ -205,8 +207,29 @@ export const StaffManagementPage: React.FC = () => {
     });
     const archiveStaffMutation = useMutation({
         mutationFn: async (id: string) => (await api.delete(`/staff/${id}`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); showToast('Staff archived'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot archive (must be terminated/resigned first)', 'error'),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); setArchiveTarget(null); showToast('Staff archived'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot archive', 'error'),
+    });
+    const [archiveTarget, setArchiveTarget] = useState<any | null>(null);
+    const [terminateTarget, setTerminateTarget] = useState<any | null>(null);
+    const [terminateForm, setTerminateForm] = useState<{ reason: string; terminationDate: string; force: boolean }>({
+        reason: '', terminationDate: new Date().toISOString().split('T')[0], force: false,
+    });
+    const { data: terminateBlockers } = useQuery<{ active_assets: number; pending_documents: number }>({
+        queryKey: ['staff-termination-blockers', terminateTarget?.id],
+        queryFn: async () => (await api.get(`/staff/${terminateTarget.id}/termination-blockers`)).data,
+        enabled: !!terminateTarget?.id,
+    });
+    const terminateStaffMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: { reason: string; terminationDate?: string; force?: boolean } }) => (await api.patch(`/staff/${id}/terminate`, data)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-stats'] });
+            setTerminateTarget(null);
+            setTerminateForm({ reason: '', terminationDate: new Date().toISOString().split('T')[0], force: false });
+            showToast('Employment terminated');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to terminate', 'error'),
     });
     const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any | null>(null);
     const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState('');
@@ -483,9 +506,12 @@ export const StaffManagementPage: React.FC = () => {
                                     <tr><td colSpan={7} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr>
                                 ) : paginatedStaff.length === 0 ? (
                                     <tr><td colSpan={7} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No {directoryView === 'archived' ? 'archived' : directoryView} staff</p></td></tr>
-                                ) : paginatedStaff.map((m: any) => {
+                                ) : paginatedStaff.map((m: any, idx: number) => {
                                     const isArchived = directoryView === 'archived';
                                     const isInactive = INACTIVE_STATUSES.has(m.status);
+                                    const isActive = ACTIVE_STATUSES.has(m.status);
+                                    const canTerminate = isActive || m.status === 'suspended';
+                                    const isNearBottom = idx >= paginatedStaff.length - 3 && paginatedStaff.length > 4;
                                     return (
                                         <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''} ${isArchived ? 'opacity-75' : ''}`}>
                                             <td className="px-4 py-4">
@@ -513,7 +539,7 @@ export const StaffManagementPage: React.FC = () => {
                                                         {actionMenuId === m.id && (
                                                             <>
                                                                 <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
-                                                                <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+                                                                <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1' : 'top-full mt-1'} w-52 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20`}>
                                                                     <button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View Profile</button>
                                                                     {!isArchived && <>
                                                                         <button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button>
@@ -524,11 +550,14 @@ export const StaffManagementPage: React.FC = () => {
                                                                         <hr className="my-1" />
                                                                         {m.status === 'suspended' ? (
                                                                             <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button>
-                                                                        ) : ACTIVE_STATUSES.has(m.status) ? (
+                                                                        ) : isActive ? (
                                                                             <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><UserX size={16} />Suspend</button>
                                                                         ) : null}
+                                                                        {canTerminate && (
+                                                                            <button onClick={() => { setTerminateTarget(m); setTerminateForm({ reason: '', terminationDate: new Date().toISOString().split('T')[0], force: false }); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"><Ban size={16} />Terminate Employment</button>
+                                                                        )}
                                                                         {isInactive && (
-                                                                            <button onClick={() => { if (confirm(`Archive ${m.first_name} ${m.last_name}? This hides them from the directory but keeps the record.`)) { archiveStaffMutation.mutate(m.id); } setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Archive size={16} />Archive</button>
+                                                                            <button onClick={() => { setArchiveTarget(m); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Archive size={16} />Archive</button>
                                                                         )}
                                                                     </>}
                                                                     {isArchived && <>
@@ -899,21 +928,129 @@ export const StaffManagementPage: React.FC = () => {
             </>)}
 
             {/* MODALS */}
-            {showDeactivateConfirm && selectedStaff && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-xl w-full max-w-md"><div className="p-6 text-center"><div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="text-red-600" size={32} /></div><h2 className="text-xl font-bold text-slate-900 mb-2">Deactivate Staff?</h2><p className="text-slate-600">Deactivate <strong>{selectedStaff.first_name} {selectedStaff.last_name}</strong>?</p></div><div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3"><button onClick={() => setShowDeactivateConfirm(false)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300">Cancel</button><button onClick={() => selectedStaff && deactivateStaffMutation.mutate(selectedStaff.id)} disabled={deactivateStaffMutation.isPending} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">{deactivateStaffMutation.isPending ? 'Deactivating...' : 'Deactivate'}</button></div></div></div>}
+            {/* SUSPEND STAFF CONFIRMATION */}
+            <Modal
+                isOpen={showDeactivateConfirm && !!selectedStaff}
+                onClose={() => setShowDeactivateConfirm(false)}
+                title="Suspend Staff"
+                icon={UserX}
+                tone="warning"
+                size="sm"
+                footer={selectedStaff && (
+                    <>
+                        <ModalCancelButton onClick={() => setShowDeactivateConfirm(false)} />
+                        <ModalPrimaryButton onClick={() => deactivateStaffMutation.mutate(selectedStaff.id)} loading={deactivateStaffMutation.isPending} tone="warning" icon={UserX}>Suspend</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showDeactivateConfirm && selectedStaff && (
+                    <p className="text-sm text-slate-700">
+                        Temporarily suspend <strong>{selectedStaff.first_name} {selectedStaff.last_name}</strong>? Their login access will be disabled until reactivated.
+                    </p>
+                )}
+            </Modal>
 
-            {showUserModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl"><div className="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h2 className="text-lg font-semibold text-slate-900">{selectedUser ? 'Edit User' : 'Create User'}</h2><button onClick={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button></div><div className="p-6 space-y-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="email" value={userFormData.email || ''} onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="user@company.com" disabled={!!selectedUser} /></div></div>{!selectedUser && <><div><label className="block text-sm font-medium text-slate-700 mb-2">Assign Role</label><select value={userFormData.role_code || ''} onChange={(e) => setUserFormData({ ...userFormData, role_code: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select a role</option>{roles.map((role) => <option key={role.id} value={role.code}>{role.name}</option>)}</select></div><div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg"><Mail className="text-blue-500 mt-0.5 flex-shrink-0" size={16} /><p className="text-sm text-blue-700">A welcome email with a password setup link will be sent to the user.</p></div></>}<label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer"><input type="checkbox" checked={userFormData.is_active ?? true} onChange={(e) => setUserFormData({ ...userFormData, is_active: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" /><span className="text-sm text-slate-700">User is active</span></label></div><div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl"><button onClick={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button><button onClick={() => createUserMutation.mutate(userFormData)} disabled={createUserMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">{createUserMutation.isPending ? 'Saving...' : 'Save'}</button></div></div></div>}
+            {/* USER MODAL */}
+            <Modal
+                isOpen={showUserModal}
+                onClose={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); }}
+                title={selectedUser ? 'Edit User' : 'Create User'}
+                icon={UserPlus}
+                tone="info"
+                size="lg"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); }} />
+                        <ModalPrimaryButton onClick={() => createUserMutation.mutate(userFormData)} loading={createUserMutation.isPending} tone="primary" icon={Save}>Save</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showUserModal && (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input type="email" value={userFormData.email || ''} onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="user@company.com" disabled={!!selectedUser} />
+                            </div>
+                        </div>
+                        {!selectedUser && <>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Assign Role</label>
+                                <select value={userFormData.role_code || ''} onChange={(e) => setUserFormData({ ...userFormData, role_code: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <option value="">Select a role</option>
+                                    {roles.map((role) => <option key={role.id} value={role.code}>{role.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <Mail className="text-blue-500 mt-0.5 flex-shrink-0" size={16} />
+                                <p className="text-sm text-blue-700">A welcome email with a password setup link will be sent to the user.</p>
+                            </div>
+                        </>}
+                        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
+                            <input type="checkbox" checked={userFormData.is_active ?? true} onChange={(e) => setUserFormData({ ...userFormData, is_active: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" />
+                            <span className="text-sm text-slate-700">User is active</span>
+                        </label>
+                    </div>
+                )}
+            </Modal>
 
-            {showRoleAssignModal && selectedUser && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl w-full max-w-md shadow-2xl"><div className="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h2 className="text-lg font-semibold text-slate-900">Change Role for {selectedUser.staff ? `${selectedUser.staff.first_name} ${selectedUser.staff.last_name}` : selectedUser.email}</h2><button onClick={() => { setShowRoleAssignModal(false); setSelectedUser(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button></div><div className="p-6"><div className="space-y-2 max-h-64 overflow-y-auto">{roles.map((role) => <label key={role.id} className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${selectedUser.roles[0]?.code === role.code ? 'border-[#0066B3] bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`} onClick={() => { setSelectedUser({ ...selectedUser, roles: [role] }); }}><input type="radio" name="staff-role" checked={selectedUser.roles[0]?.code === role.code} onChange={() => { setSelectedUser({ ...selectedUser, roles: [role] }); }} className="w-4 h-4 text-[#0066B3]" /><div><p className="font-medium text-slate-900">{role.name}</p><p className="text-xs text-slate-500">{role.code}</p></div></label>)}</div></div><div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl"><button onClick={() => { setShowRoleAssignModal(false); setSelectedUser(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button><button onClick={() => { const roleCode = selectedUser.roles[0]?.code; if (roleCode) updateRolesMutation.mutate({ id: selectedUser.id, role_code: roleCode }); }} disabled={updateRolesMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">{updateRolesMutation.isPending ? 'Saving...' : 'Save Role'}</button></div></div></div>}
+            {/* CHANGE ROLE MODAL */}
+            <Modal
+                isOpen={showRoleAssignModal && !!selectedUser}
+                onClose={() => { setShowRoleAssignModal(false); setSelectedUser(null); }}
+                title={selectedUser ? `Change Role — ${selectedUser.staff ? `${selectedUser.staff.first_name} ${selectedUser.staff.last_name}` : selectedUser.email}` : 'Change Role'}
+                icon={Shield}
+                tone="info"
+                size="md"
+                footer={selectedUser && (
+                    <>
+                        <ModalCancelButton onClick={() => { setShowRoleAssignModal(false); setSelectedUser(null); }} />
+                        <ModalPrimaryButton onClick={() => { const roleCode = selectedUser.roles[0]?.code; if (roleCode) updateRolesMutation.mutate({ id: selectedUser.id, role_code: roleCode }); }} loading={updateRolesMutation.isPending} tone="primary" icon={Shield}>Save Role</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showRoleAssignModal && selectedUser && (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {roles.map((role) => (
+                            <label
+                                key={role.id}
+                                className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${selectedUser.roles[0]?.code === role.code ? 'border-[#0066B3] bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                                onClick={() => setSelectedUser({ ...selectedUser, roles: [role] })}
+                            >
+                                <input type="radio" name="staff-role" checked={selectedUser.roles[0]?.code === role.code} onChange={() => setSelectedUser({ ...selectedUser, roles: [role] })} className="w-4 h-4 text-[#0066B3]" />
+                                <div>
+                                    <p className="font-medium text-slate-900">{role.name}</p>
+                                    <p className="text-xs text-slate-500">{role.code}</p>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </Modal>
 
             {/* ADD STAFF MODAL */}
-            {showAddStaffModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Add New Staff Member</h2>
-                            <button onClick={() => { setShowAddStaffModal(false); setStaffFormData({}); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+            <Modal
+                isOpen={showAddStaffModal}
+                onClose={() => { setShowAddStaffModal(false); setStaffFormData({}); }}
+                title="Add New Staff Member"
+                icon={UserPlus}
+                tone="info"
+                size="xl"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowAddStaffModal(false); setStaffFormData({}); }} />
+                        <ModalPrimaryButton
+                            onClick={() => { if (staffValidation.validateAll(staffFormData)) createStaffMutation.mutate(staffFormData); }}
+                            loading={createStaffMutation.isPending}
+                            tone="primary"
+                            icon={UserPlus}
+                        >Create Staff Member</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showAddStaffModal && (
+                    <div className="space-y-4">
                             {hrPolicy && (
                                 <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
                                     📋 HR Policy: Staff numbers prefixed with <strong>{hrStaffPrefix}</strong> · Default probation <strong>{hrProbationMonths} months</strong> · Notice period <strong>{hrNoticePeriodMonths} month(s)</strong>{hrRequireNok ? ' · Next of Kin required' : ''}
@@ -1011,22 +1148,53 @@ export const StaffManagementPage: React.FC = () => {
                                     <p className="text-xs text-slate-500">Email staff a 7-day link to set their own password and activate their account</p>
                                 </div>
                             </label>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => { setShowAddStaffModal(false); setStaffFormData({}); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button 
-                                onClick={() => { if (staffValidation.validateAll(staffFormData)) createStaffMutation.mutate(staffFormData); }} 
-                                disabled={createStaffMutation.isPending} 
-                                className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50"
-                            >
-                                {createStaffMutation.isPending ? 'Creating...' : 'Create Staff Member'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
-            {showRoleModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl w-full max-w-md shadow-2xl"><div className="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h2 className="text-lg font-semibold text-slate-900">{selectedRole ? 'Edit Role' : 'Create Role'}</h2><button onClick={() => { setShowRoleModal(false); setSelectedRole(null); setRoleFormData({}); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button></div><div className="p-6 space-y-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Role Code</label><input type="text" value={roleFormData.code || ''} onChange={(e) => setRoleFormData({ ...roleFormData, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] font-mono" placeholder="e.g., SALES_MANAGER" disabled={!!selectedRole} /><p className="text-xs text-slate-400 mt-1">Uppercase letters and underscores only</p></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Role Name</label><input type="text" value={roleFormData.name || ''} onChange={(e) => setRoleFormData({ ...roleFormData, name: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., Sales Manager" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={roleFormData.description || ''} onChange={(e) => setRoleFormData({ ...roleFormData, description: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" rows={3} placeholder="Brief description..." /></div><label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer"><input type="checkbox" checked={roleFormData.is_active ?? true} onChange={(e) => setRoleFormData({ ...roleFormData, is_active: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" /><span className="text-sm text-slate-700">Role is active</span></label></div><div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl"><button onClick={() => { setShowRoleModal(false); setSelectedRole(null); setRoleFormData({}); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button><button onClick={() => { if (selectedRole) updateRoleMutation.mutate({ id: selectedRole.id, data: roleFormData }); else createRoleMutation.mutate(roleFormData); }} disabled={!roleFormData.code || !roleFormData.name || createRoleMutation.isPending || updateRoleMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">{createRoleMutation.isPending || updateRoleMutation.isPending ? 'Saving...' : 'Save'}</button></div></div></div>}
+            {/* ROLE MODAL */}
+            <Modal
+                isOpen={showRoleModal}
+                onClose={() => { setShowRoleModal(false); setSelectedRole(null); setRoleFormData({}); }}
+                title={selectedRole ? 'Edit Role' : 'Create Role'}
+                icon={Shield}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowRoleModal(false); setSelectedRole(null); setRoleFormData({}); }} />
+                        <ModalPrimaryButton
+                            onClick={() => { if (selectedRole) updateRoleMutation.mutate({ id: selectedRole.id, data: roleFormData }); else createRoleMutation.mutate(roleFormData); }}
+                            disabled={!roleFormData.code || !roleFormData.name}
+                            loading={createRoleMutation.isPending || updateRoleMutation.isPending}
+                            tone="primary"
+                            icon={Save}
+                        >Save</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showRoleModal && (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Role Code</label>
+                            <input type="text" value={roleFormData.code || ''} onChange={(e) => setRoleFormData({ ...roleFormData, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] font-mono" placeholder="e.g., SALES_MANAGER" disabled={!!selectedRole} />
+                            <p className="text-xs text-slate-400 mt-1">Uppercase letters and underscores only</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Role Name</label>
+                            <input type="text" value={roleFormData.name || ''} onChange={(e) => setRoleFormData({ ...roleFormData, name: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., Sales Manager" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                            <textarea value={roleFormData.description || ''} onChange={(e) => setRoleFormData({ ...roleFormData, description: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" rows={3} placeholder="Brief description..." />
+                        </div>
+                        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
+                            <input type="checkbox" checked={roleFormData.is_active ?? true} onChange={(e) => setRoleFormData({ ...roleFormData, is_active: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" />
+                            <span className="text-sm text-slate-700">Role is active</span>
+                        </label>
+                    </div>
+                )}
+            </Modal>
             {/* Reset Password Dialog */}
             <InputDialog
                 isOpen={!!resetPwUserId}
@@ -1097,26 +1265,28 @@ export const StaffManagementPage: React.FC = () => {
             />
 
             {/* BULK IMPORT MODAL */}
-            {showBulkImportModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-100 rounded-lg">
-                                    <FileSpreadsheet className="text-emerald-600" size={20} />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-semibold text-slate-900">Bulk Import Staff</h2>
-                                    <p className="text-xs text-slate-500">Upload an Excel file to add multiple staff at once</p>
-                                </div>
-                            </div>
-                            <button onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); setBulkImportResult(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+            <Modal
+                isOpen={showBulkImportModal}
+                onClose={() => { setShowBulkImportModal(false); setBulkImportFile(null); setBulkImportResult(null); }}
+                title="Bulk Import Staff"
+                icon={FileSpreadsheet}
+                tone="success"
+                size="xl"
+                footer={!bulkImportResult ? (
+                    <>
+                        <ModalCancelButton onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => { if (bulkImportFile) bulkImportMutation.mutate(bulkImportFile); }}
+                            disabled={!bulkImportFile}
+                            loading={bulkImportMutation.isPending}
+                            tone="success"
+                            icon={Upload}
+                        >Import Staff</ModalPrimaryButton>
+                    </>
+                ) : null}
+            >
+                {showBulkImportModal && (
+                    <div className="space-y-5">
                             {/* Results view */}
                             {bulkImportResult ? (
                                 <div className="space-y-4">
@@ -1327,118 +1497,115 @@ export const StaffManagementPage: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                        </div>
-
-                        {/* Footer — only show when not showing results */}
-                        {!bulkImportResult && (
-                            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-                                <button
-                                    onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); }}
-                                    className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => { if (bulkImportFile) bulkImportMutation.mutate(bulkImportFile); }}
-                                    disabled={!bulkImportFile || bulkImportMutation.isPending}
-                                    className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {bulkImportMutation.isPending ? (
-                                        <>
-                                            <Loader2 size={16} className="animate-spin" />
-                                            Importing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload size={16} />
-                                            Import Staff
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        )}
                     </div>
-                </div>
-            )}
-            {/* EDIT STAFF MODAL */}
-            {showEditStaffModal && selectedStaff && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Edit Staff — {selectedStaff.first_name} {selectedStaff.last_name}</h2>
-                            <button onClick={() => { setShowEditStaffModal(false); setSelectedStaff(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                )}
+            </Modal>
+            {/* EDIT STAFF MODAL (Quick Edit) */}
+            <Modal
+                isOpen={showEditStaffModal && !!selectedStaff}
+                onClose={() => { setShowEditStaffModal(false); setSelectedStaff(null); }}
+                title={selectedStaff ? `Quick Edit — ${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Quick Edit'}
+                icon={Edit}
+                tone="info"
+                size="lg"
+                footer={selectedStaff && (
+                    <>
+                        <ModalCancelButton onClick={() => { setShowEditStaffModal(false); setSelectedStaff(null); }} />
+                        <ModalPrimaryButton onClick={() => updateStaffMutation.mutate({ id: selectedStaff.id, data: editStaffData })} loading={updateStaffMutation.isPending} tone="primary" icon={Save}>Save Changes</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showEditStaffModal && selectedStaff && (
+                    <div className="space-y-4">
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 text-xs">
+                            <ChevronRight size={14} className="text-[#0066B3] mt-0.5 flex-shrink-0" />
+                            <p className="text-blue-800">
+                                Edit core directory fields here. For salary, employment type, contracts, NOK, bank details and more, open the <button type="button" onClick={() => { setShowEditStaffModal(false); navigate(`/staff/${selectedStaff.id}`); }} className="font-semibold underline hover:text-blue-900">full profile</button>.
+                            </p>
                         </div>
-                        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium text-slate-700 mb-1">First Name</label><input type="text" value={editStaffData.first_name || ''} onChange={(e) => setEditStaffData({ ...editStaffData, first_name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                                <div><label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label><input type="text" value={editStaffData.last_name || ''} onChange={(e) => setEditStaffData({ ...editStaffData, last_name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                            </div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label><input type="text" value={editStaffData.phone || ''} onChange={(e) => setEditStaffData({ ...editStaffData, phone: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Position</label><select value={editStaffData.position_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, position_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select position</option>{positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Department</label><select value={editStaffData.department_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, department_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select department</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Region</label><select value={editStaffData.region_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, region_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select region</option>{regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Branch</label><select value={editStaffData.branch_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, branch_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select branch</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">First Name</label><input type="text" value={editStaffData.first_name || ''} onChange={(e) => setEditStaffData({ ...editStaffData, first_name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label><input type="text" value={editStaffData.last_name || ''} onChange={(e) => setEditStaffData({ ...editStaffData, last_name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setShowEditStaffModal(false); setSelectedStaff(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => updateStaffMutation.mutate({ id: selectedStaff.id, data: editStaffData })} disabled={updateStaffMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">{updateStaffMutation.isPending ? 'Saving...' : 'Save Changes'}</button>
-                        </div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label><input type="text" value={editStaffData.phone || ''} onChange={(e) => setEditStaffData({ ...editStaffData, phone: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Position</label><select value={editStaffData.position_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, position_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select position</option>{positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Department</label><select value={editStaffData.department_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, department_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select department</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Region</label><select value={editStaffData.region_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, region_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select region</option>{regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Branch</label><select value={editStaffData.branch_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, branch_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select branch</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* PROMOTE MODAL */}
-            {showPromoteModal && selectedStaff && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Promote — {selectedStaff.first_name} {selectedStaff.last_name}</h2>
-                            <button onClick={() => { setShowPromoteModal(false); setSelectedStaff(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Position</label><p className="px-3 py-2.5 bg-slate-50 rounded-lg text-slate-600 text-sm">{selectedStaff.position?.name || 'N/A'}</p></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Position <span className="text-red-500">*</span></label><select value={promoteData.new_position_id || ''} onChange={(e) => setPromoteData({ ...promoteData, new_position_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select new position</option>{positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Department</label><select value={promoteData.new_department_id || ''} onChange={(e) => setPromoteData({ ...promoteData, new_department_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Keep current</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Salary</label><input type="number" min="0" value={promoteData.new_salary || ''} onChange={(e) => setPromoteData({ ...promoteData, new_salary: e.target.value })} placeholder="Leave blank to keep current" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Effective Date <span className="text-red-500">*</span></label><input type="date" value={promoteData.effective_date || ''} onChange={(e) => setPromoteData({ ...promoteData, effective_date: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason / Notes</label><textarea value={promoteData.reason || ''} onChange={(e) => setPromoteData({ ...promoteData, reason: e.target.value })} rows={3} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" placeholder="Reason for promotion..." /></div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setShowPromoteModal(false); setSelectedStaff(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => { if (!promoteData.new_position_id) { showToast('New position is required', 'error'); return; } promoteStaffMutation.mutate({ id: selectedStaff.id, data: { new_position_id: promoteData.new_position_id, ...(promoteData.new_department_id && { new_department_id: promoteData.new_department_id }), ...(promoteData.new_salary && { new_salary: Number(promoteData.new_salary) }), effective_date: promoteData.effective_date, reason: promoteData.reason } }); }} disabled={promoteStaffMutation.isPending} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50">{promoteStaffMutation.isPending ? 'Promoting...' : 'Confirm Promotion'}</button>
-                        </div>
+            <Modal
+                isOpen={showPromoteModal && !!selectedStaff}
+                onClose={() => { setShowPromoteModal(false); setSelectedStaff(null); }}
+                title={selectedStaff ? `Promote — ${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Promote'}
+                icon={ShieldCheck}
+                tone="success"
+                size="md"
+                footer={selectedStaff && (
+                    <>
+                        <ModalCancelButton onClick={() => { setShowPromoteModal(false); setSelectedStaff(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => { if (!promoteData.new_position_id) { showToast('New position is required', 'error'); return; } promoteStaffMutation.mutate({ id: selectedStaff.id, data: { new_position_id: promoteData.new_position_id, ...(promoteData.new_department_id && { new_department_id: promoteData.new_department_id }), ...(promoteData.new_salary && { new_salary: Number(promoteData.new_salary) }), effective_date: promoteData.effective_date, reason: promoteData.reason } }); }}
+                            loading={promoteStaffMutation.isPending}
+                            tone="success"
+                            icon={ShieldCheck}
+                        >Confirm Promotion</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showPromoteModal && selectedStaff && (
+                    <div className="space-y-4">
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Position</label><p className="px-3 py-2.5 bg-slate-50 rounded-lg text-slate-600 text-sm">{selectedStaff.position?.name || 'N/A'}</p></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New Position <span className="text-red-500">*</span></label><select value={promoteData.new_position_id || ''} onChange={(e) => setPromoteData({ ...promoteData, new_position_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select new position</option>{positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New Department</label><select value={promoteData.new_department_id || ''} onChange={(e) => setPromoteData({ ...promoteData, new_department_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Keep current</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New Salary</label><input type="number" min="0" value={promoteData.new_salary || ''} onChange={(e) => setPromoteData({ ...promoteData, new_salary: e.target.value })} placeholder="Leave blank to keep current" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Effective Date <span className="text-red-500">*</span></label><input type="date" value={promoteData.effective_date || ''} onChange={(e) => setPromoteData({ ...promoteData, effective_date: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason / Notes</label><textarea value={promoteData.reason || ''} onChange={(e) => setPromoteData({ ...promoteData, reason: e.target.value })} rows={3} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" placeholder="Reason for promotion..." /></div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* TRANSFER MODAL */}
-            {showTransferModal && selectedStaff && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Transfer — {selectedStaff.first_name} {selectedStaff.last_name}</h2>
-                            <button onClick={() => { setShowTransferModal(false); setSelectedStaff(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Branch</label><p className="px-3 py-2.5 bg-slate-50 rounded-lg text-slate-600 text-sm">{selectedStaff.branch?.name || 'N/A'} {selectedStaff.region?.name ? `(${selectedStaff.region.name})` : ''}</p></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Region</label><select value={transferData.region_id || ''} onChange={(e) => setTransferData({ ...transferData, region_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Keep current region</option>{regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Branch <span className="text-red-500">*</span></label><select value={transferData.branch_id || ''} onChange={(e) => setTransferData({ ...transferData, branch_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select new branch</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Effective Date <span className="text-red-500">*</span></label><input type="date" value={transferData.effective_date || ''} onChange={(e) => setTransferData({ ...transferData, effective_date: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason / Notes</label><textarea value={transferData.reason || ''} onChange={(e) => setTransferData({ ...transferData, reason: e.target.value })} rows={3} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" placeholder="Reason for transfer..." /></div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setShowTransferModal(false); setSelectedStaff(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => { if (!transferData.branch_id) { showToast('New branch is required', 'error'); return; } transferStaffMutation.mutate({ id: selectedStaff.id, data: { branch_id: transferData.branch_id, ...(transferData.region_id && { region_id: transferData.region_id }), effective_date: transferData.effective_date, reason: transferData.reason } }); }} disabled={transferStaffMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{transferStaffMutation.isPending ? 'Transferring...' : 'Confirm Transfer'}</button>
-                        </div>
+            <Modal
+                isOpen={showTransferModal && !!selectedStaff}
+                onClose={() => { setShowTransferModal(false); setSelectedStaff(null); }}
+                title={selectedStaff ? `Transfer — ${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Transfer'}
+                icon={Building}
+                tone="info"
+                size="md"
+                footer={selectedStaff && (
+                    <>
+                        <ModalCancelButton onClick={() => { setShowTransferModal(false); setSelectedStaff(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => { if (!transferData.branch_id) { showToast('New branch is required', 'error'); return; } transferStaffMutation.mutate({ id: selectedStaff.id, data: { branch_id: transferData.branch_id, ...(transferData.region_id && { region_id: transferData.region_id }), effective_date: transferData.effective_date, reason: transferData.reason } }); }}
+                            loading={transferStaffMutation.isPending}
+                            tone="primary"
+                            icon={Building}
+                        >Confirm Transfer</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showTransferModal && selectedStaff && (
+                    <div className="space-y-4">
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Branch</label><p className="px-3 py-2.5 bg-slate-50 rounded-lg text-slate-600 text-sm">{selectedStaff.branch?.name || 'N/A'} {selectedStaff.region?.name ? `(${selectedStaff.region.name})` : ''}</p></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New Region</label><select value={transferData.region_id || ''} onChange={(e) => setTransferData({ ...transferData, region_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Keep current region</option>{regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New Branch <span className="text-red-500">*</span></label><select value={transferData.branch_id || ''} onChange={(e) => setTransferData({ ...transferData, branch_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select new branch</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Effective Date <span className="text-red-500">*</span></label><input type="date" value={transferData.effective_date || ''} onChange={(e) => setTransferData({ ...transferData, effective_date: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason / Notes</label><textarea value={transferData.reason || ''} onChange={(e) => setTransferData({ ...transferData, reason: e.target.value })} rows={3} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] resize-none" placeholder="Reason for transfer..." /></div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* MANAGE ROLE DRAWER */}
-            {manageRole && (
-                <div className="fixed inset-0 bg-black/60 flex items-stretch justify-end z-50">
-                    <div className="bg-white w-full max-w-3xl flex flex-col shadow-2xl">
-                        {/* Header */}
+            <Drawer
+                isOpen={!!manageRole}
+                onClose={() => { setManageRole(null); setPermsDirty(false); }}
+                size="xl"
+                header={manageRole && (
+                    <>
                         <div className={"flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r " + getRoleColor(manageRole.code)}>
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -1449,10 +1616,8 @@ export const StaffManagementPage: React.FC = () => {
                                     <p className="text-xs text-white/70 font-mono">{manageRole.code}</p>
                                 </div>
                             </div>
-                            <button onClick={() => { setManageRole(null); setPermsDirty(false); }} className="p-2 hover:bg-white/20 rounded-lg text-white"><X size={20} /></button>
+                            <DrawerCloseButton onClick={() => { setManageRole(null); setPermsDirty(false); }} className="p-2 hover:bg-white/20 rounded-lg text-white" />
                         </div>
-
-                        {/* Tabs */}
                         <div className="flex border-b border-slate-200 bg-slate-50 px-6">
                             {(['details', 'permissions', 'users'] as const).map((t) => (
                                 <button
@@ -1464,9 +1629,17 @@ export const StaffManagementPage: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-
-                        {/* Tab content */}
-                        <div className="flex-1 overflow-y-auto">
+                    </>
+                )}
+                footer={manageRole && (
+                    <>
+                        <p className="text-xs text-slate-400">Role ID: {manageRole.id.slice(0, 8)}…</p>
+                        <button onClick={() => { setManageRole(null); setPermsDirty(false); }} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
+                    </>
+                )}
+            >
+                {manageRole && (
+                    <>
                             {/* DETAILS TAB */}
                             {manageRoleTab === 'details' && (
                                 <div className="p-6 space-y-5">
@@ -1679,55 +1852,51 @@ export const StaffManagementPage: React.FC = () => {
                                     )}
                                 </div>
                             )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-                            <p className="text-xs text-slate-400">Role ID: {manageRole.id.slice(0, 8)}…</p>
-                            <button onClick={() => { setManageRole(null); setPermsDirty(false); }} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* LEGACY PERMISSIONS PANEL (kept for backward compat, now superseded by Manage drawer) */}
-            {permRoleId && !manageRole && (
-                <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <div><h2 className="text-lg font-semibold text-slate-900">Permissions — {permRoleName}</h2><p className="text-sm text-slate-500">Toggle permissions assigned to this role</p></div>
-                            <button onClick={() => { setPermRoleId(null); setPermRoleName(''); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {Object.entries(allPermissions.reduce((acc: Record<string, Permission[]>, p) => { (acc[p.module] = acc[p.module] || []).push(p); return acc; }, {})).map(([module, perms]) => (
-                                <div key={module} className="mb-6">
-                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{module}</h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {(perms as Permission[]).map((perm) => {
-                                            const hasIt = rolePermissions.some((rp) => rp.id === perm.id);
-                                            return (
-                                                <label key={perm.id} className={"flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors " + (hasIt ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
-                                                    <input type="checkbox" checked={hasIt} onChange={() => { const newIds = hasIt ? rolePermissions.filter((rp) => rp.id !== perm.id).map((rp) => rp.id) : [...rolePermissions.map((rp) => rp.id), perm.id]; setRolePermissionsMutation.mutate({ roleId: permRoleId!, permissionIds: newIds }); }} className="w-4 h-4 text-[#0066B3] rounded" />
-                                                    <div><p className="text-sm font-medium text-slate-900">{perm.name}</p><p className="text-xs text-slate-500 font-mono">{perm.code}</p></div>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
+                    </>
+                )}
+            </Drawer>
+            {/* LEGACY PERMISSIONS PANEL (superseded by Manage drawer; kept for direct entry points) */}
+            <Modal
+                isOpen={!!permRoleId && !manageRole}
+                onClose={() => { setPermRoleId(null); setPermRoleName(''); }}
+                title={`Permissions — ${permRoleName}`}
+                icon={Key}
+                tone="info"
+                size="xl"
+                footer={(
+                    <ModalCancelButton onClick={() => { setPermRoleId(null); setPermRoleName(''); }}>Close</ModalCancelButton>
+                )}
+            >
+                {permRoleId && !manageRole && (
+                    <>
+                        {Object.entries(allPermissions.reduce((acc: Record<string, Permission[]>, p) => { (acc[p.module] = acc[p.module] || []).push(p); return acc; }, {})).map(([module, perms]) => (
+                            <div key={module} className="mb-6">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{module}</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {(perms as Permission[]).map((perm) => {
+                                        const hasIt = rolePermissions.some((rp) => rp.id === perm.id);
+                                        return (
+                                            <label key={perm.id} className={"flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors " + (hasIt ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
+                                                <input type="checkbox" checked={hasIt} onChange={() => { const newIds = hasIt ? rolePermissions.filter((rp) => rp.id !== perm.id).map((rp) => rp.id) : [...rolePermissions.map((rp) => rp.id), perm.id]; setRolePermissionsMutation.mutate({ roleId: permRoleId!, permissionIds: newIds }); }} className="w-4 h-4 text-[#0066B3] rounded" />
+                                                <div><p className="text-sm font-medium text-slate-900">{perm.name}</p><p className="text-xs text-slate-500 font-mono">{perm.code}</p></div>
+                                            </label>
+                                        );
+                                    })}
                                 </div>
-                            ))}
-                            {allPermissions.length === 0 && <div className="text-center py-12 text-slate-500"><Key className="mx-auto mb-3 text-slate-300" size={40} /><p>No permissions found</p></div>}
-                        </div>
-                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-end">
-                            <button onClick={() => { setPermRoleId(null); setPermRoleName(''); }} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300">Close</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                            </div>
+                        ))}
+                        {allPermissions.length === 0 && <div className="text-center py-12 text-slate-500"><Key className="mx-auto mb-3 text-slate-300" size={40} /><p>No permissions found</p></div>}
+                    </>
+                )}
+            </Modal>
 
-            {/* ══════════════ USER DETAIL DRAWER ══════════════ */}
-            {drawerUser && (
-                <div className="fixed inset-0 bg-black/60 flex items-stretch justify-end z-50">
-                    <div className="bg-white w-full max-w-xl flex flex-col shadow-2xl">
-                        {/* Header */}
+            {/* USER DETAIL DRAWER */}
+            <Drawer
+                isOpen={!!drawerUser}
+                onClose={() => setDrawerUser(null)}
+                size="lg"
+                header={drawerUser && (
+                    <>
                         <div className="flex items-center gap-4 px-6 py-5 bg-gradient-to-r from-[#0066B3] to-[#00AEEF]">
                             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
                                 {drawerUser.staff ? `${drawerUser.staff.first_name[0]}${drawerUser.staff.last_name[0]}` : drawerUser.email[0].toUpperCase()}
@@ -1744,10 +1913,8 @@ export const StaffManagementPage: React.FC = () => {
                                         : <span className="px-2 py-0.5 bg-white/10 text-white/60 text-xs rounded-full">Inactive</span>}
                                 </div>
                             </div>
-                            <button onClick={() => setDrawerUser(null)} className="p-2 hover:bg-white/20 rounded-lg text-white"><X size={20} /></button>
+                            <DrawerCloseButton onClick={() => setDrawerUser(null)} />
                         </div>
-
-                        {/* Tabs */}
                         <div className="flex border-b border-slate-200 bg-slate-50 px-6">
                             {(['overview', 'security', 'stafflink'] as const).map((t) => (
                                 <button key={t} onClick={() => setDrawerTab(t)} className={"px-4 py-3 text-sm font-medium border-b-2 transition-colors " + (drawerTab === t ? "border-[#0066B3] text-[#0066B3]" : "border-transparent text-slate-500 hover:text-slate-700")}>
@@ -1755,8 +1922,17 @@ export const StaffManagementPage: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-
-                        <div className="flex-1 overflow-y-auto">
+                    </>
+                )}
+                footer={drawerUser && (
+                    <>
+                        <p className="text-xs text-slate-400">ID: {drawerUser.id.slice(0, 8)}…</p>
+                        <button onClick={() => setDrawerUser(null)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
+                    </>
+                )}
+            >
+                {drawerUser && (
+                    <>
                             {/* OVERVIEW */}
                             {drawerTab === 'overview' && (
                                 <div className="p-6 space-y-5">
@@ -1924,67 +2100,68 @@ export const StaffManagementPage: React.FC = () => {
                                     )}
                                 </div>
                             )}
-                        </div>
+                    </>
+                )}
+            </Drawer>
 
-                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-                            <p className="text-xs text-slate-400">ID: {drawerUser.id.slice(0, 8)}…</p>
-                            <button onClick={() => setDrawerUser(null)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ══════════════ DUPLICATE ROLE MODAL ══════════════ */}
-            {duplicateRoleSource && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Duplicate Role</h2>
-                            <button onClick={() => setDuplicateRoleSource(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                                <div className={"w-10 h-10 rounded-lg bg-gradient-to-br " + getRoleColor(duplicateRoleSource.code) + " flex items-center justify-center"}>
-                                    <Shield className="text-white" size={18} />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-slate-800">{duplicateRoleSource.name}</p>
-                                    <p className="text-xs text-slate-500">Source role — all permissions will be copied</p>
-                                </div>
+            {/* DUPLICATE ROLE MODAL */}
+            <Modal
+                isOpen={!!duplicateRoleSource}
+                onClose={() => setDuplicateRoleSource(null)}
+                title="Duplicate Role"
+                icon={Copy}
+                tone="info"
+                size="md"
+                footer={duplicateRoleSource && (
+                    <>
+                        <ModalCancelButton onClick={() => setDuplicateRoleSource(null)} />
+                        <ModalPrimaryButton
+                            onClick={() => duplicateRoleMutation.mutate({ id: duplicateRoleSource.id, code: duplicateForm.code, name: duplicateForm.name })}
+                            disabled={!duplicateForm.code || !duplicateForm.name}
+                            loading={duplicateRoleMutation.isPending}
+                            tone="primary"
+                            icon={Copy}
+                        >Duplicate</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {duplicateRoleSource && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                            <div className={"w-10 h-10 rounded-lg bg-gradient-to-br " + getRoleColor(duplicateRoleSource.code) + " flex items-center justify-center"}>
+                                <Shield className="text-white" size={18} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">New Role Code</label>
-                                <input type="text" value={duplicateForm.code} onChange={(e) => setDuplicateForm(f => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., SENIOR_MANAGER" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">New Role Name</label>
-                                <input type="text" value={duplicateForm.name} onChange={(e) => setDuplicateForm(f => ({ ...f, name: e.target.value }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., Senior Manager" />
+                                <p className="font-medium text-slate-800">{duplicateRoleSource.name}</p>
+                                <p className="text-xs text-slate-500">Source role — all permissions will be copied</p>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setDuplicateRoleSource(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button
-                                onClick={() => duplicateRoleMutation.mutate({ id: duplicateRoleSource.id, code: duplicateForm.code, name: duplicateForm.name })}
-                                disabled={!duplicateForm.code || !duplicateForm.name || duplicateRoleMutation.isPending}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
-                            >
-                                {duplicateRoleMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
-                                Duplicate
-                            </button>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">New Role Code</label>
+                            <input type="text" value={duplicateForm.code} onChange={(e) => setDuplicateForm(f => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., SENIOR_MANAGER" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">New Role Name</label>
+                            <input type="text" value={duplicateForm.name} onChange={(e) => setDuplicateForm(f => ({ ...f, name: e.target.value }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="e.g., Senior Manager" />
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
-            {/* ══════════════ COMPARE ROLES MODAL ══════════════ */}
-            {showCompareModal && compareRoleA && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2"><GitCompare size={20} className="text-indigo-600" />Compare Roles</h2>
-                            <button onClick={() => setShowCompareModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-px bg-slate-200 p-4 border-b border-slate-200">
+            {/* COMPARE ROLES MODAL */}
+            <Modal
+                isOpen={showCompareModal && !!compareRoleA}
+                onClose={() => setShowCompareModal(false)}
+                title="Compare Roles"
+                icon={GitCompare}
+                tone="info"
+                size="xl"
+                footer={(
+                    <ModalCancelButton onClick={() => setShowCompareModal(false)}>Close</ModalCancelButton>
+                )}
+            >
+                {showCompareModal && compareRoleA && (<>
+                        <div className="grid grid-cols-2 gap-px bg-slate-200 p-4 -mx-6 -mt-6 mb-4 border-b border-slate-200">
                             <div className="bg-white p-3 rounded-l-xl flex items-center gap-3">
                                 <div className={"w-10 h-10 rounded-lg bg-gradient-to-br " + getRoleColor(compareRoleA.code) + " flex items-center justify-center flex-shrink-0"}>
                                     <Shield className="text-white" size={18} />
@@ -2054,160 +2231,279 @@ export const StaffManagementPage: React.FC = () => {
                         ) : (
                             <div className="flex items-center justify-center py-16 text-slate-400"><p>Select a role to compare</p></div>
                         )}
-                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end rounded-b-2xl">
-                            <button onClick={() => setShowCompareModal(false)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 text-sm">Close</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </>)}
+            </Modal>
 
-            {/* ══════════════ BULK ROLE ASSIGN MODAL ══════════════ */}
-            {showBulkRoleModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Assign Role to {selectedUserIds.size} Users</h2>
-                            <button onClick={() => setShowBulkRoleModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
-                        </div>
-                        <div className="p-6">
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {roles.map((role) => (
-                                    <label key={role.id} className={"flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors " + (bulkRoleCode === role.code ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
-                                        <input type="radio" name="bulk-role" checked={bulkRoleCode === role.code} onChange={() => setBulkRoleCode(role.code)} className="w-4 h-4 text-[#0066B3]" />
-                                        <div className={"w-8 h-8 rounded-lg bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center"}>
-                                            <Shield size={15} className="text-white" />
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-slate-900 text-sm">{role.name}</p>
-                                            <p className="text-xs text-slate-400 font-mono">{role.code}</p>
-                                        </div>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setShowBulkRoleModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button
-                                onClick={() => bulkAssignRoleMutation.mutate({ ids: Array.from(selectedUserIds), role_code: bulkRoleCode })}
-                                disabled={!bulkRoleCode || bulkAssignRoleMutation.isPending}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
-                            >
-                                {bulkAssignRoleMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Shield size={15} />}
-                                Assign to {selectedUserIds.size} Users
-                            </button>
-                        </div>
+            {/* BULK ROLE ASSIGN MODAL */}
+            <Modal
+                isOpen={showBulkRoleModal}
+                onClose={() => setShowBulkRoleModal(false)}
+                title={`Assign Role to ${selectedUserIds.size} Users`}
+                icon={Shield}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowBulkRoleModal(false)} />
+                        <ModalPrimaryButton
+                            onClick={() => bulkAssignRoleMutation.mutate({ ids: Array.from(selectedUserIds), role_code: bulkRoleCode })}
+                            disabled={!bulkRoleCode}
+                            loading={bulkAssignRoleMutation.isPending}
+                            tone="primary"
+                            icon={Shield}
+                        >Assign to {selectedUserIds.size} Users</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showBulkRoleModal && (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {roles.map((role) => (
+                            <label key={role.id} className={"flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors " + (bulkRoleCode === role.code ? "border-[#0066B3] bg-blue-50" : "border-slate-200 hover:bg-slate-50")}>
+                                <input type="radio" name="bulk-role" checked={bulkRoleCode === role.code} onChange={() => setBulkRoleCode(role.code)} className="w-4 h-4 text-[#0066B3]" />
+                                <div className={"w-8 h-8 rounded-lg bg-gradient-to-br " + getRoleColor(role.code) + " flex items-center justify-center"}>
+                                    <Shield size={15} className="text-white" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-slate-900 text-sm">{role.name}</p>
+                                    <p className="text-xs text-slate-400 font-mono">{role.code}</p>
+                                </div>
+                            </label>
+                        ))}
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* BULK TRANSFER MODAL */}
-            {showBulkTransferModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <div>
-                                <h2 className="font-semibold">Bulk Transfer / Re-assign</h2>
-                                <p className="text-xs text-slate-500 mt-0.5">{selectedStaffIds.size} staff selected</p>
-                            </div>
-                            <button onClick={() => setShowBulkTransferModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+            <Modal
+                isOpen={showBulkTransferModal}
+                onClose={() => setShowBulkTransferModal(false)}
+                title={`Bulk Transfer — ${selectedStaffIds.size} staff selected`}
+                icon={Building}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowBulkTransferModal(false)} />
+                        <ModalPrimaryButton
+                            onClick={() => {
+                                const updates: any = {};
+                                if (bulkTransferData.region_id) updates.region_id = bulkTransferData.region_id;
+                                if (bulkTransferData.branch_id) updates.branch_id = bulkTransferData.branch_id;
+                                if (bulkTransferData.department_id) updates.department_id = bulkTransferData.department_id;
+                                if (bulkTransferData.manager_id) updates.manager_id = bulkTransferData.manager_id;
+                                if (Object.keys(updates).length === 0) { showToast('No changes selected', 'error'); return; }
+                                bulkTransferStaffMutation.mutate({ staff_ids: Array.from(selectedStaffIds), updates });
+                            }}
+                            loading={bulkTransferStaffMutation.isPending}
+                            tone="primary"
+                            icon={Save}
+                        >Apply</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showBulkTransferModal && (
+                    <div className="space-y-3">
+                        <p className="text-xs text-slate-500">Leave fields blank to keep current values. Filled fields apply to all selected staff.</p>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Region</label>
+                            <select value={bulkTransferData.region_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, region_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                <option value="">— Keep current —</option>
+                                {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            </select>
                         </div>
-                        <div className="p-6 space-y-3">
-                            <p className="text-xs text-slate-500">Leave fields blank to keep current values. Filled fields apply to all selected staff.</p>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Region</label>
-                                <select value={bulkTransferData.region_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, region_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                                    <option value="">— Keep current —</option>
-                                    {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Branch</label>
-                                <select value={bulkTransferData.branch_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, branch_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                                    <option value="">— Keep current —</option>
-                                    {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Department</label>
-                                <select value={bulkTransferData.department_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, department_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                                    <option value="">— Keep current —</option>
-                                    {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Manager</label>
-                                <select value={bulkTransferData.manager_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, manager_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                                    <option value="">— Keep current —</option>
-                                    {staff.filter((s: Staff) => !selectedStaffIds.has(s.id)).map((s: Staff) => (
-                                        <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s.employee_number})</option>
-                                    ))}
-                                </select>
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Branch</label>
+                            <select value={bulkTransferData.branch_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, branch_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                <option value="">— Keep current —</option>
+                                {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setShowBulkTransferModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button
-                                onClick={() => {
-                                    const updates: any = {};
-                                    if (bulkTransferData.region_id) updates.region_id = bulkTransferData.region_id;
-                                    if (bulkTransferData.branch_id) updates.branch_id = bulkTransferData.branch_id;
-                                    if (bulkTransferData.department_id) updates.department_id = bulkTransferData.department_id;
-                                    if (bulkTransferData.manager_id) updates.manager_id = bulkTransferData.manager_id;
-                                    if (Object.keys(updates).length === 0) { showToast('No changes selected', 'error'); return; }
-                                    bulkTransferStaffMutation.mutate({ staff_ids: Array.from(selectedStaffIds), updates });
-                                }}
-                                disabled={bulkTransferStaffMutation.isPending}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
-                                {bulkTransferStaffMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Apply
-                            </button>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Department</label>
+                            <select value={bulkTransferData.department_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, department_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                <option value="">— Keep current —</option>
+                                {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Manager</label>
+                            <select value={bulkTransferData.manager_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, manager_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                <option value="">— Keep current —</option>
+                                {staff.filter((s: Staff) => !selectedStaffIds.has(s.id)).map((s: Staff) => (
+                                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s.employee_number})</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
+
+            {/* Archive confirmation modal */}
+            <Modal
+                isOpen={!!archiveTarget}
+                onClose={() => setArchiveTarget(null)}
+                title="Archive Staff Record"
+                icon={Archive}
+                tone="neutral"
+                size="md"
+                footer={archiveTarget && (
+                    <>
+                        <ModalCancelButton onClick={() => setArchiveTarget(null)} />
+                        <ModalPrimaryButton
+                            onClick={() => archiveStaffMutation.mutate(archiveTarget.id)}
+                            loading={archiveStaffMutation.isPending}
+                            tone="primary"
+                            icon={Archive}
+                        >Archive</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {archiveTarget && (
+                    <div className="space-y-3">
+                        <p className="text-sm text-slate-700">
+                            Archive <strong>{archiveTarget.first_name} {archiveTarget.last_name}</strong> ({archiveTarget.employee_number})?
+                        </p>
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                            <p className="font-medium mb-1">What this does:</p>
+                            <ul className="list-disc ml-4 space-y-0.5">
+                                <li>Hides the record from the main directory</li>
+                                <li>Keeps all historical data (payroll, leave, contracts) intact</li>
+                                <li>Can be restored at any time from the Archived tab</li>
+                            </ul>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Terminate Employment modal */}
+            <Modal
+                isOpen={!!terminateTarget}
+                onClose={() => setTerminateTarget(null)}
+                title="Terminate Employment"
+                icon={Ban}
+                tone="danger"
+                size="md"
+                footer={terminateTarget && (
+                    <>
+                        <ModalCancelButton onClick={() => setTerminateTarget(null)} />
+                        <ModalPrimaryButton
+                            onClick={() => terminateStaffMutation.mutate({
+                                id: terminateTarget.id,
+                                data: {
+                                    reason: terminateForm.reason.trim(),
+                                    terminationDate: terminateForm.terminationDate || undefined,
+                                    force: terminateForm.force,
+                                },
+                            })}
+                            disabled={terminateForm.reason.trim().length < 3}
+                            loading={terminateStaffMutation.isPending}
+                            tone="danger"
+                            icon={Ban}
+                        >Terminate</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {terminateTarget && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-700">
+                            End the employment of <strong>{terminateTarget.first_name} {terminateTarget.last_name}</strong> ({terminateTarget.employee_number}).
+                        </p>
+
+                        {terminateBlockers && (terminateBlockers.active_assets > 0 || terminateBlockers.pending_documents > 0) ? (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                                <p className="font-semibold text-amber-800 mb-1 flex items-center gap-1.5"><AlertTriangle size={14} />Exit-clearance blockers</p>
+                                <ul className="list-disc ml-4 text-amber-800 space-y-0.5">
+                                    {terminateBlockers.active_assets > 0 && <li>{terminateBlockers.active_assets} active asset assignment(s)</li>}
+                                    {terminateBlockers.pending_documents > 0 && <li>{terminateBlockers.pending_documents} unverified mandatory document(s)</li>}
+                                </ul>
+                                <p className="text-xs text-amber-700 mt-2">Resolve these or check <em>force override</em> below (CEO only) to proceed.</p>
+                            </div>
+                        ) : terminateBlockers ? (
+                            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                                <CheckCircle size={14} />Exit clearance complete — no blockers.
+                            </div>
+                        ) : null}
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Reason *</label>
+                            <textarea
+                                value={terminateForm.reason}
+                                onChange={(e) => setTerminateForm({ ...terminateForm, reason: e.target.value })}
+                                placeholder="e.g., Performance, redundancy, gross misconduct, contract end…"
+                                rows={3}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Last working date</label>
+                            <input
+                                type="date"
+                                value={terminateForm.terminationDate}
+                                onChange={(e) => setTerminateForm({ ...terminateForm, terminationDate: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                            />
+                        </div>
+                        {isCeo && terminateBlockers && (terminateBlockers.active_assets > 0 || terminateBlockers.pending_documents > 0) && (
+                            <label className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100">
+                                <input
+                                    type="checkbox"
+                                    checked={terminateForm.force}
+                                    onChange={(e) => setTerminateForm({ ...terminateForm, force: e.target.checked })}
+                                    className="mt-0.5 w-4 h-4 text-red-600 rounded"
+                                />
+                                <div>
+                                    <p className="text-sm font-medium text-slate-800">Force override (CEO)</p>
+                                    <p className="text-xs text-slate-500">Bypass exit-clearance blockers. The override is recorded in the audit log.</p>
+                                </div>
+                            </label>
+                        )}
+                    </div>
+                )}
+            </Modal>
 
             {/* Permanent Delete confirmation modal — CEO only, type-to-confirm */}
-            {permanentDeleteTarget && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="px-6 py-4 border-b border-red-200 bg-red-50 rounded-t-2xl flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-red-700 flex items-center gap-2">
-                                <AlertTriangle size={20} />Permanently Delete Staff
-                            </h2>
-                            <button onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }} className="p-2 hover:bg-red-100 rounded-lg"><X size={18} /></button>
+            <Modal
+                isOpen={!!permanentDeleteTarget}
+                onClose={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }}
+                title="Permanently Delete Staff"
+                icon={AlertTriangle}
+                tone="danger"
+                size="md"
+                footer={permanentDeleteTarget && (
+                    <>
+                        <ModalCancelButton onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }} />
+                        <ModalPrimaryButton
+                            onClick={() => permanentDeleteMutation.mutate({ id: permanentDeleteTarget.id, confirm: permanentDeleteConfirm })}
+                            disabled={permanentDeleteConfirm.trim() !== permanentDeleteTarget.employee_number}
+                            loading={permanentDeleteMutation.isPending}
+                            tone="danger"
+                            icon={Trash2}
+                        >Permanently Delete</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {permanentDeleteTarget && (
+                    <div className="space-y-4">
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                            <p className="font-semibold mb-1">This action is irreversible.</p>
+                            <p>The record for <strong>{permanentDeleteTarget.first_name} {permanentDeleteTarget.last_name}</strong> ({permanentDeleteTarget.employee_number}) will be permanently removed from the database. Historical references (payroll, leave, loans, contracts) must already be absent — the server will refuse if any are found.</p>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-                                <p className="font-semibold mb-1">This action is irreversible.</p>
-                                <p>The record for <strong>{permanentDeleteTarget.first_name} {permanentDeleteTarget.last_name}</strong> ({permanentDeleteTarget.employee_number}) will be permanently removed from the database. Historical references (payroll, leave, loans, contracts) must already be absent — the server will refuse if any are found.</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Type the employee number <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">{permanentDeleteTarget.employee_number}</span> to confirm
-                                </label>
-                                <input
-                                    type="text"
-                                    value={permanentDeleteConfirm}
-                                    onChange={(e) => setPermanentDeleteConfirm(e.target.value)}
-                                    placeholder={permanentDeleteTarget.employee_number}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-                                    autoFocus
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }} className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-lg font-medium text-sm">Cancel</button>
-                            <button
-                                onClick={() => permanentDeleteMutation.mutate({ id: permanentDeleteTarget.id, confirm: permanentDeleteConfirm })}
-                                disabled={permanentDeleteConfirm.trim() !== permanentDeleteTarget.employee_number || permanentDeleteMutation.isPending}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                {permanentDeleteMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                                Permanently Delete
-                            </button>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Type the employee number <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">{permanentDeleteTarget.employee_number}</span> to confirm
+                            </label>
+                            <input
+                                type="text"
+                                value={permanentDeleteConfirm}
+                                onChange={(e) => setPermanentDeleteConfirm(e.target.value)}
+                                placeholder={permanentDeleteTarget.employee_number}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                                autoFocus
+                            />
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
         </div>
     );

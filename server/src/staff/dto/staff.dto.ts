@@ -220,6 +220,42 @@ export class UpdateStaffDto {
     nhif_number?: string;
 
     @IsOptional()
+    @IsDateString()
+    date_of_birth?: string;
+
+    @IsOptional()
+    @IsString()
+    gender?: string;
+
+    @IsOptional()
+    @IsString()
+    marital_status?: string;
+
+    @IsOptional()
+    @IsString()
+    nationality?: string;
+
+    @IsOptional()
+    @IsDateString()
+    hire_date?: string;
+
+    @IsOptional()
+    @IsDateString()
+    probation_start_date?: string;
+
+    @IsOptional()
+    @IsDateString()
+    probation_end_date?: string;
+
+    @IsOptional()
+    @IsNumber()
+    probation_months?: number;
+
+    @IsOptional()
+    @IsString()
+    employment_type?: string;
+
+    @IsOptional()
     user_id?: string | null;
 }
 

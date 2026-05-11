@@ -1177,10 +1177,12 @@ export class StaffService {
 
     async softDelete(id: string, deletedBy?: string): Promise<void> {
         const staff = await this.findOne(id);
-        // safeguard: terminated/resigned/ex-staff only
-        const allowed = [StaffStatus.TERMINATED, StaffStatus.RESIGNED, StaffStatus.EX_STAFF];
+        // safeguard: only non-active lifecycle states can be archived
+        const allowed = [StaffStatus.TERMINATED, StaffStatus.RESIGNED, StaffStatus.EX_STAFF, StaffStatus.SUSPENDED];
         if (!allowed.includes(staff.status)) {
-            throw new BadRequestException('Only terminated, resigned, or ex-staff records can be deleted');
+            throw new BadRequestException(
+                `Cannot archive a staff member in status "${staff.status}". Suspend, terminate, or record resignation first.`,
+            );
         }
         staff.updated_by = deletedBy;
         await this.staffRepo.save(staff);

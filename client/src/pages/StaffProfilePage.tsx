@@ -4,18 +4,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { InputDialog } from '../components/ui/InputDialog';
+import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
 import {
     ArrowLeft, Edit, Mail, Phone, Building2, MapPin,
     Briefcase, FileText, Clock, CheckCircle, XCircle,
     Upload, Download, Trash2, AlertTriangle, User,
-    CreditCard, Shield, History, X, Camera, RefreshCw,
+    CreditCard, Shield, History, Camera, RefreshCw,
     ChevronRight, AlertCircle, TrendingUp, DollarSign,
     FileCheck, Plus, RotateCcw, Ban, Play, Heart,
-    KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2
+    KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2, MoreHorizontal
 } from 'lucide-react';
 import StaffPeopleTab from '../components/staff/StaffPeopleTab';
 
-type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'people' | 'account' | 'actions';
+type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'people' | 'account';
 
 interface OnboardingTask {
     id: string;
@@ -178,6 +179,7 @@ export const StaffProfilePage: React.FC = () => {
     const [showProbationModal, setShowProbationModal] = useState(false);
     const [showTerminateModal, setShowTerminateModal] = useState(false);
     const [showPromoteModal, setShowPromoteModal] = useState(false);
+    const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [formData, setFormData] = useState<any>({});
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
@@ -539,14 +541,17 @@ export const StaffProfilePage: React.FC = () => {
 
     const tabs = [
         { key: 'overview' as Tab, label: 'Overview', icon: User },
+        { key: 'people' as Tab, label: 'People & Comp', icon: Heart },
         { key: 'documents' as Tab, label: 'Documents', icon: FileText },
         { key: 'contracts' as Tab, label: 'Contracts', icon: FileCheck },
         { key: 'employment' as Tab, label: 'History', icon: History },
         { key: 'onboarding' as Tab, label: 'Onboarding', icon: CheckCircle },
-        { key: 'people' as Tab, label: 'People & Comp', icon: Heart },
         { key: 'account' as Tab, label: 'Account', icon: KeyRound },
-        { key: 'actions' as Tab, label: 'Actions', icon: Shield },
     ];
+
+    const isOnProbation = staff?.probation_status === 'on_probation';
+    const isSuspended = staff?.status === 'suspended';
+    const isActive = staff?.status === 'active' || staff?.status === 'probation';
 
     if (isLoading) {
         return (
@@ -570,22 +575,64 @@ export const StaffProfilePage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <button onClick={() => navigate('/staff')} className="p-2 hover:bg-slate-100 rounded-lg">
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-slate-900">Staff Profile</h1>
-                    <p className="text-slate-500">{staff.employee_number}</p>
+            {/* Header with breadcrumb + actions */}
+            <div>
+                <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-500 mb-2">
+                    <button onClick={() => navigate('/staff-management')} className="hover:text-slate-800">Staff Management</button>
+                    <ChevronRight size={14} />
+                    <button onClick={() => navigate('/staff-management')} className="hover:text-slate-800">Directory</button>
+                    <ChevronRight size={14} />
+                    <span className="text-slate-800 font-medium">{staff.first_name} {staff.last_name}</span>
+                </nav>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate('/staff-management')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="Back to directory">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="flex-1">
+                        <h1 className="text-2xl font-bold text-slate-900">{staff.first_name} {staff.last_name}</h1>
+                        <p className="text-slate-500 text-sm">{staff.employee_number} · {staff.position?.name || 'No position'}</p>
+                    </div>
+                    <button
+                        onClick={openEditModal}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] shadow-sm"
+                    >
+                        <Edit size={18} />
+                        Edit Profile
+                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowActionsMenu((v) => !v)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg font-medium text-slate-700 shadow-sm"
+                        >
+                            <MoreHorizontal size={18} />
+                            <span className="hidden sm:inline">More actions</span>
+                        </button>
+                        {showActionsMenu && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setShowActionsMenu(false)} />
+                                <div className="absolute right-0 top-full mt-1 w-60 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-20">
+                                    <button onClick={() => { setShowActionsMenu(false); setFormData({}); setShowPromoteModal(true); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><TrendingUp size={16} className="text-emerald-600" />Promote</button>
+                                    <button onClick={() => { setShowActionsMenu(false); setShowTransferModal(true); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building2 size={16} className="text-blue-600" />Transfer</button>
+                                    {isOnProbation && (
+                                        <button onClick={() => { setShowActionsMenu(false); setShowProbationModal(true); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Clock size={16} className="text-amber-600" />Probation Review</button>
+                                    )}
+                                    {staff.user?.email && (
+                                        <button onClick={() => { setShowActionsMenu(false); resendWelcomeMutation.mutate(); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><KeyRound size={16} className="text-slate-500" />Resend Welcome Email</button>
+                                    )}
+                                    <hr className="my-1" />
+                                    {isSuspended ? (
+                                        <button onClick={() => { setShowActionsMenu(false); activateMutation.mutate(); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><CheckCircle size={16} />Reactivate</button>
+                                    ) : isActive ? (
+                                        <button onClick={() => { setShowActionsMenu(false); setShowDeactivateConfirm(true); }} className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><XCircle size={16} />Suspend</button>
+                                    ) : null}
+                                    {(isActive || isSuspended) && (
+                                        <button onClick={() => { setShowActionsMenu(false); setShowTerminateModal(true); }} className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"><AlertTriangle size={16} />Terminate Employment</button>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
-                <button
-                    onClick={openEditModal}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599]"
-                >
-                    <Edit size={18} />
-                    Edit Profile
-                </button>
             </div>
 
             {/* Profile Card */}
@@ -658,7 +705,7 @@ export const StaffProfilePage: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-slate-200">
+            <div className="flex gap-2 border-b border-slate-200 overflow-x-auto -mx-1 px-1">
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -1311,114 +1358,26 @@ export const StaffProfilePage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Actions Tab */}
-                {activeTab === 'actions' && (
-                    <div className="space-y-6">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            {/* Promote */}
-                            <button
-                                onClick={() => { setFormData({}); setShowPromoteModal(true); }}
-                                className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-emerald-50 transition-colors text-left"
-                            >
-                                <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                    <TrendingUp className="text-emerald-600" size={24} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-slate-900">Promote Staff</p>
-                                    <p className="text-sm text-slate-500">Change position, salary, and department</p>
-                                </div>
-                                <ChevronRight className="ml-auto text-slate-400" size={20} />
-                            </button>
-
-                            {/* Transfer */}
-                            <button
-                                onClick={() => setShowTransferModal(true)}
-                                className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 transition-colors text-left"
-                            >
-                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <Building2 className="text-blue-600" size={24} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-slate-900">Transfer Staff</p>
-                                    <p className="text-sm text-slate-500">Move to different branch, region, or position</p>
-                                </div>
-                                <ChevronRight className="ml-auto text-slate-400" size={20} />
-                            </button>
-
-                            {/* Probation */}
-                            <button
-                                onClick={() => setShowProbationModal(true)}
-                                className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-amber-50 transition-colors text-left"
-                            >
-                                <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-                                    <Clock className="text-amber-600" size={24} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-slate-900">Probation Review</p>
-                                    <p className="text-sm text-slate-500">Confirm, extend, or fail probation</p>
-                                </div>
-                                <ChevronRight className="ml-auto text-slate-400" size={20} />
-                            </button>
-
-                            {/* Activate/Deactivate */}
-                            {staff.status === 'suspended' ? (
-                                <button
-                                    onClick={() => activateMutation.mutate()}
-                                    className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-emerald-50 transition-colors text-left"
-                                >
-                                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                        <CheckCircle className="text-emerald-600" size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-slate-900">Reactivate Staff</p>
-                                        <p className="text-sm text-slate-500">Restore access and active status</p>
-                                    </div>
-                                    <ChevronRight className="ml-auto text-slate-400" size={20} />
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => setShowDeactivateConfirm(true)}
-                                    className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-red-50 transition-colors text-left"
-                                >
-                                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                                        <XCircle className="text-red-600" size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-slate-900">Suspend Staff</p>
-                                        <p className="text-sm text-slate-500">Temporarily disable access</p>
-                                    </div>
-                                    <ChevronRight className="ml-auto text-slate-400" size={20} />
-                                </button>
-                            )}
-
-                            {/* Terminate */}
-                            <button
-                                onClick={() => setShowTerminateModal(true)}
-                                className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-red-50 transition-colors text-left"
-                            >
-                                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                                    <AlertTriangle className="text-red-600" size={24} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-slate-900">Terminate Employment</p>
-                                    <p className="text-sm text-slate-500">End employment relationship</p>
-                                </div>
-                                <ChevronRight className="ml-auto text-slate-400" size={20} />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                {/* Actions tab removed — lifecycle actions live in the header "More actions" dropdown */}
             </div>
 
             {/* Edit Modal */}
-            {showEditModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Edit Staff Profile</h2>
-                            <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            <Modal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                title="Edit Staff Profile"
+                icon={Edit}
+                tone="info"
+                size="xl"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowEditModal(false)} />
+                        <ModalPrimaryButton onClick={() => updateMutation.mutate(formData)} loading={updateMutation.isPending} tone="primary" icon={CheckCircle}>Save Changes</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showEditModal && (
+                    <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
@@ -1529,26 +1488,27 @@ export const StaffProfilePage: React.FC = () => {
                                     <input type="text" value={formData.bank_account_name || ''} onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                                 </div>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowEditModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => updateMutation.mutate(formData)} disabled={updateMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
-                                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Upload Document Modal */}
-            {showUploadModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Upload Document</h2>
-                            <button onClick={() => setShowUploadModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
+            <Modal
+                isOpen={showUploadModal}
+                onClose={() => setShowUploadModal(false)}
+                title="Upload Document"
+                icon={Upload}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowUploadModal(false)} />
+                        <ModalPrimaryButton onClick={handleUpload} disabled={!uploadFile || !uploadDocType} loading={uploadDocMutation.isPending} tone="primary" icon={Upload}>Upload</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showUploadModal && (
+                    <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Document Type *</label>
                                 <select value={uploadDocType} onChange={(e) => setUploadDocType(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg">
@@ -1574,50 +1534,52 @@ export const StaffProfilePage: React.FC = () => {
                                     <input type="date" value={uploadExpiryDate} onChange={(e) => setUploadExpiryDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                                 </div>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowUploadModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={handleUpload} disabled={!uploadFile || !uploadDocType || uploadDocMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
-                                {uploadDocMutation.isPending ? 'Uploading...' : 'Upload'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Reject Document Dialog */}
-            {rejectDocId && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-sm">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-red-600">Reject Document</h2>
-                            <button onClick={() => { setRejectDocId(null); setRejectReason(''); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
+            <Modal
+                isOpen={!!rejectDocId}
+                onClose={() => { setRejectDocId(null); setRejectReason(''); }}
+                title="Reject Document"
+                icon={XCircle}
+                tone="danger"
+                size="sm"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setRejectDocId(null); setRejectReason(''); }} />
+                        <ModalPrimaryButton onClick={() => rejectDocMutation.mutate({ docId: rejectDocId!, reason: rejectReason })} disabled={!rejectReason} loading={rejectDocMutation.isPending} tone="danger" icon={XCircle}>Reject</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {rejectDocId && (
+                    <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Rejection Reason *</label>
                                 <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3} placeholder="Provide a reason for rejection..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => { setRejectDocId(null); setRejectReason(''); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => rejectDocMutation.mutate({ docId: rejectDocId, reason: rejectReason })} disabled={!rejectReason || rejectDocMutation.isPending} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">
-                                {rejectDocMutation.isPending ? 'Rejecting...' : 'Reject'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Create Contract Modal */}
-            {showContractModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Create Contract</h2>
-                            <button onClick={() => setShowContractModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            <Modal
+                isOpen={showContractModal}
+                onClose={() => setShowContractModal(false)}
+                title="Create Contract"
+                icon={FileCheck}
+                tone="info"
+                size="lg"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowContractModal(false)} />
+                        <ModalPrimaryButton onClick={() => createContractMutation.mutate(contractFormData)} disabled={!contractFormData.start_date || !contractFormData.contract_type} loading={createContractMutation.isPending} tone="primary" icon={Plus}>Create Contract</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showContractModal && (
+                    <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Contract Type *</label>
@@ -1667,26 +1629,27 @@ export const StaffProfilePage: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Special Conditions</label>
                                 <textarea value={contractFormData.special_conditions || ''} onChange={(e) => setContractFormData({ ...contractFormData, special_conditions: e.target.value })} rows={2} placeholder="Any special conditions..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowContractModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => createContractMutation.mutate(contractFormData)} disabled={!contractFormData.start_date || !contractFormData.contract_type || createContractMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
-                                {createContractMutation.isPending ? 'Creating...' : 'Create Contract'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Transfer Modal */}
-            {showTransferModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Transfer Staff</h2>
-                            <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
+            <Modal
+                isOpen={showTransferModal}
+                onClose={() => setShowTransferModal(false)}
+                title="Transfer Staff"
+                icon={Building2}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowTransferModal(false)} />
+                        <ModalPrimaryButton onClick={() => transferMutation.mutate(formData)} loading={transferMutation.isPending} tone="primary" icon={Building2}>Transfer</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showTransferModal && (
+                    <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Region</label>
                                 <select value={formData.region_id || ''} onChange={(e) => setFormData({ ...formData, region_id: e.target.value || undefined })} className="w-full px-3 py-2 border border-slate-200 rounded-lg">
@@ -1716,26 +1679,27 @@ export const StaffProfilePage: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
                                 <textarea value={formData.reason || ''} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowTransferModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => transferMutation.mutate(formData)} disabled={transferMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
-                                {transferMutation.isPending ? 'Transferring...' : 'Transfer'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Probation Modal */}
-            {showProbationModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Probation Review</h2>
-                            <button onClick={() => setShowProbationModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
+            <Modal
+                isOpen={showProbationModal}
+                onClose={() => setShowProbationModal(false)}
+                title="Probation Review"
+                icon={Clock}
+                tone="warning"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowProbationModal(false)} />
+                        <ModalPrimaryButton onClick={() => probationMutation.mutate(formData)} disabled={!formData.status} loading={probationMutation.isPending} tone="primary" icon={CheckCircle}>Save</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showProbationModal && (
+                    <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
                                 <select value={formData.status || ''} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg">
@@ -1755,26 +1719,27 @@ export const StaffProfilePage: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
                                 <textarea value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowProbationModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => probationMutation.mutate(formData)} disabled={!formData.status || probationMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
-                                {probationMutation.isPending ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Terminate Modal */}
-            {showTerminateModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-red-600">Terminate Employment</h2>
-                            <button onClick={() => setShowTerminateModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            <Modal
+                isOpen={showTerminateModal}
+                onClose={() => setShowTerminateModal(false)}
+                title="Terminate Employment"
+                icon={Ban}
+                tone="danger"
+                size="lg"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowTerminateModal(false)} />
+                        <ModalPrimaryButton onClick={() => terminateMutation.mutate(formData)} disabled={!formData.reason || !formData.termination_type} loading={terminateMutation.isPending} tone="danger" icon={Ban}>Terminate Employment</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showTerminateModal && (
+                    <div className="space-y-4">
                             <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                                 <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
                                 <p className="text-sm text-red-700">This action will permanently end employment for <strong>{staff.first_name} {staff.last_name}</strong> ({staff.employee_number}). This cannot be undone.</p>
@@ -1870,16 +1835,9 @@ export const StaffProfilePage: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Exit Interview Notes</label>
                                 <textarea value={formData.exit_notes || ''} onChange={(e) => setFormData({ ...formData, exit_notes: e.target.value })} rows={2} placeholder="Optional exit interview notes..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowTerminateModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => terminateMutation.mutate(formData)} disabled={!formData.reason || !formData.termination_type || terminateMutation.isPending} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">
-                                {terminateMutation.isPending ? 'Terminating...' : 'Terminate Employment'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Reset Password Dialog (Account tab) */}
             <InputDialog
@@ -1937,16 +1895,22 @@ export const StaffProfilePage: React.FC = () => {
             />
 
             {/* Promote Modal */}
-            {showPromoteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                <TrendingUp size={20} className="text-emerald-600" /> Promote Staff
-                            </h2>
-                            <button onClick={() => setShowPromoteModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
+            <Modal
+                isOpen={showPromoteModal}
+                onClose={() => setShowPromoteModal(false)}
+                title="Promote Staff"
+                icon={TrendingUp}
+                tone="success"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowPromoteModal(false)} />
+                        <ModalPrimaryButton onClick={() => promoteMutation.mutate(formData)} disabled={!formData.new_position_id} loading={promoteMutation.isPending} tone="success" icon={TrendingUp}>Promote</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showPromoteModal && (
+                    <div className="space-y-4">
                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
                                 Current: <strong>{staff.position?.name || 'N/A'}</strong> — {staff.basic_salary ? `KES ${Number(staff.basic_salary).toLocaleString()}` : 'No salary set'}
                             </div>
@@ -1985,76 +1949,78 @@ export const StaffProfilePage: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
                                 <textarea value={formData.reason || ''} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} rows={2} placeholder="Reason for promotion..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                            <button onClick={() => setShowPromoteModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => promoteMutation.mutate(formData)} disabled={!formData.new_position_id || promoteMutation.isPending} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50">
-                                {promoteMutation.isPending ? 'Promoting...' : 'Promote'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Photo Upload Modal */}
-            {showPhotoInput && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-sm">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Change Photo</h2>
-                            <button onClick={() => { setShowPhotoInput(false); setPhotoFile(null); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <input type="file" accept="image/jpeg,image/png,image/gif" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-                            {photoFile && <p className="text-sm text-slate-500">Selected: {photoFile.name}</p>}
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setShowPhotoInput(false); setPhotoFile(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => { if (photoFile) uploadPhotoMutation.mutate(photoFile); }} disabled={!photoFile || uploadPhotoMutation.isPending} className="px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">{uploadPhotoMutation.isPending ? 'Uploading...' : 'Upload'}</button>
-                        </div>
+            <Modal
+                isOpen={showPhotoInput}
+                onClose={() => { setShowPhotoInput(false); setPhotoFile(null); }}
+                title="Change Photo"
+                icon={Camera}
+                tone="info"
+                size="sm"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowPhotoInput(false); setPhotoFile(null); }} />
+                        <ModalPrimaryButton onClick={() => { if (photoFile) uploadPhotoMutation.mutate(photoFile); }} disabled={!photoFile} loading={uploadPhotoMutation.isPending} tone="primary" icon={Upload}>Upload</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showPhotoInput && (
+                    <div className="space-y-4">
+                        <input type="file" accept="image/jpeg,image/png,image/gif" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                        {photoFile && <p className="text-sm text-slate-500">Selected: {photoFile.name}</p>}
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Terminate Contract Modal */}
-            {showTerminateContractModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-red-600">Terminate Contract</h2>
-                            <button onClick={() => { setShowTerminateContractModal(false); setTerminateContractTarget(null); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Termination Date</label><input type="date" value={terminateContractDate} onChange={(e) => setTerminateContractDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason *</label><textarea value={terminateContractReason} onChange={(e) => setTerminateContractReason(e.target.value)} rows={3} placeholder="Reason for contract termination..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setShowTerminateContractModal(false); setTerminateContractTarget(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => { if (terminateContractTarget) terminateContractMutation.mutate({ contractId: terminateContractTarget, reason: terminateContractReason, termination_date: terminateContractDate || undefined }); }} disabled={!terminateContractReason || terminateContractMutation.isPending} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">{terminateContractMutation.isPending ? 'Terminating...' : 'Terminate Contract'}</button>
-                        </div>
+            <Modal
+                isOpen={showTerminateContractModal}
+                onClose={() => { setShowTerminateContractModal(false); setTerminateContractTarget(null); }}
+                title="Terminate Contract"
+                icon={Ban}
+                tone="danger"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowTerminateContractModal(false); setTerminateContractTarget(null); }} />
+                        <ModalPrimaryButton onClick={() => { if (terminateContractTarget) terminateContractMutation.mutate({ contractId: terminateContractTarget, reason: terminateContractReason, termination_date: terminateContractDate || undefined }); }} disabled={!terminateContractReason} loading={terminateContractMutation.isPending} tone="danger" icon={Ban}>Terminate Contract</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showTerminateContractModal && (
+                    <div className="space-y-4">
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Termination Date</label><input type="date" value={terminateContractDate} onChange={(e) => setTerminateContractDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Reason *</label><textarea value={terminateContractReason} onChange={(e) => setTerminateContractReason(e.target.value)} rows={3} placeholder="Reason for contract termination..." className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Renew Contract Modal */}
-            {showRenewModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="text-lg font-semibold text-slate-900">Renew Contract</h2>
-                            <button onClick={() => { setShowRenewModal(false); setRenewContractTarget(null); }} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New End Date *</label><input type="date" value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">New Salary (KES)</label><input type="number" value={renewSalary} onChange={(e) => setRenewSalary(e.target.value)} placeholder="Leave blank to keep current" className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => { setShowRenewModal(false); setRenewContractTarget(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
-                            <button onClick={() => { if (renewContractTarget) renewContractMutation.mutate({ contractId: renewContractTarget, data: { new_end_date: renewEndDate, ...(renewSalary && { new_salary: Number(renewSalary) }) } }); }} disabled={!renewEndDate || renewContractMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{renewContractMutation.isPending ? 'Renewing...' : 'Renew Contract'}</button>
-                        </div>
+            <Modal
+                isOpen={showRenewModal}
+                onClose={() => { setShowRenewModal(false); setRenewContractTarget(null); }}
+                title="Renew Contract"
+                icon={RotateCcw}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowRenewModal(false); setRenewContractTarget(null); }} />
+                        <ModalPrimaryButton onClick={() => { if (renewContractTarget) renewContractMutation.mutate({ contractId: renewContractTarget, data: { new_end_date: renewEndDate, ...(renewSalary && { new_salary: Number(renewSalary) }) } }); }} disabled={!renewEndDate} loading={renewContractMutation.isPending} tone="primary" icon={RotateCcw}>Renew Contract</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showRenewModal && (
+                    <div className="space-y-4">
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New End Date *</label><input type="date" value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
+                        <div><label className="block text-sm font-medium text-slate-700 mb-1">New Salary (KES)</label><input type="number" value={renewSalary} onChange={(e) => setRenewSalary(e.target.value)} placeholder="Leave blank to keep current" className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
 
             {/* Toast */}
             {toast && (

@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import {
-    Users, Heart, Wallet, ClipboardCheck, Plus, Trash2, Edit3, X, Loader2,
+    Users, Heart, Wallet, ClipboardCheck, Plus, Trash2, Edit3, Loader2,
     Star, Save, CheckCircle, AlertTriangle,
 } from 'lucide-react';
+import { Modal, ModalCancelButton, ModalPrimaryButton } from '../ui/Modal';
 
 interface Props {
     staffId: string;
@@ -125,38 +126,39 @@ const NextOfKinSection: React.FC<{ staffId: string; canEdit: boolean; qc: any; s
                 )
             }
 
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="font-semibold">{editing ? 'Edit' : 'Add'} Next of Kin</h2>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title={`${editing ? 'Edit' : 'Add'} Next of Kin`}
+                icon={Heart}
+                tone="info"
+                size="lg"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowModal(false)} />
+                        <ModalPrimaryButton onClick={() => save.mutate()} disabled={!form.full_name} loading={save.isPending} tone="primary" icon={Save}>{editing ? 'Save' : 'Add'}</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showModal && (
+                    <div className="space-y-3">
+                        <div><label className="block text-sm font-medium mb-1">Full Name *</label><input type="text" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-sm font-medium mb-1">Relationship</label><select value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="spouse">Spouse</option><option value="parent">Parent</option><option value="child">Child</option><option value="sibling">Sibling</option><option value="friend">Friend</option><option value="other">Other</option></select></div>
+                            <div><label className="block text-sm font-medium mb-1">Phone</label><input type="tel" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
                         </div>
-                        <div className="p-6 space-y-3">
-                            <div><label className="block text-sm font-medium mb-1">Full Name *</label><input type="text" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="block text-sm font-medium mb-1">Relationship</label><select value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="spouse">Spouse</option><option value="parent">Parent</option><option value="child">Child</option><option value="sibling">Sibling</option><option value="friend">Friend</option><option value="other">Other</option></select></div>
-                                <div><label className="block text-sm font-medium mb-1">Phone</label><input type="tel" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                                <div><label className="block text-sm font-medium mb-1">National ID</label><input type="text" value={form.national_id || ''} onChange={(e) => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            </div>
-                            <div><label className="block text-sm font-medium mb-1">Address</label><textarea value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            <div className="grid grid-cols-2 gap-3 items-end">
-                                <div><label className="block text-sm font-medium mb-1">Benefit Share %</label><input type="number" min="0" max="100" value={form.benefit_share_percent} onChange={(e) => setForm({ ...form, benefit_share_percent: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                                <label className="flex items-center gap-2 text-sm pb-2.5"><input type="checkbox" checked={form.is_primary} onChange={(e) => setForm({ ...form, is_primary: e.target.checked })} />Mark as primary</label>
-                            </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                            <div><label className="block text-sm font-medium mb-1">National ID</label><input type="text" value={form.national_id || ''} onChange={(e) => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button onClick={() => save.mutate()} disabled={!form.full_name || save.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
-                                {save.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}{editing ? 'Save' : 'Add'}
-                            </button>
+                        <div><label className="block text-sm font-medium mb-1">Address</label><textarea value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-3 items-end">
+                            <div><label className="block text-sm font-medium mb-1">Benefit Share %</label><input type="number" min="0" max="100" value={form.benefit_share_percent} onChange={(e) => setForm({ ...form, benefit_share_percent: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                            <label className="flex items-center gap-2 text-sm pb-2.5"><input type="checkbox" checked={form.is_primary} onChange={(e) => setForm({ ...form, is_primary: e.target.checked })} />Mark as primary</label>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </div>
     );
 };
@@ -232,35 +234,36 @@ const DependentsSection: React.FC<{ staffId: string; canEdit: boolean; qc: any; 
                 )
             }
 
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="font-semibold">{editing ? 'Edit' : 'Add'} Dependent</h2>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title={`${editing ? 'Edit' : 'Add'} Dependent`}
+                icon={Users}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowModal(false)} />
+                        <ModalPrimaryButton onClick={() => save.mutate()} disabled={!form.full_name} loading={save.isPending} tone="primary" icon={Save}>{editing ? 'Save' : 'Add'}</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showModal && (
+                    <div className="space-y-3">
+                        <div><label className="block text-sm font-medium mb-1">Full Name *</label><input type="text" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-sm font-medium mb-1">Relationship</label><select value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="spouse">Spouse</option><option value="child">Child</option><option value="parent">Parent</option><option value="other">Other</option></select></div>
+                            <div><label className="block text-sm font-medium mb-1">Gender</label><select value={form.gender || ''} onChange={(e) => setForm({ ...form, gender: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="">—</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
                         </div>
-                        <div className="p-6 space-y-3">
-                            <div><label className="block text-sm font-medium mb-1">Full Name *</label><input type="text" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="block text-sm font-medium mb-1">Relationship</label><select value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="spouse">Spouse</option><option value="child">Child</option><option value="parent">Parent</option><option value="other">Other</option></select></div>
-                                <div><label className="block text-sm font-medium mb-1">Gender</label><select value={form.gender || ''} onChange={(e) => setForm({ ...form, gender: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="">—</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="block text-sm font-medium mb-1">Date of Birth</label><input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                                <div><label className="block text-sm font-medium mb-1">National ID</label><input type="text" value={form.national_id || ''} onChange={(e) => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            </div>
-                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.medical_eligible} onChange={(e) => setForm({ ...form, medical_eligible: e.target.checked })} />Eligible for medical cover</label>
-                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_disabled} onChange={(e) => setForm({ ...form, is_disabled: e.target.checked })} />Disabled</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-sm font-medium mb-1">Date of Birth</label><input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                            <div><label className="block text-sm font-medium mb-1">National ID</label><input type="text" value={form.national_id || ''} onChange={(e) => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button onClick={() => save.mutate()} disabled={!form.full_name || save.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
-                                {save.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}{editing ? 'Save' : 'Add'}
-                            </button>
-                        </div>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.medical_eligible} onChange={(e) => setForm({ ...form, medical_eligible: e.target.checked })} />Eligible for medical cover</label>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_disabled} onChange={(e) => setForm({ ...form, is_disabled: e.target.checked })} />Disabled</label>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </div>
     );
 };
@@ -319,28 +322,29 @@ const SalarySection: React.FC<{ staffId: string; canEdit: boolean; qc: any; show
                 )
             }
 
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="font-semibold">Adjust Salary</h2>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-3">
-                            <div><label className="block text-sm font-medium mb-1">New Salary (KES) *</label><input type="number" value={form.new_salary} onChange={(e) => setForm({ ...form, new_salary: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            <div><label className="block text-sm font-medium mb-1">Change Type</label><select value={form.change_type} onChange={(e) => setForm({ ...form, change_type: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="annual_increment">Annual Increment</option><option value="merit_increase">Merit Increase</option><option value="market_adjustment">Market Adjustment</option><option value="promotion">Promotion</option><option value="demotion">Demotion</option><option value="correction">Correction</option><option value="other">Other</option></select></div>
-                            <div><label className="block text-sm font-medium mb-1">Effective Date</label><input type="date" value={form.effective_date} onChange={(e) => setForm({ ...form, effective_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            <div><label className="block text-sm font-medium mb-1">Reason</label><textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button onClick={() => adjust.mutate()} disabled={!form.new_salary || adjust.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
-                                {adjust.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Apply
-                            </button>
-                        </div>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title="Adjust Salary"
+                icon={Wallet}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowModal(false)} />
+                        <ModalPrimaryButton onClick={() => adjust.mutate()} disabled={!form.new_salary} loading={adjust.isPending} tone="primary" icon={Save}>Apply</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showModal && (
+                    <div className="space-y-3">
+                        <div><label className="block text-sm font-medium mb-1">New Salary (KES) *</label><input type="number" value={form.new_salary} onChange={(e) => setForm({ ...form, new_salary: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                        <div><label className="block text-sm font-medium mb-1">Change Type</label><select value={form.change_type} onChange={(e) => setForm({ ...form, change_type: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="annual_increment">Annual Increment</option><option value="merit_increase">Merit Increase</option><option value="market_adjustment">Market Adjustment</option><option value="promotion">Promotion</option><option value="demotion">Demotion</option><option value="correction">Correction</option><option value="other">Other</option></select></div>
+                        <div><label className="block text-sm font-medium mb-1">Effective Date</label><input type="date" value={form.effective_date} onChange={(e) => setForm({ ...form, effective_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                        <div><label className="block text-sm font-medium mb-1">Reason</label><textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </div>
     );
 };
@@ -430,14 +434,28 @@ const ProbationSection: React.FC<{ staffId: string; canEdit: boolean; qc: any; s
                 )
             }
 
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="font-semibold">New Probation Review</h2>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-3">
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title="New Probation Review"
+                icon={ClipboardCheck}
+                tone="warning"
+                size="lg"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => setShowModal(false)} />
+                        <ModalPrimaryButton
+                            onClick={() => create.mutate()}
+                            disabled={form.recommendation === 'extend' && !form.extended_until}
+                            loading={create.isPending}
+                            tone="primary"
+                            icon={Save}
+                        >Save Review</ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {showModal && (
+                    <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="block text-sm font-medium mb-1">Review Date</label><input type="date" value={form.review_date} onChange={(e) => setForm({ ...form, review_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
                                 <div><label className="block text-sm font-medium mb-1">Overall Rating (1-5)</label><input type="number" min="1" max="5" value={form.overall_rating} onChange={(e) => setForm({ ...form, overall_rating: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
@@ -471,19 +489,9 @@ const ProbationSection: React.FC<{ staffId: string; canEdit: boolean; qc: any; s
                                     </p>
                                 </div>
                             )}
-                        </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button
-                                onClick={() => create.mutate()}
-                                disabled={create.isPending || (form.recommendation === 'extend' && !form.extended_until)}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
-                                {create.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Save Review
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </div>
     );
 };
