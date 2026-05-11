@@ -10,6 +10,7 @@ import { Region } from '../org/entities/region.entity';
 import { Branch } from '../org/entities/branch.entity';
 import { Department } from '../org/entities/department.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
+import { StaffContract, ContractStatus } from './entities/staff-contract.entity';
 import { OnboardingService } from './services/onboarding.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
@@ -38,6 +39,8 @@ export class StaffService {
         private departmentRepo: Repository<Department>,
         @InjectRepository(EmploymentHistory)
         private employmentHistoryRepo: Repository<EmploymentHistory>,
+        @InjectRepository(StaffContract)
+        private contractRepo: Repository<StaffContract>,
         private onboardingService: OnboardingService,
         private authService: AuthService,
     ) { }
@@ -475,13 +478,26 @@ export class StaffService {
         return this.staffRepo.save(staff);
     }
 
-    async terminateStaff(id: string, reason: string, terminationDate?: Date): Promise<Staff> {
+    async terminateStaff(id: string, reason: string, terminationDate?: Date, force: boolean = false): Promise<Staff> {
         const staff = await this.findOne(id);
+
+        // Enforce exit-clearance blockers unless force=true (CEO override)
+        if (!force) {
+            const blockers = await this.getTerminationBlockers(id);
+            if (blockers.active_assets > 0 || blockers.pending_documents > 0) {
+                throw new BadRequestException(
+                    `Cannot terminate: ${blockers.active_assets} active asset(s) and ${blockers.pending_documents} unverified mandatory document(s). Use force=true to override.`,
+                );
+            }
+        }
+
         staff.status = StaffStatus.TERMINATED;
         staff.termination_date = terminationDate || new Date();
         staff.termination_reason = reason;
-        staff.user.is_active = false;
-        await this.userRepo.save(staff.user);
+        if (staff.user) {
+            staff.user.is_active = false;
+            await this.userRepo.save(staff.user);
+        }
 
         // End employment history
         const lastHistory = await this.employmentHistoryRepo.findOne({
@@ -491,6 +507,16 @@ export class StaffService {
             lastHistory.end_date = staff.termination_date;
             await this.employmentHistoryRepo.save(lastHistory);
         }
+
+        // Terminate active contract
+        await this.contractRepo.update(
+            { staff: { id: staff.id }, status: ContractStatus.ACTIVE },
+            {
+                status: ContractStatus.TERMINATED,
+                termination_date: staff.termination_date,
+                termination_reason: reason,
+            },
+        );
 
         return this.staffRepo.save(staff);
     }
@@ -904,10 +930,36 @@ export class StaffService {
         },
     ): Promise<Staff> {
         const staff = await this.findOne(staffId);
-        
+
         staff.status = StaffStatus.RESIGNED;
         staff.termination_reason = data.reason;
         staff.termination_date = data.last_working_date;
+
+        // Deactivate user account (will be re-checked once last working date passes)
+        if (staff.user) {
+            staff.user.is_active = false;
+            await this.userRepo.save(staff.user);
+        }
+
+        // Close active employment history
+        const lastHistory = await this.employmentHistoryRepo.findOne({
+            where: { staff: { id: staff.id }, end_date: null as any },
+        });
+        if (lastHistory) {
+            lastHistory.end_date = data.last_working_date;
+            lastHistory.change_reason = `Resignation: ${data.reason}`;
+            await this.employmentHistoryRepo.save(lastHistory);
+        }
+
+        // Mark active contract as terminated effective last working date
+        await this.contractRepo.update(
+            { staff: { id: staff.id }, status: ContractStatus.ACTIVE },
+            {
+                status: ContractStatus.TERMINATED,
+                termination_date: data.last_working_date,
+                termination_reason: `Resignation: ${data.reason}`,
+            },
+        );
 
         return this.staffRepo.save(staff);
     }
@@ -939,20 +991,26 @@ export class StaffService {
         return { updated, failed };
     }
 
-    async bulkActivate(staffIds: string[]): Promise<{ updated: number }> {
+    async bulkActivate(staffIds: string[]): Promise<{ updated: number; failed: { id: string; error: string }[] }> {
+        if (!staffIds?.length) throw new BadRequestException('No staff IDs provided');
         let updated = 0;
+        const failed: { id: string; error: string }[] = [];
         for (const id of staffIds) {
-            try { await this.activateStaff(id); updated++; } catch {}
+            try { await this.activateStaff(id); updated++; }
+            catch (e: any) { failed.push({ id, error: e?.message || 'Unknown error' }); }
         }
-        return { updated };
+        return { updated, failed };
     }
 
-    async bulkDeactivate(staffIds: string[], reason?: string): Promise<{ updated: number }> {
+    async bulkDeactivate(staffIds: string[], reason?: string): Promise<{ updated: number; failed: { id: string; error: string }[] }> {
+        if (!staffIds?.length) throw new BadRequestException('No staff IDs provided');
         let updated = 0;
+        const failed: { id: string; error: string }[] = [];
         for (const id of staffIds) {
-            try { await this.deactivateStaff(id, reason); updated++; } catch {}
+            try { await this.deactivateStaff(id, reason); updated++; }
+            catch (e: any) { failed.push({ id, error: e?.message || 'Unknown error' }); }
         }
-        return { updated };
+        return { updated, failed };
     }
 
     // ==================== CSV EXPORT ====================

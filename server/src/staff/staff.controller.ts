@@ -189,11 +189,13 @@ export class StaffController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason: string,
         @Body('terminationDate') terminationDate?: string,
+        @Body('force') force?: boolean,
     ) {
         return this.staffService.terminateStaff(
             id,
             reason,
             terminationDate ? new Date(terminationDate) : undefined,
+            force === true || (force as any) === 'true',
         );
     }
 

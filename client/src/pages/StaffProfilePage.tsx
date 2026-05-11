@@ -1631,7 +1631,16 @@ export const StaffProfilePage: React.FC = () => {
                                                 {terminationBlockers.active_assets > 0 && <li><strong>{terminationBlockers.active_assets}</strong> active asset assignment{terminationBlockers.active_assets > 1 ? 's' : ''} — please return assigned items first</li>}
                                                 {terminationBlockers.pending_documents > 0 && <li><strong>{terminationBlockers.pending_documents}</strong> mandatory document{terminationBlockers.pending_documents > 1 ? 's' : ''} unverified</li>}
                                             </ul>
-                                            <p className="text-xs text-amber-700 mt-2">You can still proceed, but exit clearance should be completed for proper offboarding.</p>
+                                            <p className="text-xs text-amber-700 mt-2">Resolve these blockers first, or check the override box below to proceed anyway.</p>
+                                            <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.force === true}
+                                                    onChange={(e) => setFormData({ ...formData, force: e.target.checked })}
+                                                    className="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                                                />
+                                                <span className="text-sm font-medium text-amber-900">Override blockers and terminate anyway (CEO/HR Manager only)</span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
