@@ -52,6 +52,10 @@ import { DocumentType } from './staff/entities/document-type.entity';
 import { StaffDocument } from './staff/entities/staff-document.entity';
 import { EmploymentHistory } from './staff/entities/employment-history.entity';
 import { StaffContract } from './staff/entities/staff-contract.entity';
+import { NextOfKin } from './staff/entities/next-of-kin.entity';
+import { Dependent } from './staff/entities/dependent.entity';
+import { ProbationReview } from './staff/entities/probation-review.entity';
+import { SalaryHistory } from './staff/entities/salary-history.entity';
 // Onboarding Entities
 import { OnboardingTemplate } from './staff/entities/onboarding-template.entity';
 import { OnboardingTask } from './staff/entities/onboarding-task.entity';
@@ -160,6 +164,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         Region, Branch, Department, Position,
         // Staff
         Staff, Document, DocumentType, StaffDocument, EmploymentHistory, StaffContract,
+        NextOfKin, Dependent, ProbationReview, SalaryHistory,
         // Onboarding
         OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus,
         // Leave

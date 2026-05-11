@@ -6,9 +6,12 @@ import { StaffService } from './staff.service';
 import { StaffController } from './staff.controller';
 import { DocumentController } from './document.controller';
 import { OnboardingController } from './onboarding.controller';
+import { StaffPeopleController } from './staff-people.controller';
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
 import { DocumentExpiryScheduler } from './services/document-expiry.scheduler';
+import { StaffPeopleService } from './services/staff-people.service';
+import { StaffProbationScheduler } from './services/staff-probation.scheduler';
 import { NotificationModule } from '../notifications/notification.module';
 
 // Staff Entities
@@ -18,6 +21,10 @@ import { DocumentType } from './entities/document-type.entity';
 import { StaffDocument } from './entities/staff-document.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
 import { StaffContract } from './entities/staff-contract.entity';
+import { NextOfKin } from './entities/next-of-kin.entity';
+import { Dependent } from './entities/dependent.entity';
+import { ProbationReview } from './entities/probation-review.entity';
+import { SalaryHistory } from './entities/salary-history.entity';
 import { ContractService } from './services/contract.service';
 import { BulkImportService } from './services/bulk-import.service';
 
@@ -50,6 +57,10 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
       StaffDocument,
       EmploymentHistory,
       StaffContract,
+      NextOfKin,
+      Dependent,
+      ProbationReview,
+      SalaryHistory,
       // Onboarding domain
       OnboardingTemplate,
       OnboardingTask,
@@ -69,8 +80,8 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     MulterModule.register(standardMulterOptions),
     NotificationModule,
   ],
-  controllers: [StaffController, DocumentController, OnboardingController],
-  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService],
-  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService],
+  controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController],
+  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler],
+  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService],
 })
 export class StaffModule { }

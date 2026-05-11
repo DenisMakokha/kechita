@@ -330,22 +330,21 @@ export class StaffService {
 
         staff.updated_by = updatedBy;
 
-        // Update relations
-        if (dto.position_id) {
-            const pos = await this.positionRepo.findOneBy({ id: dto.position_id });
-            if (pos) staff.position = pos;
+        // Update relations (support null/empty clearing)
+        if (dto.position_id !== undefined) {
+            staff.position = dto.position_id ? (await this.positionRepo.findOneBy({ id: dto.position_id }) ?? staff.position) : staff.position;
         }
-        if (dto.region_id) {
-            staff.region = await this.regionRepo.findOneBy({ id: dto.region_id }) ?? undefined;
+        if (dto.region_id !== undefined) {
+            staff.region = dto.region_id ? (await this.regionRepo.findOneBy({ id: dto.region_id }) ?? undefined) : undefined;
         }
-        if (dto.branch_id) {
-            staff.branch = await this.branchRepo.findOneBy({ id: dto.branch_id }) ?? undefined;
+        if (dto.branch_id !== undefined) {
+            staff.branch = dto.branch_id ? (await this.branchRepo.findOneBy({ id: dto.branch_id }) ?? undefined) : undefined;
         }
-        if (dto.department_id) {
-            staff.department = await this.departmentRepo.findOneBy({ id: dto.department_id }) ?? undefined;
+        if (dto.department_id !== undefined) {
+            staff.department = dto.department_id ? (await this.departmentRepo.findOneBy({ id: dto.department_id }) ?? undefined) : undefined;
         }
-        if (dto.manager_id) {
-            staff.manager = await this.staffRepo.findOneBy({ id: dto.manager_id }) ?? undefined;
+        if (dto.manager_id !== undefined) {
+            staff.manager = dto.manager_id ? (await this.staffRepo.findOneBy({ id: dto.manager_id }) ?? undefined) : undefined;
         }
         if (dto.user_id !== undefined) {
             if (dto.user_id === null) {
@@ -850,5 +849,126 @@ export class StaffService {
         staff.termination_date = data.last_working_date;
 
         return this.staffRepo.save(staff);
+    }
+
+    // ==================== BULK OPERATIONS ====================
+
+    async bulkUpdate(
+        staffIds: string[],
+        updates: {
+            branch_id?: string;
+            region_id?: string;
+            department_id?: string;
+            manager_id?: string;
+            status?: StaffStatus;
+        },
+        updatedBy?: string,
+    ): Promise<{ updated: number; failed: { id: string; error: string }[] }> {
+        if (!staffIds?.length) throw new BadRequestException('No staff IDs provided');
+        let updated = 0;
+        const failed: { id: string; error: string }[] = [];
+        for (const id of staffIds) {
+            try {
+                await this.update(id, updates as any, updatedBy);
+                updated++;
+            } catch (e: any) {
+                failed.push({ id, error: e?.message || 'Unknown error' });
+            }
+        }
+        return { updated, failed };
+    }
+
+    async bulkActivate(staffIds: string[]): Promise<{ updated: number }> {
+        let updated = 0;
+        for (const id of staffIds) {
+            try { await this.activateStaff(id); updated++; } catch {}
+        }
+        return { updated };
+    }
+
+    async bulkDeactivate(staffIds: string[], reason?: string): Promise<{ updated: number }> {
+        let updated = 0;
+        for (const id of staffIds) {
+            try { await this.deactivateStaff(id, reason); updated++; } catch {}
+        }
+        return { updated };
+    }
+
+    // ==================== CSV EXPORT ====================
+
+    async exportCsv(filter?: StaffFilterDto): Promise<string> {
+        // Reuse findAll without pagination
+        const allFilter = { ...(filter || {}), page: 1, limit: 100000 };
+        const { data } = await this.findAll(allFilter as any);
+
+        const headers = [
+            'Employee Number', 'First Name', 'Middle Name', 'Last Name', 'Email',
+            'Phone', 'Gender', 'Date of Birth', 'National ID', 'Tax PIN',
+            'Position', 'Department', 'Branch', 'Region', 'Manager',
+            'Status', 'Probation Status', 'Hire Date', 'Confirmation Date',
+            'Basic Salary', 'Currency', 'Bank Name', 'Bank Account',
+        ];
+
+        const escape = (v: any): string => {
+            if (v === null || v === undefined) return '';
+            const s = String(v);
+            return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+
+        const rows = data.map(s => [
+            s.employee_number, s.first_name, s.middle_name, s.last_name, s.user?.email,
+            s.phone, s.gender, s.date_of_birth, s.national_id, s.tax_pin,
+            s.position?.name, s.department?.name, s.branch?.name, s.region?.name,
+            s.manager ? `${s.manager.first_name} ${s.manager.last_name}` : '',
+            s.status, s.probation_status, s.hire_date, s.confirmation_date,
+            s.basic_salary, s.salary_currency, s.bank_name, s.bank_account_number,
+        ].map(escape).join(','));
+
+        return [headers.join(','), ...rows].join('\n');
+    }
+
+    // ==================== TERMINATION WITH CLEARANCE GUARDS ====================
+
+    /**
+     * Check exit-clearance blockers before allowing termination.
+     * Returns list of blockers; empty list = cleared.
+     */
+    async getTerminationBlockers(staffId: string): Promise<{ active_assets: number; pending_documents: number }> {
+        // Active assigned assets (raw query to avoid circular dep)
+        const assetCount = await this.dataSource.query(
+            `SELECT COUNT(*)::int AS c FROM asset_assignments WHERE staff_id = $1 AND status = 'assigned'`,
+            [staffId],
+        ).catch(() => [{ c: 0 }]);
+
+        // Pending documents (unverified mandatory)
+        const docCount = await this.dataSource.query(
+            `SELECT COUNT(*)::int AS c FROM staff_documents sd
+             JOIN document_types dt ON dt.id = sd.document_type_id
+             WHERE sd.staff_id = $1 AND dt.is_mandatory = true AND sd.status NOT IN ('verified')`,
+            [staffId],
+        ).catch(() => [{ c: 0 }]);
+
+        return {
+            active_assets: assetCount[0]?.c || 0,
+            pending_documents: docCount[0]?.c || 0,
+        };
+    }
+
+    // ==================== SOFT DELETE ====================
+
+    async softDelete(id: string, deletedBy?: string): Promise<void> {
+        const staff = await this.findOne(id);
+        // safeguard: terminated/resigned/ex-staff only
+        const allowed = [StaffStatus.TERMINATED, StaffStatus.RESIGNED, StaffStatus.EX_STAFF];
+        if (!allowed.includes(staff.status)) {
+            throw new BadRequestException('Only terminated, resigned, or ex-staff records can be deleted');
+        }
+        staff.updated_by = deletedBy;
+        await this.staffRepo.save(staff);
+        await this.staffRepo.softDelete(id);
+    }
+
+    async restore(id: string): Promise<void> {
+        await this.staffRepo.restore(id);
     }
 }

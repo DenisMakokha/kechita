@@ -10,10 +10,11 @@ import {
     Upload, Download, Trash2, AlertTriangle, User,
     CreditCard, Shield, History, X, Camera, RefreshCw,
     ChevronRight, AlertCircle, TrendingUp, DollarSign,
-    FileCheck, Plus, RotateCcw, Ban, Play
+    FileCheck, Plus, RotateCcw, Ban, Play, Heart
 } from 'lucide-react';
+import StaffPeopleTab from '../components/staff/StaffPeopleTab';
 
-type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'actions';
+type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'people' | 'actions';
 
 interface OnboardingTask {
     id: string;
@@ -495,6 +496,7 @@ export const StaffProfilePage: React.FC = () => {
         { key: 'contracts' as Tab, label: 'Contracts', icon: FileCheck },
         { key: 'employment' as Tab, label: 'History', icon: History },
         { key: 'onboarding' as Tab, label: 'Onboarding', icon: CheckCircle },
+        { key: 'people' as Tab, label: 'People & Comp', icon: Heart },
         { key: 'actions' as Tab, label: 'Actions', icon: Shield },
     ];
 
@@ -1137,6 +1139,11 @@ export const StaffProfilePage: React.FC = () => {
                             </div>
                         )}
                     </div>
+                )}
+
+                {/* People & Comp Tab */}
+                {activeTab === 'people' && id && (
+                    <StaffPeopleTab staffId={id} canEdit={true} showToast={showToast} />
                 )}
 
                 {/* Actions Tab */}

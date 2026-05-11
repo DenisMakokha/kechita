@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToOne, OneToMany, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne, JoinColumn, ManyToOne, OneToMany, Index } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { Region } from '../../org/entities/region.entity';
 import { Branch } from '../../org/entities/branch.entity';
@@ -199,11 +199,19 @@ export class Staff {
     @UpdateDateColumn()
     updated_at: Date;
 
+    @DeleteDateColumn()
+    deleted_at?: Date;
+
     @Column({ nullable: true })
     created_by?: string;
 
     @Column({ nullable: true })
     updated_by?: string;
+
+    // Recruitment link (for hires from candidate pipeline)
+    @Column({ type: 'uuid', nullable: true })
+    @Index()
+    application_id?: string;
 
     // Computed/Virtual fields (handled in service)
     get full_name(): string {

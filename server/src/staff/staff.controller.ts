@@ -151,18 +151,21 @@ export class StaffController {
         return this.staffService.getTeamHierarchy(id);
     }
 
+    @Patch(':id')
     @Put(':id')
     @Roles('CEO', 'HR_MANAGER')
     update(@Param('id', ParseUUIDPipe) id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: AuthenticatedRequest) {
         return this.staffService.update(id, updateStaffDto, req.user.id);
     }
 
+    @Post(':id/activate')
     @Patch(':id/activate')
     @Roles('CEO', 'HR_MANAGER')
     activate(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.activateStaff(id);
     }
 
+    @Post(':id/deactivate')
     @Patch(':id/deactivate')
     @Roles('CEO', 'HR_MANAGER')
     deactivate(@Param('id', ParseUUIDPipe) id: string, @Body('reason') reason?: string) {
@@ -616,6 +619,63 @@ export class StaffController {
             last_working_date: new Date(data.last_working_date),
             notice_period_days: data.notice_period_days,
         });
+    }
+
+    // ==================== CONTRACTS ====================
+
+    // ==================== BULK OPS ====================
+
+    @Post('bulk/update')
+    @Roles('CEO', 'HR_MANAGER')
+    bulkUpdate(
+        @Body() data: { staff_ids: string[]; updates: any },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.staffService.bulkUpdate(data.staff_ids, data.updates, req.user.id);
+    }
+
+    @Post('bulk/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    bulkActivate(@Body('staff_ids') ids: string[]) {
+        return this.staffService.bulkActivate(ids);
+    }
+
+    @Post('bulk/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    bulkDeactivate(@Body() data: { staff_ids: string[]; reason?: string }) {
+        return this.staffService.bulkDeactivate(data.staff_ids, data.reason);
+    }
+
+    // ==================== CSV EXPORT ====================
+
+    @Get('export.csv')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    async exportCsv(@Query() query: any, @Res() res: any) {
+        const csv = await this.staffService.exportCsv(query as StaffFilterDto);
+        const filename = `staff-export-${new Date().toISOString().split('T')[0]}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    }
+
+    // ==================== TERMINATION BLOCKERS + SOFT DELETE ====================
+
+    @Get(':id/termination-blockers')
+    @Roles('CEO', 'HR_MANAGER')
+    getTerminationBlockers(@Param('id', ParseUUIDPipe) id: string) {
+        return this.staffService.getTerminationBlockers(id);
+    }
+
+    @Delete(':id')
+    @Roles('CEO', 'HR_MANAGER')
+    softDelete(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        return this.staffService.softDelete(id, req.user.id);
+    }
+
+    @Post(':id/restore')
+    @Roles('CEO', 'HR_MANAGER')
+    restore(@Param('id', ParseUUIDPipe) id: string) {
+        return this.staffService.restore(id);
     }
 
     // ==================== CONTRACTS ====================

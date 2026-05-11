@@ -279,6 +279,26 @@ export const StaffManagementPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <button onClick={() => refetchStaff()} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><RefreshCw size={20} /></button>
                     {activeTab === 'directory' && <div className="flex items-center gap-2">
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const params = new URLSearchParams();
+                                    if (statusFilter !== 'all') params.set('status', statusFilter);
+                                    if (branchFilter !== 'all') params.set('branchId', branchFilter);
+                                    if (staffSearch) params.set('search', staffSearch);
+                                    const response = await api.get(`/staff/export.csv?${params}`, { responseType: 'blob' });
+                                    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `staff-export-${new Date().toISOString().split('T')[0]}.csv`;
+                                    document.body.appendChild(a); a.click(); a.remove();
+                                    window.URL.revokeObjectURL(url);
+                                    showToast('CSV downloaded');
+                                } catch { showToast('Export failed', 'error'); }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50">
+                            <Download size={18} />Export CSV
+                        </button>
                         <button onClick={() => { setBulkImportFile(null); setBulkImportResult(null); setShowBulkImportModal(true); }} className="flex items-center gap-2 px-4 py-2 border border-emerald-600 text-emerald-700 rounded-lg font-medium hover:bg-emerald-50"><FileSpreadsheet size={18} />Bulk Import</button>
                         <button onClick={() => { setStaffFormData({ create_onboarding: true }); setShowAddStaffModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add Staff</button>
                         <button onClick={() => navigate('/recruitment')} className="flex items-center gap-2 px-4 py-2 border border-[#0066B3] text-[#0066B3] rounded-lg font-medium hover:bg-blue-50"><UserPlus size={20} />Hire via Recruitment</button>
