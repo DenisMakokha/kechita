@@ -79,6 +79,16 @@ export class StaffPeopleController {
         return this.people.listDependents(req.user.staff_id!);
     }
 
+    @Get('staff/me/salary-history')
+    mySalary(@Req() req: AuthenticatedRequest) {
+        return this.people.listSalaryHistory(req.user.staff_id!);
+    }
+
+    @Get('staff/me/probation-reviews')
+    myProbReviews(@Req() req: AuthenticatedRequest) {
+        return this.people.listProbationReviews(req.user.staff_id!);
+    }
+
     // ───── Salary History & Adjustments ─────
     @Get('staff/:id/salary-history')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')

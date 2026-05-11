@@ -58,6 +58,9 @@ export const StaffManagementPage: React.FC = () => {
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
     const [showAddStaffModal, setShowAddStaffModal] = useState(false);
     const [staffFormData, setStaffFormData] = useState<any>({});
+    const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(new Set());
+    const [showBulkTransferModal, setShowBulkTransferModal] = useState(false);
+    const [bulkTransferData, setBulkTransferData] = useState<any>({ branch_id: '', region_id: '', department_id: '', manager_id: '' });
 
     // Users state
     const [userSearch, setUserSearch] = useState('');
@@ -159,6 +162,18 @@ export const StaffManagementPage: React.FC = () => {
     // Queries
     const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => { const res = (await api.get('/staff')).data; return Array.isArray(res) ? res : (res?.data ?? []); }, refetchInterval: 60000 });
     const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data });
+    const { data: staffStats } = useQuery<any>({ queryKey: ['staff-stats'], queryFn: async () => (await api.get('/staff/stats')).data, refetchInterval: 60000 });
+    const [showDeleted, setShowDeleted] = useState(false);
+    const { data: deletedStaff = [] } = useQuery<any[]>({
+        queryKey: ['staff-deleted'],
+        queryFn: async () => { const res = (await api.get('/staff?onlyDeleted=true')).data; return Array.isArray(res) ? res : (res?.data ?? []); },
+        enabled: showDeleted,
+    });
+    const restoreStaffMutation = useMutation({
+        mutationFn: async (id: string) => (await api.post(`/staff/${id}/restore`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); showToast('Staff restored'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
     const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data });
     const { data: regions = [] } = useQuery({ queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data });
     const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get('/org/departments')).data });
@@ -184,6 +199,13 @@ export const StaffManagementPage: React.FC = () => {
     const updateStaffMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.patch(`/staff/${id}`, data)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setShowEditStaffModal(false); showToast('Staff updated successfully'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update staff', 'error') });
     const promoteStaffMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.post(`/staff/${id}/promote`, data)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setShowPromoteModal(false); showToast('Staff promoted successfully'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to promote staff', 'error') });
     const transferStaffMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.post(`/staff/${id}/transfer`, data)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setShowTransferModal(false); showToast('Staff transferred successfully'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to transfer staff', 'error') });
+    const bulkActivateStaffMutation = useMutation({ mutationFn: async (ids: string[]) => (await api.post('/staff/bulk/activate', { staff_ids: ids })).data, onSuccess: (r: any) => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setSelectedStaffIds(new Set()); showToast(`Activated ${r.updated} staff`); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error') });
+    const bulkDeactivateStaffMutation = useMutation({ mutationFn: async (ids: string[]) => (await api.post('/staff/bulk/deactivate', { staff_ids: ids })).data, onSuccess: (r: any) => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setSelectedStaffIds(new Set()); showToast(`Deactivated ${r.updated} staff`); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error') });
+    const bulkTransferStaffMutation = useMutation({
+        mutationFn: async (data: { staff_ids: string[]; updates: any }) => (await api.post('/staff/bulk/update', data)).data,
+        onSuccess: (r: any) => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setSelectedStaffIds(new Set()); setShowBulkTransferModal(false); setBulkTransferData({ branch_id: '', region_id: '', department_id: '', manager_id: '' }); showToast(`Updated ${r.updated} staff${r.failed?.length ? ` (${r.failed.length} failed)` : ''}`); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
     const createStaffMutation = useMutation({ 
         mutationFn: async (data: any) => (await api.post('/staff', data)).data, 
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setShowAddStaffModal(false); setStaffFormData({}); showToast('Staff member created successfully'); },
@@ -320,14 +342,89 @@ export const StaffManagementPage: React.FC = () => {
                     <div className="bg-white rounded-xl p-4 border border-slate-200"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Users className="text-blue-600" size={20} /></div><div><p className="text-2xl font-bold text-slate-900">{staff.filter((s: Staff) => s.status === 'onboarding').length}</p><p className="text-xs text-slate-500">Onboarding</p></div></div></div>
                     <div className="bg-white rounded-xl p-4 border border-slate-200"><div className="flex items-center gap-3"><div className="p-2 bg-amber-100 rounded-lg"><Users className="text-amber-600" size={20} /></div><div><p className="text-2xl font-bold text-slate-900">{staff.filter((s: Staff) => s.status === 'probation').length}</p><p className="text-xs text-slate-500">Probation</p></div></div></div>
                 </div>
+
+                {staffStats && (staffStats.upcomingProbationReviews > 0 || staffStats.overdueProbationReviews > 0 || staffStats.deleted > 0) && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {staffStats.upcomingProbationReviews > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                                <div className="p-2 bg-amber-200 rounded-lg"><AlertCircle className="text-amber-700" size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-amber-700 font-semibold uppercase">Probation reviews due (30d)</p>
+                                    <p className="text-xl font-bold text-amber-900">{staffStats.upcomingProbationReviews}</p>
+                                </div>
+                            </div>
+                        )}
+                        {staffStats.overdueProbationReviews > 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+                                <div className="p-2 bg-red-200 rounded-lg"><AlertTriangle className="text-red-700" size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-red-700 font-semibold uppercase">Overdue probation reviews</p>
+                                    <p className="text-xl font-bold text-red-900">{staffStats.overdueProbationReviews}</p>
+                                </div>
+                            </div>
+                        )}
+                        {staffStats.deleted > 0 && (
+                            <button onClick={() => setShowDeleted(d => !d)} className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 flex items-center gap-3 text-left transition">
+                                <div className="p-2 bg-slate-200 rounded-lg"><Trash2 className="text-slate-600" size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-slate-500 font-semibold uppercase">Archived (soft-deleted)</p>
+                                    <p className="text-xl font-bold text-slate-700">{staffStats.deleted}</p>
+                                </div>
+                                <ChevronRight className={`text-slate-400 transition-transform ${showDeleted ? 'rotate-90' : ''}`} size={16} />
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {showDeleted && (
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                            <h3 className="font-semibold text-slate-700 flex items-center gap-2"><Trash2 size={15} />Archived Staff ({deletedStaff.length})</h3>
+                            <button onClick={() => setShowDeleted(false)} className="p-1 hover:bg-slate-200 rounded"><X size={16} /></button>
+                        </div>
+                        {deletedStaff.length === 0 ? (
+                            <p className="p-8 text-center text-slate-400 text-sm">No archived staff</p>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase">
+                                    <tr><th className="text-left px-4 py-2">Employee</th><th className="text-left px-4 py-2">Position</th><th className="text-left px-4 py-2">Termination</th><th className="text-right px-4 py-2">Action</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {deletedStaff.map((s: any) => (
+                                        <tr key={s.id} className="hover:bg-slate-50">
+                                            <td className="px-4 py-2"><div><p className="font-medium text-slate-700">{s.first_name} {s.last_name}</p><p className="text-xs text-slate-400">{s.employee_number}</p></div></td>
+                                            <td className="px-4 py-2 text-xs text-slate-500">{s.position?.name || '—'}</td>
+                                            <td className="px-4 py-2 text-xs text-slate-500">{s.termination_date ? String(s.termination_date).slice(0, 10) : '—'} · <span className="capitalize">{s.status?.replace(/_/g, ' ')}</span></td>
+                                            <td className="px-4 py-2 text-right">
+                                                <button onClick={() => restoreStaffMutation.mutate(s.id)} disabled={restoreStaffMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg disabled:opacity-50">
+                                                    Restore
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                )}
                 <div className="bg-white rounded-xl border border-slate-200 p-4"><div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" value={staffSearch} onChange={(e) => { setStaffSearch(e.target.value); setStaffPage(1); }} placeholder="Search by name, email, or employee number..." className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
                     <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setStaffPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white"><option value="all">All Statuses</option>{uniqueStatuses.map((s) => <option key={s} value={s}>{String(s).charAt(0).toUpperCase() + String(s).slice(1)}</option>)}</select>
                     <select value={branchFilter} onChange={(e) => { setBranchFilter(e.target.value); setStaffPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white"><option value="all">All Branches</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
                 </div></div>
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50 border-b border-slate-200"><tr><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Employee</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Position</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th><th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">
-                    {staffLoading ? <tr><td colSpan={5} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr> : paginatedStaff.length === 0 ? <tr><td colSpan={5} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No staff found</p></td></tr> : paginatedStaff.map((m: Staff) => (
-                        <tr key={m.id} className="hover:bg-slate-50"><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">{m.first_name?.charAt(0)}{m.last_name?.charAt(0)}</div><div><p className="font-medium text-slate-900">{m.first_name} {m.last_name}</p><p className="text-sm text-slate-500">{m.user?.email}</p><p className="text-xs text-slate-400">{m.employee_number}</p></div></div></td><td className="px-6 py-4 text-slate-600">{m.position?.name || '-'}</td><td className="px-6 py-4 text-slate-600 hidden md:table-cell">{m.branch?.name || '-'}</td><td className="px-6 py-4"><StatusBadge status={m.status} /></td><td className="px-6 py-4"><div className="flex items-center justify-end gap-1"><button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><Eye size={18} /></button><div className="relative"><button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>{actionMenuId === m.id && <><div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} /><div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20"><button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View</button><button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button><button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button><button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>{m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}<hr className="my-1" />{m.status === 'suspended' ? <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button> : <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><UserX size={16} />Suspend</button>}</div></>}</div></div></td></tr>
+                {selectedStaffIds.size > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#0066B3] text-white rounded-xl shadow-lg">
+                        <span className="font-semibold text-sm">{selectedStaffIds.size} selected</span>
+                        <div className="h-4 w-px bg-white/30" />
+                        <button onClick={() => bulkActivateStaffMutation.mutate(Array.from(selectedStaffIds))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><CheckCircle size={14} />Activate</button>
+                        <button onClick={() => bulkDeactivateStaffMutation.mutate(Array.from(selectedStaffIds))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><AlertCircle size={14} />Deactivate</button>
+                        <button onClick={() => setShowBulkTransferModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><Building size={14} />Transfer</button>
+                        <div className="ml-auto"><button onClick={() => setSelectedStaffIds(new Set())} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} /></button></div>
+                    </div>
+                )}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50 border-b border-slate-200"><tr><th className="px-4 py-4 w-10"><input type="checkbox" checked={paginatedStaff.length > 0 && paginatedStaff.every((s: Staff) => selectedStaffIds.has(s.id))} onChange={(e) => { if (e.target.checked) { setSelectedStaffIds(new Set(paginatedStaff.map((s: Staff) => s.id))); } else { setSelectedStaffIds(new Set()); } }} className="w-4 h-4 text-[#0066B3] rounded" /></th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Employee</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Position</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th><th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">
+                    {staffLoading ? <tr><td colSpan={6} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr> : paginatedStaff.length === 0 ? <tr><td colSpan={6} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No staff found</p></td></tr> : paginatedStaff.map((m: Staff) => (
+                        <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedStaffIds.has(m.id)} onChange={() => { const n = new Set(selectedStaffIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedStaffIds(n); }} className="w-4 h-4 text-[#0066B3] rounded" /></td><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">{m.first_name?.charAt(0)}{m.last_name?.charAt(0)}</div><div><p className="font-medium text-slate-900">{m.first_name} {m.last_name}</p><p className="text-sm text-slate-500">{m.user?.email}</p><p className="text-xs text-slate-400">{m.employee_number}</p></div></div></td><td className="px-6 py-4 text-slate-600">{m.position?.name || '-'}</td><td className="px-6 py-4 text-slate-600 hidden md:table-cell">{m.branch?.name || '-'}</td><td className="px-6 py-4"><StatusBadge status={m.status} /></td><td className="px-6 py-4"><div className="flex items-center justify-end gap-1"><button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><Eye size={18} /></button><div className="relative"><button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>{actionMenuId === m.id && <><div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} /><div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20"><button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View</button><button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button><button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button><button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>{m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}<hr className="my-1" />{m.status === 'suspended' ? <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button> : <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><UserX size={16} />Suspend</button>}</div></>}</div></div></td></tr>
                     ))}
                 </tbody></table></div>
                 {staffTotalPages > 1 && <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50"><p className="text-sm text-slate-500">Page {staffPage} of {staffTotalPages}</p><div className="flex items-center gap-2"><button onClick={() => setStaffPage(p => Math.max(1, p - 1))} disabled={staffPage === 1} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronLeft size={18} /></button><button onClick={() => setStaffPage(p => Math.min(staffTotalPages, p + 1))} disabled={staffPage === staffTotalPages} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronRight size={18} /></button></div></div>}
@@ -1811,6 +1908,71 @@ export const StaffManagementPage: React.FC = () => {
                             >
                                 {bulkAssignRoleMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Shield size={15} />}
                                 Assign to {selectedUserIds.size} Users
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* BULK TRANSFER MODAL */}
+            {showBulkTransferModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <div>
+                                <h2 className="font-semibold">Bulk Transfer / Re-assign</h2>
+                                <p className="text-xs text-slate-500 mt-0.5">{selectedStaffIds.size} staff selected</p>
+                            </div>
+                            <button onClick={() => setShowBulkTransferModal(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-3">
+                            <p className="text-xs text-slate-500">Leave fields blank to keep current values. Filled fields apply to all selected staff.</p>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Region</label>
+                                <select value={bulkTransferData.region_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, region_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                    <option value="">— Keep current —</option>
+                                    {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Branch</label>
+                                <select value={bulkTransferData.branch_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, branch_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                    <option value="">— Keep current —</option>
+                                    {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Department</label>
+                                <select value={bulkTransferData.department_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, department_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                    <option value="">— Keep current —</option>
+                                    {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Manager</label>
+                                <select value={bulkTransferData.manager_id} onChange={(e) => setBulkTransferData({ ...bulkTransferData, manager_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                    <option value="">— Keep current —</option>
+                                    {staff.filter((s: Staff) => !selectedStaffIds.has(s.id)).map((s: Staff) => (
+                                        <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s.employee_number})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setShowBulkTransferModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => {
+                                    const updates: any = {};
+                                    if (bulkTransferData.region_id) updates.region_id = bulkTransferData.region_id;
+                                    if (bulkTransferData.branch_id) updates.branch_id = bulkTransferData.branch_id;
+                                    if (bulkTransferData.department_id) updates.department_id = bulkTransferData.department_id;
+                                    if (bulkTransferData.manager_id) updates.manager_id = bulkTransferData.manager_id;
+                                    if (Object.keys(updates).length === 0) { showToast('No changes selected', 'error'); return; }
+                                    bulkTransferStaffMutation.mutate({ staff_ids: Array.from(selectedStaffIds), updates });
+                                }}
+                                disabled={bulkTransferStaffMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
+                                {bulkTransferStaffMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Apply
                             </button>
                         </div>
                     </div>

@@ -252,6 +252,13 @@ export const StaffProfilePage: React.FC = () => {
         enabled: !!id && activeTab === 'overview',
     });
 
+    // Fetch termination blockers when terminate modal opens
+    const { data: terminationBlockers } = useQuery<{ active_assets: number; pending_documents: number }>({
+        queryKey: ['termination-blockers', id],
+        queryFn: async () => (await api.get(`/staff/${id}/termination-blockers`)).data,
+        enabled: !!id && showTerminateModal,
+    });
+
     // Fetch org data for transfer
     const { data: regions } = useQuery({
         queryKey: ['regions'],
@@ -1614,6 +1621,27 @@ export const StaffProfilePage: React.FC = () => {
                                 <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
                                 <p className="text-sm text-red-700">This action will permanently end employment for <strong>{staff.first_name} {staff.last_name}</strong> ({staff.employee_number}). This cannot be undone.</p>
                             </div>
+                            {terminationBlockers && (terminationBlockers.active_assets > 0 || terminationBlockers.pending_documents > 0) && (
+                                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+                                        <div className="flex-1">
+                                            <p className="font-semibold text-amber-900 mb-1.5">Exit clearance pending</p>
+                                            <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
+                                                {terminationBlockers.active_assets > 0 && <li><strong>{terminationBlockers.active_assets}</strong> active asset assignment{terminationBlockers.active_assets > 1 ? 's' : ''} — please return assigned items first</li>}
+                                                {terminationBlockers.pending_documents > 0 && <li><strong>{terminationBlockers.pending_documents}</strong> mandatory document{terminationBlockers.pending_documents > 1 ? 's' : ''} unverified</li>}
+                                            </ul>
+                                            <p className="text-xs text-amber-700 mt-2">You can still proceed, but exit clearance should be completed for proper offboarding.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {terminationBlockers && terminationBlockers.active_assets === 0 && terminationBlockers.pending_documents === 0 && (
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
+                                    <CheckCircle className="text-emerald-600 flex-shrink-0" size={18} />
+                                    <p className="text-sm text-emerald-800 font-medium">Exit clearance complete — no blockers detected</p>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Termination Type *</label>
                                 <select value={formData.termination_type || ''} onChange={(e) => setFormData({ ...formData, termination_type: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg">

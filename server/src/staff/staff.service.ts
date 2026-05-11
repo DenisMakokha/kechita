@@ -167,7 +167,7 @@ export class StaffService {
 
     // ==================== STAFF RETRIEVAL ====================
 
-    async findAll(filter?: StaffFilterDto): Promise<{ data: Staff[]; total: number; page: number; limit: number }> {
+    async findAll(filter?: StaffFilterDto & { includeDeleted?: boolean; onlyDeleted?: boolean }): Promise<{ data: Staff[]; total: number; page: number; limit: number }> {
         const qb = this.staffRepo.createQueryBuilder('staff')
             .leftJoinAndSelect('staff.user', 'user')
             .leftJoinAndSelect('staff.position', 'position')
@@ -175,6 +175,12 @@ export class StaffService {
             .leftJoinAndSelect('staff.region', 'region')
             .leftJoinAndSelect('staff.department', 'department')
             .leftJoinAndSelect('staff.manager', 'manager');
+
+        if (filter?.onlyDeleted) {
+            qb.withDeleted().andWhere('staff.deleted_at IS NOT NULL');
+        } else if (filter?.includeDeleted) {
+            qb.withDeleted();
+        }
 
         if (filter?.status) {
             if (Array.isArray(filter.status)) {
@@ -518,12 +524,15 @@ export class StaffService {
 
     async getStaffStats(): Promise<{
         total: number;
+        deleted: number;
         byStatus: Record<string, number>;
         byProbationStatus: Record<string, number>;
         byBranch: { branchId: string; branchName: string; count: number }[];
         upcomingProbationReviews: number;
+        overdueProbationReviews: number;
     }> {
         const total = await this.staffRepo.count();
+        const deleted = await this.staffRepo.count({ withDeleted: true }).then(n => n - total);
 
         const statusCounts = await this.staffRepo
             .createQueryBuilder('staff')
@@ -550,9 +559,11 @@ export class StaffService {
             .getRawMany();
 
         const upcomingReviews = await this.getUpcomingProbationReviews(30);
+        const overdueReviews = await this.getOverdueProbationReviews();
 
         return {
             total,
+            deleted,
             byStatus: statusCounts.reduce((acc, curr) => ({ ...acc, [curr.status]: parseInt(curr.count) }), {}),
             byProbationStatus: probationCounts.reduce((acc, curr) => ({ ...acc, [curr.status]: parseInt(curr.count) }), {}),
             byBranch: branchCounts.map((b: any) => ({
@@ -561,6 +572,7 @@ export class StaffService {
                 count: parseInt(b.count),
             })),
             upcomingProbationReviews: upcomingReviews.length,
+            overdueProbationReviews: overdueReviews.length,
         };
     }
 

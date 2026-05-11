@@ -75,7 +75,7 @@ export class StaffController {
     @Get()
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
     findAll(@Query() query: any) {
-        const filter: StaffFilterDto = {
+        const filter: StaffFilterDto & { includeDeleted?: boolean; onlyDeleted?: boolean } = {
             status: query.status,
             branchId: query.branchId,
             regionId: query.regionId,
@@ -85,6 +85,8 @@ export class StaffController {
             search: query.search,
             isProbationary: query.isProbationary === 'true',
             role: query.role,
+            includeDeleted: query.includeDeleted === 'true',
+            onlyDeleted: query.onlyDeleted === 'true',
         };
         return this.staffService.findAll(filter);
     }
@@ -528,19 +530,17 @@ export class StaffController {
         )
         file: Express.Multer.File,
     ) {
-        // Store photo via document service and get URL
-        const doc = await this.documentService.uploadFile(
-            {
-                fieldname: file.fieldname,
-                originalname: file.originalname,
-                encoding: file.encoding || 'utf-8',
-                mimetype: file.mimetype,
-                size: file.size,
-                buffer: file.buffer,
-            },
-            id,
-        );
-        return this.staffService.updatePhoto(id, `/documents/${doc.id}/preview`);
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const ext = (file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)?.[1] || 'jpg').toLowerCase();
+        const dir = path.join(process.cwd(), 'uploads', 'photos', 'staff');
+        await fs.mkdir(dir, { recursive: true });
+        // Use stable filename for cache-busting via mtime suffix
+        const filename = `${id}.${ext}`;
+        const filepath = path.join(dir, filename);
+        await fs.writeFile(filepath, file.buffer);
+        const publicUrl = `/uploads/photos/staff/${filename}?v=${Date.now()}`;
+        return this.staffService.updatePhoto(id, publicUrl);
     }
 
     // ==================== SELF-SERVICE (MY PROFILE) ====================
