@@ -25,6 +25,7 @@ const PettyCashPage = React.lazy(() => import('./pages/PettyCashPage'));
 const PayrollPage = React.lazy(() => import('./pages/PayrollPage'));
 const AttendancePage = React.lazy(() => import('./pages/AttendancePage'));
 const PerformancePage = React.lazy(() => import('./pages/PerformancePage'));
+const HRAdminPage = React.lazy(() => import('./pages/HRAdminPage'));
 const AnnouncementsPage = React.lazy(() => import('./pages/AnnouncementsPage'));
 const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
 const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
@@ -263,6 +264,16 @@ function App() {
 
             {/* Performance - all staff (admin tabs inside) */}
             <Route path="performance" element={<PerformancePage />} />
+
+            {/* HR Administration (Training, Disciplinary, C&B, Assets) - HR + CEO */}
+            <Route
+              path="hr-admin"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER, ROLES.HR_ASSISTANT]}>
+                  <HRAdminPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Announcements - accessible to all staff */}
             <Route path="announcements" element={<AnnouncementsPage />} />

@@ -30,6 +30,10 @@ import { SettingsModule } from './settings/settings.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { PerformanceModule } from './performance/performance.module';
+import { TrainingModule } from './training/training.module';
+import { DisciplinaryModule } from './disciplinary/disciplinary.module';
+import { CompBenefitsModule } from './comp-benefits/comp-benefits.module';
+import { AssetsModule } from './assets/assets.module';
 // Auth Entities
 import { User } from './auth/entities/user.entity';
 import { Role } from './auth/entities/role.entity';
@@ -115,6 +119,19 @@ import { ReviewCycle } from './performance/entities/review-cycle.entity';
 import { Review } from './performance/entities/review.entity';
 import { Goal } from './performance/entities/goal.entity';
 import { KeyResult } from './performance/entities/key-result.entity';
+// Training Entities
+import { TrainingProgram } from './training/entities/training-program.entity';
+import { TrainingSession } from './training/entities/training-session.entity';
+import { TrainingEnrollment } from './training/entities/training-enrollment.entity';
+// Disciplinary Entities
+import { DisciplinaryCase } from './disciplinary/entities/disciplinary-case.entity';
+// Comp & Benefits Entities
+import { SalaryBand } from './comp-benefits/entities/salary-band.entity';
+import { BenefitPlan } from './comp-benefits/entities/benefit-plan.entity';
+import { BenefitEnrollment } from './comp-benefits/entities/benefit-enrollment.entity';
+// Assets Entities
+import { Asset } from './assets/entities/asset.entity';
+import { AssetAssignment } from './assets/entities/asset-assignment.entity';
 
 const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
 
@@ -176,6 +193,14 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         Shift, RosterAssignment, TimeEntry,
         // Performance
         ReviewCycle, Review, Goal, KeyResult,
+        // Training
+        TrainingProgram, TrainingSession, TrainingEnrollment,
+        // Disciplinary
+        DisciplinaryCase,
+        // Comp & Benefits
+        SalaryBand, BenefitPlan, BenefitEnrollment,
+        // Assets
+        Asset, AssetAssignment,
       ],
       synchronize: shouldSynchronize,
       logging: process.env.NODE_ENV !== 'production',
@@ -204,6 +229,10 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
     PayrollModule,
     AttendanceModule,
     PerformanceModule,
+    TrainingModule,
+    DisciplinaryModule,
+    CompBenefitsModule,
+    AssetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
