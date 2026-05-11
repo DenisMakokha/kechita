@@ -7,6 +7,8 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { MulterModule } from '@nestjs/platform-express';
+import { standardMulterOptions } from './common/multer/multer.config';
 import { join } from 'path';
 // Modules
 import { AuthModule } from './auth/auth.module';
@@ -103,6 +105,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
+    MulterModule.register(standardMulterOptions),
     ConfigModule.forRoot({ isGlobal: true }),
     CacheModule.register({ isGlobal: true, ttl: 60000, max: 100 }),
     EventEmitterModule.forRoot(),
