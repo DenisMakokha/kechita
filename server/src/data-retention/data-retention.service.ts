@@ -261,18 +261,54 @@ export class DataRetentionService {
     }
 
     /**
-     * Get archiving statistics
+     * Get archiving statistics by querying each archive table.
+     * Tables may not yet exist if archiving has never run — handled gracefully.
      */
     async getStats(): Promise<{
         totalArchived: number;
         byEntityType: Record<string, number>;
+        lastArchiveAt: Date | null;
         nextRun: Date;
     }> {
-        // This would query archive tables for counts
-        // For now, return placeholder
+        const archiveTables: Record<string, string> = {
+            AuditLog: 'audit_logs_archive',
+            PettyCashTransaction: 'petty_cash_transactions_archive',
+            StaffLoanRepayment: 'staff_loan_repayments_archive',
+        };
+
+        const byEntityType: Record<string, number> = {};
+        let totalArchived = 0;
+        let lastArchiveAt: Date | null = null;
+
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        try {
+            for (const [entityType, tableName] of Object.entries(archiveTables)) {
+                try {
+                    const [{ count, last }] = await queryRunner.query(
+                        `SELECT COUNT(*)::int AS count, MAX(archived_at) AS last FROM ${tableName}`,
+                    );
+                    const n = Number(count) || 0;
+                    byEntityType[entityType] = n;
+                    totalArchived += n;
+                    if (last) {
+                        const lastDate = new Date(last);
+                        if (!lastArchiveAt || lastDate > lastArchiveAt) lastArchiveAt = lastDate;
+                    }
+                } catch (e: any) {
+                    // Table doesn't exist yet — entity hasn't been archived
+                    byEntityType[entityType] = 0;
+                    this.logger.debug(`Archive table ${tableName} not present yet`);
+                }
+            }
+        } finally {
+            await queryRunner.release();
+        }
+
         return {
-            totalArchived: 0,
-            byEntityType: {},
+            totalArchived,
+            byEntityType,
+            lastArchiveAt,
             nextRun: this.getNextRunTime(),
         };
     }

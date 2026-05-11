@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { InputDialog } from '../components/ui/InputDialog';
 import {
     ArrowLeft, Edit, Mail, Phone, Building2, MapPin,
     Briefcase, FileText, Clock, CheckCircle, XCircle,
@@ -184,6 +185,7 @@ export const StaffProfilePage: React.FC = () => {
     const [uploadIssueDate, setUploadIssueDate] = useState('');
     const [uploadRefNumber, setUploadRefNumber] = useState('');
     const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+    const [skipTaskId, setSkipTaskId] = useState<string | null>(null);
     const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
     const [showContractModal, setShowContractModal] = useState(false);
     const [contractFormData, setContractFormData] = useState<any>({});
@@ -1122,7 +1124,7 @@ export const StaffProfilePage: React.FC = () => {
                                                             <CheckCircle size={12} /> Complete
                                                         </button>
                                                         {!ts.task?.is_required && (
-                                                            <button onClick={() => { const reason = prompt('Reason for skipping?'); if (reason) skipTaskMutation.mutate({ taskStatusId: ts.id, reason }); }} disabled={skipTaskMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+                                                            <button onClick={() => setSkipTaskId(ts.id)} disabled={skipTaskMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
                                                                 Skip
                                                             </button>
                                                         )}
@@ -1676,6 +1678,21 @@ export const StaffProfilePage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Skip Onboarding Task Dialog */}
+            <InputDialog
+                isOpen={!!skipTaskId}
+                title="Skip Task"
+                message="Provide a reason for skipping this task. This will be recorded against the onboarding instance."
+                inputLabel="Reason"
+                placeholder="e.g., Not applicable for this role"
+                confirmLabel="Skip Task"
+                required
+                minLength={3}
+                onConfirm={(reason) => { if (skipTaskId) skipTaskMutation.mutate({ taskStatusId: skipTaskId, reason }); setSkipTaskId(null); }}
+                onCancel={() => setSkipTaskId(null)}
+                isLoading={skipTaskMutation.isPending}
+            />
 
             {/* Delete Document Dialog */}
             <ConfirmDialog

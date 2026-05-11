@@ -23,8 +23,6 @@ const ApprovalHistoryPage = React.lazy(() => import('./pages/ApprovalHistoryPage
 const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage'));
 const PettyCashPage = React.lazy(() => import('./pages/PettyCashPage'));
 const AnnouncementsPage = React.lazy(() => import('./pages/AnnouncementsPage'));
-const UsersPage = React.lazy(() => import('./pages/UsersPage'));
-const RolesPage = React.lazy(() => import('./pages/RolesPage'));
 const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
 const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
 const StaffProfilePage = React.lazy(() => import('./pages/StaffProfilePage'));
@@ -250,25 +248,9 @@ function App() {
             {/* Announcements - accessible to all staff */}
             <Route path="announcements" element={<AnnouncementsPage />} />
 
-            {/* User Management - CEO and HR only */}
-            <Route
-              path="users"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER]}>
-                  <UsersPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Role Management - CEO only */}
-            <Route
-              path="roles"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.CEO]}>
-                  <RolesPage />
-                </ProtectedRoute>
-              }
-            />
+            {/* Legacy /users and /roles redirect to unified Staff Management */}
+            <Route path="users" element={<Navigate to="/staff-management" replace />} />
+            <Route path="roles" element={<Navigate to="/staff-management" replace />} />
 
             {/* Security Settings - accessible to all authenticated users */}
             <Route path="security" element={<SecuritySettingsPage />} />

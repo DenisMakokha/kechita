@@ -71,6 +71,7 @@ export const StaffManagementPage: React.FC = () => {
     const [resetPwUserId, setResetPwUserId] = useState<string | null>(null);
     const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [deleteRoleTarget, setDeleteRoleTarget] = useState<Role | null>(null);
+    const [copyFromRole, setCopyFromRole] = useState<Role | null>(null);
 
     // User detail drawer state
     const [drawerUser, setDrawerUser] = useState<User | null>(null);
@@ -789,6 +790,27 @@ export const StaffManagementPage: React.FC = () => {
                 isLoading={deleteUserMutation.isPending}
             />
 
+            {/* Copy permissions from role */}
+            <ConfirmDialog
+                isOpen={!!copyFromRole}
+                title="Copy Permissions"
+                message={`Replace current pending selection with all permissions from "${copyFromRole?.name}"? Save afterwards to apply.`}
+                confirmLabel="Copy Permissions"
+                onConfirm={async () => {
+                    if (!copyFromRole) return;
+                    try {
+                        const perms = await api.get(`/roles/${copyFromRole.id}/permissions`).then(res => res.data as Permission[]);
+                        setPendingPermIds(new Set(perms.map(p => p.id)));
+                        setPermsDirty(true);
+                    } catch (e: any) {
+                        showToast(e?.response?.data?.message || 'Failed to load permissions', 'error');
+                    } finally {
+                        setCopyFromRole(null);
+                    }
+                }}
+                onCancel={() => setCopyFromRole(null)}
+            />
+
             {/* Delete Role Dialog */}
             <ConfirmDialog
                 isOpen={!!deleteRoleTarget}
@@ -1210,13 +1232,7 @@ export const StaffManagementPage: React.FC = () => {
                                                 {roles.filter(r => r.id !== manageRole.id).map(r => (
                                                     <button
                                                         key={r.id}
-                                                        onClick={async () => {
-                                                            const confirmed = window.confirm(`Replace current selection with ${r.name}'s permissions?`);
-                                                            if (!confirmed) return;
-                                                            const perms = await api.get(`/roles/${r.id}/permissions`).then(res => res.data as Permission[]);
-                                                            setPendingPermIds(new Set(perms.map(p => p.id)));
-                                                            setPermsDirty(true);
-                                                        }}
+                                                        onClick={() => setCopyFromRole(r)}
                                                         className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2"
                                                     >
                                                         <div className={"w-5 h-5 rounded bg-gradient-to-br " + getRoleColor(r.code) + " flex-shrink-0"} />
