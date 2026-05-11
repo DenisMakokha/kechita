@@ -79,13 +79,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         if (exception instanceof QueryFailedError) {
             const pgError = exception as any;
 
+            // Always log the underlying SQL detail — this is what we need
+            // to diagnose FK / unique / check violations in production.
+            const dbDetail = {
+                code: pgError.code,
+                constraint: pgError.constraint,
+                table: pgError.table,
+                column: pgError.column,
+                detail: pgError.detail,
+            };
+            this.logger.warn(
+                `[DB ${pgError.code}] ${path} ${pgError.constraint || ''} ${pgError.detail || pgError.message || ''}`,
+            );
+
             // Unique violation
             if (pgError.code === '23505') {
                 return {
                     statusCode: HttpStatus.CONFLICT,
                     errorCode: 'DUPLICATE_ENTRY',
                     message: 'A record with this value already exists',
-                    details: { constraint: pgError.constraint },
+                    details: dbDetail,
                     timestamp,
                     path,
                     method,
@@ -98,8 +111,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
                 return {
                     statusCode: HttpStatus.BAD_REQUEST,
                     errorCode: 'FOREIGN_KEY_VIOLATION',
-                    message: 'Referenced record does not exist',
-                    details: { constraint: pgError.constraint },
+                    // Surface the Postgres detail so callers can see which
+                    // column/value is missing (e.g. "Key (user_id)=(…) is
+                    // not present in table \"users\"").
+                    message: pgError.detail
+                        ? `Referenced record does not exist — ${pgError.detail}`
+                        : 'Referenced record does not exist',
+                    details: dbDetail,
                     timestamp,
                     path,
                     method,
@@ -113,6 +131,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
                     statusCode: HttpStatus.BAD_REQUEST,
                     errorCode: 'REQUIRED_FIELD_MISSING',
                     message: `Required field is missing: ${pgError.column}`,
+                    details: dbDetail,
+                    timestamp,
+                    path,
+                    method,
+                    correlationId,
+                };
+            }
+
+            // Check constraint violation
+            if (pgError.code === '23514') {
+                return {
+                    statusCode: HttpStatus.BAD_REQUEST,
+                    errorCode: 'CHECK_VIOLATION',
+                    message: pgError.detail || 'A value failed a database check constraint',
+                    details: dbDetail,
                     timestamp,
                     path,
                     method,
@@ -123,7 +156,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             return {
                 statusCode: HttpStatus.BAD_REQUEST,
                 errorCode: 'DATABASE_ERROR',
-                message: 'Database operation failed',
+                message: pgError.detail || pgError.message || 'Database operation failed',
+                details: dbDetail,
                 timestamp,
                 path,
                 method,
