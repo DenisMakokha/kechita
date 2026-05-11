@@ -22,6 +22,7 @@ const ApprovalsPage = React.lazy(() => import('./pages/ApprovalsPage'));
 const ApprovalHistoryPage = React.lazy(() => import('./pages/ApprovalHistoryPage'));
 const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage'));
 const PettyCashPage = React.lazy(() => import('./pages/PettyCashPage'));
+const PayrollPage = React.lazy(() => import('./pages/PayrollPage'));
 const AnnouncementsPage = React.lazy(() => import('./pages/AnnouncementsPage'));
 const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
 const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
@@ -241,6 +242,16 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.ACCOUNTANT, ROLES.BRANCH_MANAGER, ROLES.REGIONAL_MANAGER]}>
                   <PettyCashPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Payroll - CEO, HR Manager, Accountant */}
+            <Route
+              path="payroll"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER, ROLES.ACCOUNTANT]}>
+                  <PayrollPage />
                 </ProtectedRoute>
               }
             />
