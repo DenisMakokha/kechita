@@ -1,3 +1,9 @@
+// Load .env BEFORE any other imports so DB/JWT vars are available
+// when modules are evaluated (TypeORM, JWT, etc.).
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -11,7 +17,10 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
+  // abortOnError:false → surface init errors as normal exceptions instead of
+  // a silent process.abort() (SIGABRT) that swallows the actual error message.
   const app = await NestFactory.create(AppModule, {
+    abortOnError: false,
     logger: process.env.NODE_ENV === 'production'
       ? WinstonModule.createLogger(winstonConfig)
       : undefined,
@@ -135,5 +144,14 @@ async function bootstrap() {
   logger.log(`🚀 Application is running on: http://localhost:${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  // Print clearly so the failure isn't lost under process.abort/SIGABRT
+  // eslint-disable-next-line no-console
+  console.error('=== Bootstrap failed ===');
+  // eslint-disable-next-line no-console
+  console.error(err?.message);
+  // eslint-disable-next-line no-console
+  console.error(err?.stack);
+  process.exit(1);
+});
 
