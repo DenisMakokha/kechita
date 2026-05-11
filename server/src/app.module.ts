@@ -27,6 +27,7 @@ import { PettyCashModule } from './petty-cash/petty-cash.module';
 import { CommunicationsModule } from './communications/communications.module';
 import { SmsModule } from './sms/sms.module';
 import { SettingsModule } from './settings/settings.module';
+import { PayrollModule } from './payroll/payroll.module';
 // Auth Entities
 import { User } from './auth/entities/user.entity';
 import { Role } from './auth/entities/role.entity';
@@ -96,6 +97,13 @@ import { PettyCashReconciliation } from './petty-cash/entities/petty-cash-reconc
 import { Announcement, AnnouncementRead } from './communications/entities/announcement.entity';
 // Settings Entities
 import { SystemSetting } from './auth/entities/system-setting.entity';
+// Payroll Entities
+import { PayrollPeriod } from './payroll/entities/payroll-period.entity';
+import { PayrollRun } from './payroll/entities/payroll-run.entity';
+import { Payslip } from './payroll/entities/payslip.entity';
+import { PayslipLine } from './payroll/entities/payslip-line.entity';
+import { StaffAllowance } from './payroll/entities/staff-allowance.entity';
+import { StaffRecurringDeduction } from './payroll/entities/staff-recurring-deduction.entity';
 
 const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
 
@@ -151,6 +159,8 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         Announcement, AnnouncementRead,
         // Settings
         SystemSetting,
+        // Payroll
+        PayrollPeriod, PayrollRun, Payslip, PayslipLine, StaffAllowance, StaffRecurringDeduction,
       ],
       synchronize: shouldSynchronize,
       logging: process.env.NODE_ENV !== 'production',
@@ -176,6 +186,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
     CommunicationsModule,
     SmsModule,
     SettingsModule,
+    PayrollModule,
   ],
   controllers: [AppController],
   providers: [AppService],
