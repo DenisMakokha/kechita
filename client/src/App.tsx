@@ -24,6 +24,7 @@ const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage'));
 const PettyCashPage = React.lazy(() => import('./pages/PettyCashPage'));
 const PayrollPage = React.lazy(() => import('./pages/PayrollPage'));
 const AttendancePage = React.lazy(() => import('./pages/AttendancePage'));
+const PerformancePage = React.lazy(() => import('./pages/PerformancePage'));
 const AnnouncementsPage = React.lazy(() => import('./pages/AnnouncementsPage'));
 const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
 const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
@@ -259,6 +260,9 @@ function App() {
 
             {/* Attendance - all staff (admin tabs inside) */}
             <Route path="attendance" element={<AttendancePage />} />
+
+            {/* Performance - all staff (admin tabs inside) */}
+            <Route path="performance" element={<PerformancePage />} />
 
             {/* Announcements - accessible to all staff */}
             <Route path="announcements" element={<AnnouncementsPage />} />

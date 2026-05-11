@@ -29,6 +29,7 @@ import { SmsModule } from './sms/sms.module';
 import { SettingsModule } from './settings/settings.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { PerformanceModule } from './performance/performance.module';
 // Auth Entities
 import { User } from './auth/entities/user.entity';
 import { Role } from './auth/entities/role.entity';
@@ -109,6 +110,11 @@ import { StaffRecurringDeduction } from './payroll/entities/staff-recurring-dedu
 import { Shift } from './attendance/entities/shift.entity';
 import { RosterAssignment } from './attendance/entities/roster-assignment.entity';
 import { TimeEntry } from './attendance/entities/time-entry.entity';
+// Performance Entities
+import { ReviewCycle } from './performance/entities/review-cycle.entity';
+import { Review } from './performance/entities/review.entity';
+import { Goal } from './performance/entities/goal.entity';
+import { KeyResult } from './performance/entities/key-result.entity';
 
 const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
 
@@ -168,6 +174,8 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         PayrollPeriod, PayrollRun, Payslip, PayslipLine, StaffAllowance, StaffRecurringDeduction,
         // Attendance
         Shift, RosterAssignment, TimeEntry,
+        // Performance
+        ReviewCycle, Review, Goal, KeyResult,
       ],
       synchronize: shouldSynchronize,
       logging: process.env.NODE_ENV !== 'production',
@@ -195,6 +203,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
     SettingsModule,
     PayrollModule,
     AttendanceModule,
+    PerformanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
