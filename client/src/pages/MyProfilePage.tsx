@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { downloadAuthedFile } from '../lib/downloadFile';
 import {
     User, Mail, Phone, Building2, MapPin, Briefcase,
     FileText, Edit, Save, X, Download, AlertTriangle,
@@ -539,13 +540,14 @@ export const MyProfilePage: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <a
-                                            href={`/api/staff/documents/file/${doc.id}`}
-                                            target="_blank"
+                                        <button
+                                            type="button"
+                                            onClick={() => downloadAuthedFile(`/staff/documents/file/${doc.id}`, (doc as any).original_name || (doc as any).doc_type || 'document')}
                                             className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"
+                                            title="Download"
                                         >
                                             <Download size={18} />
-                                        </a>
+                                        </button>
                                     </div>
                                 ))}
                             </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { downloadAuthedFile } from '../lib/downloadFile';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { InputDialog } from '../components/ui/InputDialog';
 import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
@@ -954,9 +955,14 @@ export const StaffProfilePage: React.FC = () => {
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {doc.document?.id && (
-                                                    <a href={`${api.defaults.baseURL}/staff/documents/file/${doc.document.id}`} target="_blank" rel="noreferrer" className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600" title="Download">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => downloadAuthedFile(`/staff/documents/file/${doc.document!.id}`, doc.document!.original_name || 'document')}
+                                                        className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"
+                                                        title="Download"
+                                                    >
                                                         <Download size={18} />
-                                                    </a>
+                                                    </button>
                                                 )}
                                                 {(doc.status === 'uploaded' || doc.status === 'pending') && (
                                                     <>
