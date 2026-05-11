@@ -172,15 +172,15 @@ export class StaffController {
     @Post(':id/activate')
     @Patch(':id/activate')
     @Roles('CEO', 'HR_MANAGER')
-    activate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.activateStaff(id);
+    activate(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        return this.staffService.activateStaff(id, req.user.id);
     }
 
     @Post(':id/deactivate')
     @Patch(':id/deactivate')
     @Roles('CEO', 'HR_MANAGER')
-    deactivate(@Param('id', ParseUUIDPipe) id: string, @Body('reason') reason?: string) {
-        return this.staffService.deactivateStaff(id, reason);
+    deactivate(@Param('id', ParseUUIDPipe) id: string, @Body('reason') reason: string | undefined, @Req() req: AuthenticatedRequest) {
+        return this.staffService.deactivateStaff(id, reason, req.user.id);
     }
 
     @Patch(':id/terminate')
@@ -188,6 +188,7 @@ export class StaffController {
     terminate(
         @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason: string,
+        @Req() req: AuthenticatedRequest,
         @Body('terminationDate') terminationDate?: string,
         @Body('force') force?: boolean,
     ) {
@@ -196,6 +197,7 @@ export class StaffController {
             reason,
             terminationDate ? new Date(terminationDate) : undefined,
             force === true || (force as any) === 'true',
+            req.user.id,
         );
     }
 
@@ -656,7 +658,7 @@ export class StaffController {
             reason: data.reason,
             last_working_date: new Date(data.last_working_date),
             notice_period_days: data.notice_period_days,
-        });
+        }, req.user.id);
     }
 
     // ==================== CONTRACTS ====================
@@ -712,8 +714,8 @@ export class StaffController {
 
     @Post(':id/restore')
     @Roles('CEO', 'HR_MANAGER')
-    restore(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.restore(id);
+    restore(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        return this.staffService.restore(id, req.user.id);
     }
 
     @Get(':id/permanent-delete-blockers')

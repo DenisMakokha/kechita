@@ -13,6 +13,8 @@ import { EmploymentHistory } from './entities/employment-history.entity';
 import { StaffContract, ContractStatus } from './entities/staff-contract.entity';
 import { OnboardingService } from './services/onboarding.service';
 import { AuthService } from '../auth/auth.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
 import { generateTempPassword as generateTempPasswordSecure } from '../common/id-utils';
 
@@ -43,7 +45,15 @@ export class StaffService {
         private contractRepo: Repository<StaffContract>,
         private onboardingService: OnboardingService,
         private authService: AuthService,
+        private auditService: AuditService,
     ) { }
+
+    /** Small helper to keep audit calls non-blocking and never break a write path. */
+    private audit(data: Parameters<AuditService['log']>[0]) {
+        return this.auditService.log(data).catch((e) => {
+            console.warn('[StaffService] audit log failed:', e?.message);
+        });
+    }
 
     // ==================== STAFF CREATION (ONBOARDING) ====================
 
@@ -462,23 +472,50 @@ export class StaffService {
 
     // ==================== STAFF ACTIVATION/DEACTIVATION ====================
 
-    async activateStaff(id: string): Promise<Staff> {
+    async activateStaff(id: string, actorUserId?: string): Promise<Staff> {
         const staff = await this.findOne(id);
         staff.status = staff.probation_status === ProbationStatus.PASSED ? StaffStatus.ACTIVE : StaffStatus.PROBATION;
-        staff.user.is_active = true;
-        await this.userRepo.save(staff.user);
-        return this.staffRepo.save(staff);
+        if (staff.user) {
+            staff.user.is_active = true;
+            await this.userRepo.save(staff.user);
+        }
+        const saved = await this.staffRepo.save(staff);
+        await this.audit({
+            userId: actorUserId,
+            staffId: id,
+            action: AuditAction.ACTIVATE,
+            entityType: 'Staff',
+            entityId: id,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: 'Staff reactivated',
+            isSuccessful: true,
+        });
+        return saved;
     }
 
-    async deactivateStaff(id: string, reason?: string): Promise<Staff> {
+    async deactivateStaff(id: string, reason?: string, actorUserId?: string): Promise<Staff> {
         const staff = await this.findOne(id);
         staff.status = StaffStatus.SUSPENDED;
-        staff.user.is_active = false;
-        await this.userRepo.save(staff.user);
-        return this.staffRepo.save(staff);
+        if (staff.user) {
+            staff.user.is_active = false;
+            await this.userRepo.save(staff.user);
+        }
+        const saved = await this.staffRepo.save(staff);
+        await this.audit({
+            userId: actorUserId,
+            staffId: id,
+            action: AuditAction.DEACTIVATE,
+            entityType: 'Staff',
+            entityId: id,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Staff suspended${reason ? `: ${reason}` : ''}`,
+            metadata: reason ? { reason } : undefined,
+            isSuccessful: true,
+        });
+        return saved;
     }
 
-    async terminateStaff(id: string, reason: string, terminationDate?: Date, force: boolean = false): Promise<Staff> {
+    async terminateStaff(id: string, reason: string, terminationDate?: Date, force: boolean = false, actorUserId?: string): Promise<Staff> {
         const staff = await this.findOne(id);
 
         // Enforce exit-clearance blockers unless force=true (CEO override)
@@ -518,7 +555,21 @@ export class StaffService {
             },
         );
 
-        return this.staffRepo.save(staff);
+        const saved = await this.staffRepo.save(staff);
+
+        await this.audit({
+            userId: actorUserId,
+            staffId: id,
+            action: AuditAction.DEACTIVATE,
+            entityType: 'Staff',
+            entityId: id,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Employment terminated${force ? ' [BLOCKERS OVERRIDDEN]' : ''}: ${reason}`,
+            metadata: { reason, termination_date: staff.termination_date, force_override: force },
+            isSuccessful: true,
+        });
+
+        return saved;
     }
 
     // ==================== TEAM/HIERARCHY ====================
@@ -698,6 +749,20 @@ export class StaffService {
         });
         await this.employmentHistoryRepo.save(newHistory);
 
+        await this.audit({
+            userId: promotedBy,
+            staffId,
+            action: AuditAction.UPDATE,
+            entityType: 'Staff',
+            entityId: staffId,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Promoted from ${oldPosition?.name || 'N/A'} to ${newPosition.name}`,
+            oldValues: { position: oldPosition?.name, salary: oldSalary },
+            newValues: { position: newPosition.name, salary: data.new_salary ?? oldSalary },
+            metadata: { reason: data.reason, effective_date: effectiveDate },
+            isSuccessful: true,
+        });
+
         return this.findOne(staffId);
     }
 
@@ -868,7 +933,25 @@ export class StaffService {
         }
 
         staff.updated_by = transferredBy;
-        return this.staffRepo.save(staff);
+        const saved = await this.staffRepo.save(staff);
+        await this.audit({
+            userId: transferredBy,
+            staffId,
+            action: AuditAction.UPDATE,
+            entityType: 'Staff',
+            entityId: staffId,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Staff transferred${data.reason ? `: ${data.reason}` : ''}`,
+            newValues: {
+                region_id: data.region_id,
+                branch_id: data.branch_id,
+                position_id: data.position_id,
+                manager_id: data.manager_id,
+            },
+            metadata: { effective_date: effectiveDate, reason: data.reason },
+            isSuccessful: true,
+        });
+        return saved;
     }
 
     // ==================== PHOTO UPLOAD ====================
@@ -928,6 +1011,7 @@ export class StaffService {
             last_working_date: Date;
             notice_period_days?: number;
         },
+        actorUserId?: string,
     ): Promise<Staff> {
         const staff = await this.findOne(staffId);
 
@@ -961,7 +1045,23 @@ export class StaffService {
             },
         );
 
-        return this.staffRepo.save(staff);
+        const saved = await this.staffRepo.save(staff);
+        await this.audit({
+            userId: actorUserId,
+            staffId,
+            action: AuditAction.DEACTIVATE,
+            entityType: 'Staff',
+            entityId: staffId,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Resignation submitted: ${data.reason}`,
+            metadata: {
+                reason: data.reason,
+                last_working_date: data.last_working_date,
+                notice_period_days: data.notice_period_days,
+            },
+            isSuccessful: true,
+        });
+        return saved;
     }
 
     // ==================== BULK OPERATIONS ====================
@@ -1085,10 +1185,35 @@ export class StaffService {
         staff.updated_by = deletedBy;
         await this.staffRepo.save(staff);
         await this.staffRepo.softDelete(id);
+        await this.audit({
+            userId: deletedBy,
+            staffId: id,
+            action: AuditAction.DELETE,
+            entityType: 'Staff',
+            entityId: id,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Staff archived (soft-deleted) from status "${staff.status}"`,
+            metadata: { previous_status: staff.status, archive_type: 'soft_delete' },
+            isSuccessful: true,
+        });
     }
 
-    async restore(id: string): Promise<void> {
+    async restore(id: string, actorUserId?: string): Promise<void> {
+        const staff = await this.staffRepo.findOne({ where: { id }, withDeleted: true });
         await this.staffRepo.restore(id);
+        if (staff) {
+            await this.audit({
+                userId: actorUserId,
+                staffId: id,
+                action: AuditAction.UPDATE,
+                entityType: 'Staff',
+                entityId: id,
+                entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+                description: 'Staff restored from archive',
+                metadata: { archive_type: 'restore' },
+                isSuccessful: true,
+            });
+        }
     }
 
     /**
@@ -1166,6 +1291,25 @@ export class StaffService {
             // best-effort: leave user row but ensure it's deactivated
             await this.userRepo.update({ id: (staff.user as any).id || (staff as any).user_id }, { is_active: false }).catch(() => undefined);
         }
+        // Audit BEFORE deleting so the record snapshot is preserved
+        await this.audit({
+            userId: opts.deletedBy,
+            staffId: id,
+            action: AuditAction.DELETE,
+            entityType: 'Staff',
+            entityId: id,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Staff PERMANENTLY DELETED (irreversible). Confirmation: ${opts.confirmEmployeeNumber}`,
+            metadata: {
+                archive_type: 'hard_delete',
+                previous_status: staff.status,
+                employee_number: staff.employee_number,
+                hire_date: staff.hire_date,
+                position: (staff as any).position_id,
+                branch: (staff as any).branch_id,
+            },
+            isSuccessful: true,
+        });
         await this.staffRepo.delete(id);
         return { deleted: true };
     }
