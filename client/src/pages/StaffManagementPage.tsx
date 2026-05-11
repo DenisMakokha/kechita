@@ -9,6 +9,7 @@ import { InputDialog } from '../components/ui/InputDialog';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
 import { Drawer, DrawerCloseButton } from '../components/ui/Drawer';
+import { StaffRowActions } from '../components/staff/StaffRowActions';
 import {
     Users, Plus, Search, MoreVertical, Edit, Trash2, X,
     Shield, ShieldCheck, ShieldOff, UserCheck, UserX, Mail, Eye,
@@ -16,7 +17,7 @@ import {
     Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
     Upload, Download, FileSpreadsheet, SlidersHorizontal, Save,
     Copy, Link2, Link2Off, LayoutList, LayoutGrid, GitCompare, Lock, Unlock,
-    Archive, ArchiveRestore, Ban
+    Archive, Ban
 } from 'lucide-react';
 
 type Tab = 'directory' | 'users' | 'roles';
@@ -506,12 +507,11 @@ export const StaffManagementPage: React.FC = () => {
                                     <tr><td colSpan={7} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr>
                                 ) : paginatedStaff.length === 0 ? (
                                     <tr><td colSpan={7} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No {directoryView === 'archived' ? 'archived' : directoryView} staff</p></td></tr>
-                                ) : paginatedStaff.map((m: any, idx: number) => {
+                                ) : paginatedStaff.map((m: any) => {
                                     const isArchived = directoryView === 'archived';
                                     const isInactive = INACTIVE_STATUSES.has(m.status);
                                     const isActive = ACTIVE_STATUSES.has(m.status);
                                     const canTerminate = isActive || m.status === 'suspended';
-                                    const isNearBottom = idx >= paginatedStaff.length - 3 && paginatedStaff.length > 4;
                                     return (
                                         <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''} ${isArchived ? 'opacity-75' : ''}`}>
                                             <td className="px-4 py-4">
@@ -534,45 +534,34 @@ export const StaffManagementPage: React.FC = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="View profile"><Eye size={18} /></button>
-                                                    <div className="relative">
-                                                        <button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>
-                                                        {actionMenuId === m.id && (
-                                                            <>
-                                                                <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
-                                                                <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1' : 'top-full mt-1'} w-52 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20`}>
-                                                                    <button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View Profile</button>
-                                                                    {!isArchived && <>
-                                                                        <button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button>
-                                                                        <button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button>
-                                                                        <button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>
-                                                                        {m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}
-                                                                        {m.user?.email && <button onClick={() => { resendWelcomeMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Key size={16} />Resend Welcome</button>}
-                                                                        <hr className="my-1" />
-                                                                        {m.status === 'suspended' ? (
-                                                                            <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button>
-                                                                        ) : isActive ? (
-                                                                            <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><UserX size={16} />Suspend</button>
-                                                                        ) : null}
-                                                                        {canTerminate && (
-                                                                            <button onClick={() => { setTerminateTarget(m); setTerminateForm({ reason: '', terminationDate: new Date().toISOString().split('T')[0], force: false }); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"><Ban size={16} />Terminate Employment</button>
-                                                                        )}
-                                                                        {isInactive && (
-                                                                            <button onClick={() => { setArchiveTarget(m); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Archive size={16} />Archive</button>
-                                                                        )}
-                                                                    </>}
-                                                                    {isArchived && <>
-                                                                        <button onClick={() => { restoreStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><ArchiveRestore size={16} />Restore from Archive</button>
-                                                                        {isCeo && (
-                                                                            <>
-                                                                                <hr className="my-1" />
-                                                                                <button onClick={() => { setPermanentDeleteTarget(m); setPermanentDeleteConfirm(''); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"><Trash2 size={16} />Permanently Delete</button>
-                                                                            </>
-                                                                        )}
-                                                                    </>}
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
+                                                    <StaffRowActions
+                                                        m={m}
+                                                        isOpen={actionMenuId === m.id}
+                                                        onToggle={() => setActionMenuId(actionMenuId === m.id ? null : m.id)}
+                                                        onClose={() => setActionMenuId(null)}
+                                                        isArchived={isArchived}
+                                                        isInactive={isInactive}
+                                                        isActive={isActive}
+                                                        canTerminate={canTerminate}
+                                                        isCeo={isCeo}
+                                                        navigate={navigate}
+                                                        setSelectedStaff={setSelectedStaff}
+                                                        setEditStaffData={setEditStaffData}
+                                                        setShowEditStaffModal={setShowEditStaffModal}
+                                                        setPromoteData={setPromoteData}
+                                                        setShowPromoteModal={setShowPromoteModal}
+                                                        setTransferData={setTransferData}
+                                                        setShowTransferModal={setShowTransferModal}
+                                                        resendWelcomeMutation={resendWelcomeMutation}
+                                                        activateStaffMutation={activateStaffMutation}
+                                                        setShowDeactivateConfirm={setShowDeactivateConfirm}
+                                                        setTerminateTarget={setTerminateTarget}
+                                                        setTerminateForm={setTerminateForm}
+                                                        setArchiveTarget={setArchiveTarget}
+                                                        restoreStaffMutation={restoreStaffMutation}
+                                                        setPermanentDeleteTarget={setPermanentDeleteTarget}
+                                                        setPermanentDeleteConfirm={setPermanentDeleteConfirm}
+                                                    />
                                                 </div>
                                             </td>
                                         </tr>

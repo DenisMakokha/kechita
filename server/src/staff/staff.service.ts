@@ -1232,6 +1232,8 @@ export class StaffService {
         documents: number;
         contracts: number;
         salary_history: number;
+        employment_history: number;
+        subordinates: number;
     }> {
         const q = async (sql: string): Promise<number> => {
             try {
@@ -1244,6 +1246,7 @@ export class StaffService {
         const [
             payroll_runs, leave_requests, loans, claims, petty_cash,
             attendance, documents, contracts, salary_history,
+            employment_history, subordinates,
         ] = await Promise.all([
             q(`SELECT COUNT(*)::int AS c FROM payroll_payslips WHERE staff_id = $1`),
             q(`SELECT COUNT(*)::int AS c FROM leave_requests WHERE staff_id = $1`),
@@ -1254,8 +1257,14 @@ export class StaffService {
             q(`SELECT COUNT(*)::int AS c FROM staff_documents WHERE staff_id = $1`),
             q(`SELECT COUNT(*)::int AS c FROM staff_contracts WHERE staff_id = $1`),
             q(`SELECT COUNT(*)::int AS c FROM salary_history WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM employment_history WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM staff WHERE manager_id = $1`),
         ]);
-        return { payroll_runs, leave_requests, loans, claims, petty_cash, attendance, documents, contracts, salary_history };
+        return {
+            payroll_runs, leave_requests, loans, claims, petty_cash,
+            attendance, documents, contracts, salary_history,
+            employment_history, subordinates,
+        };
     }
 
     /**
