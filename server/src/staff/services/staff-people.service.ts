@@ -103,6 +103,18 @@ export class StaffPeopleService {
         }));
     }
 
+    async updateSalaryHistory(id: string, data: Partial<SalaryHistory>) {
+        const sh = await this.salaryRepo.findOne({ where: { id } });
+        if (!sh) throw new NotFoundException('Salary history entry not found');
+        Object.assign(sh, data);
+        return this.salaryRepo.save(sh);
+    }
+
+    async deleteSalaryHistory(id: string) {
+        const r = await this.salaryRepo.delete(id);
+        if (!r.affected) throw new NotFoundException('Salary history entry not found');
+    }
+
     /** Adjust salary directly (raise, correction, etc.) without changing position. */
     async adjustSalary(
         staffId: string,
@@ -163,5 +175,17 @@ export class StaffPeopleService {
         r.acknowledged_at = new Date();
         if (comments) r.employee_comments = comments;
         return this.reviewRepo.save(r);
+    }
+
+    async updateProbationReview(id: string, data: Partial<ProbationReview>) {
+        const r = await this.reviewRepo.findOne({ where: { id } });
+        if (!r) throw new NotFoundException('Review not found');
+        Object.assign(r, data);
+        return this.reviewRepo.save(r);
+    }
+
+    async deleteProbationReview(id: string) {
+        const r = await this.reviewRepo.delete(id);
+        if (!r.affected) throw new NotFoundException('Review not found');
     }
 }

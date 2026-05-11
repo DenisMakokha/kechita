@@ -104,6 +104,10 @@ export class CreateStaffDto {
     @IsOptional()
     @IsBoolean()
     create_onboarding?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    send_welcome_email?: boolean;
 }
 
 export class UpdateStaffDto {

@@ -13,6 +13,14 @@ import { Region } from '../../org/entities/region.entity';
 import { Branch } from '../../org/entities/branch.entity';
 import { Department } from '../../org/entities/department.entity';
 import { Position } from '../../org/entities/position.entity';
+import { AuthService } from '../../auth/auth.service';
+import { OnboardingService } from './onboarding.service';
+
+export interface BulkImportOptions {
+    send_welcome_email?: boolean; // default true
+    create_onboarding?: boolean; // default true
+    initial_status?: StaffStatus; // default ONBOARDING
+}
 
 export interface BulkImportRow {
     row: number;
@@ -73,6 +81,8 @@ export class BulkImportService {
         @InjectRepository(Branch) private branchRepo: Repository<Branch>,
         @InjectRepository(Department) private deptRepo: Repository<Department>,
         @InjectRepository(Position) private positionRepo: Repository<Position>,
+        private readonly authService: AuthService,
+        private readonly onboardingService: OnboardingService,
     ) {}
 
     // ─── Template Generator ───────────────────────────────────────────────────
@@ -360,9 +370,13 @@ export class BulkImportService {
 
     // ─── Main Import ──────────────────────────────────────────────────────────
 
-    async importStaff(buffer: Buffer, importedBy?: string): Promise<BulkImportResult> {
+    async importStaff(buffer: Buffer, importedBy?: string, options: BulkImportOptions = {}): Promise<BulkImportResult> {
         const rows = await this.parseExcel(buffer);
         if (rows.length === 0) throw new BadRequestException('No data rows found in the uploaded file');
+
+        const sendEmails = options.send_welcome_email !== false;
+        const createOnboarding = options.create_onboarding !== false;
+        const initialStatus = options.initial_status || StaffStatus.ONBOARDING;
 
         const result: BulkImportResult = {
             total: rows.length,
@@ -452,7 +466,7 @@ export class BulkImportService {
                     bank_name: row.bank_name?.trim() || undefined,
                     bank_account_number: row.bank_account_number?.trim() || undefined,
                     basic_salary: row.basic_salary ? parseFloat(String(row.basic_salary)) : undefined,
-                    status: StaffStatus.ONBOARDING,
+                    status: initialStatus,
                     position,
                     ...(region ? { region } : {}),
                     ...(branch ? { branch } : {}),
@@ -461,7 +475,10 @@ export class BulkImportService {
                     probation_start_date: hireDate,
                     probation_end_date: probationEndDate,
                     probation_months: probationMonths,
-                    probation_status: ProbationStatus.IN_PROGRESS,
+                    probation_status: initialStatus === StaffStatus.ACTIVE
+                        ? ProbationStatus.PASSED
+                        : ProbationStatus.IN_PROGRESS,
+                    ...(initialStatus === StaffStatus.ACTIVE ? { confirmation_date: hireDate } : {}),
                     created_by: importedBy,
                 });
 
@@ -482,6 +499,19 @@ export class BulkImportService {
                 result.succeeded++;
                 result.created.push({ row: row.row, email: row.email, employee_number: empNumber });
                 this.logger.log(`Bulk import: created staff ${row.email} (${empNumber})`);
+
+                // Post-commit: onboarding instance + welcome email (best-effort)
+                if (createOnboarding) {
+                    try { await this.onboardingService.createInstance(savedStaff.id, undefined, importedBy); }
+                    catch (e: any) { this.logger.warn(`Onboarding instance failed for ${row.email}: ${e.message}`); }
+                }
+                if (sendEmails) {
+                    this.authService.sendWelcomeToNewUser(
+                        savedUser.id,
+                        `${row.first_name} ${row.last_name}`.trim(),
+                        role.name,
+                    ).catch(() => {/* logged inside */});
+                }
 
             } catch (err: any) {
                 await qr.rollbackTransaction();

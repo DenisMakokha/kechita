@@ -11,6 +11,7 @@ import { Branch } from '../org/entities/branch.entity';
 import { Department } from '../org/entities/department.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
 import { OnboardingService } from './services/onboarding.service';
+import { AuthService } from '../auth/auth.service';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
 import { generateTempPassword as generateTempPasswordSecure } from '../common/id-utils';
 
@@ -38,6 +39,7 @@ export class StaffService {
         @InjectRepository(EmploymentHistory)
         private employmentHistoryRepo: Repository<EmploymentHistory>,
         private onboardingService: OnboardingService,
+        private authService: AuthService,
     ) { }
 
     // ==================== STAFF CREATION (ONBOARDING) ====================
@@ -153,6 +155,15 @@ export class StaffService {
                 } catch (e) {
                     console.warn('No onboarding template found for staff:', e.message);
                 }
+            }
+
+            // 9. Send welcome email with password setup link (default: true)
+            if (createStaffDto.send_welcome_email !== false) {
+                this.authService.sendWelcomeToNewUser(
+                    savedUser.id,
+                    `${createStaffDto.first_name} ${createStaffDto.last_name}`,
+                    role.name,
+                ).catch(() => {/* logged inside */});
             }
 
             return this.findOne(savedStaff.id);
@@ -709,6 +720,44 @@ export class StaffService {
         });
     }
 
+    async updateEmploymentHistory(
+        id: string,
+        data: {
+            position_id?: string;
+            region_id?: string;
+            branch_id?: string;
+            employment_type?: string;
+            start_date?: Date;
+            end_date?: Date;
+            change_reason?: string;
+        },
+    ): Promise<EmploymentHistory> {
+        const history = await this.employmentHistoryRepo.findOne({ where: { id }, relations: ['staff'] });
+        if (!history) throw new NotFoundException('Employment history entry not found');
+        if (data.position_id) {
+            const pos = await this.positionRepo.findOne({ where: { id: data.position_id } });
+            if (pos) history.position = pos;
+        }
+        if (data.region_id) {
+            const reg = await this.regionRepo.findOne({ where: { id: data.region_id } });
+            if (reg) history.region = reg;
+        }
+        if (data.branch_id) {
+            const br = await this.branchRepo.findOne({ where: { id: data.branch_id } });
+            if (br) history.branch = br;
+        }
+        if (data.employment_type !== undefined) history.employment_type = data.employment_type as any;
+        if (data.start_date !== undefined) history.start_date = data.start_date;
+        if (data.end_date !== undefined) history.end_date = data.end_date;
+        if (data.change_reason !== undefined) history.change_reason = data.change_reason;
+        return this.employmentHistoryRepo.save(history);
+    }
+
+    async deleteEmploymentHistory(id: string): Promise<void> {
+        const r = await this.employmentHistoryRepo.delete(id);
+        if (!r.affected) throw new NotFoundException('Employment history entry not found');
+    }
+
     async addEmploymentHistory(
         staffId: string,
         data: {
@@ -982,5 +1031,16 @@ export class StaffService {
 
     async restore(id: string): Promise<void> {
         await this.staffRepo.restore(id);
+    }
+
+    async resendWelcomeEmail(staffId: string): Promise<{ success: boolean; error?: string }> {
+        const staff = await this.findOne(staffId);
+        if (!staff.user?.id) throw new BadRequestException('Staff has no linked user account');
+        const roleName = staff.user.roles?.[0]?.name;
+        return this.authService.sendWelcomeToNewUser(
+            staff.user.id,
+            `${staff.first_name} ${staff.last_name}`,
+            roleName,
+        );
     }
 }

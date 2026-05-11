@@ -10,6 +10,7 @@ export const ResetPasswordPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const token = searchParams.get('token');
+    const isWelcome = searchParams.get('welcome') === '1';
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -123,8 +124,8 @@ export const ResetPasswordPage: React.FC = () => {
                     <div className="w-14 h-14 bg-[#0066B3] rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-blue-500/20">
                         <Lock className="text-white" size={28} />
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-900">Set Your Password</h1>
-                    <p className="text-slate-500 mt-1">Create a secure password for your account</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{isWelcome ? 'Welcome to Kechita!' : 'Set Your Password'}</h1>
+                    <p className="text-slate-500 mt-1">{isWelcome ? 'Set a secure password to activate your staff account.' : 'Create a secure password for your account'}</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">

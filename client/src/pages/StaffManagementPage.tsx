@@ -133,6 +133,11 @@ export const StaffManagementPage: React.FC = () => {
     const [bulkImportFile, setBulkImportFile] = useState<File | null>(null);
     const [bulkImportResult, setBulkImportResult] = useState<any>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [bulkImportOptions, setBulkImportOptions] = useState({
+        send_welcome_email: true,
+        create_onboarding: true,
+        initial_status: 'onboarding',
+    });
 
     const staffRules = useMemo<ValidationRules<Record<string, any>>>(() => ({
         first_name: [v => validators.required(v, 'First name')],
@@ -201,6 +206,11 @@ export const StaffManagementPage: React.FC = () => {
     const transferStaffMutation = useMutation({ mutationFn: async ({ id, data }: { id: string; data: any }) => (await api.post(`/staff/${id}/transfer`, data)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setShowTransferModal(false); showToast('Staff transferred successfully'); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to transfer staff', 'error') });
     const bulkActivateStaffMutation = useMutation({ mutationFn: async (ids: string[]) => (await api.post('/staff/bulk/activate', { staff_ids: ids })).data, onSuccess: (r: any) => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setSelectedStaffIds(new Set()); showToast(`Activated ${r.updated} staff`); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error') });
     const bulkDeactivateStaffMutation = useMutation({ mutationFn: async (ids: string[]) => (await api.post('/staff/bulk/deactivate', { staff_ids: ids })).data, onSuccess: (r: any) => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setSelectedStaffIds(new Set()); showToast(`Deactivated ${r.updated} staff`); }, onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error') });
+    const resendWelcomeMutation = useMutation({
+        mutationFn: async (id: string) => (await api.post(`/staff/${id}/resend-welcome`)).data,
+        onSuccess: (r: any) => showToast(r?.success ? 'Welcome email sent' : (r?.error || 'Could not send email'), r?.success ? 'success' : 'error'),
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
     const bulkTransferStaffMutation = useMutation({
         mutationFn: async (data: { staff_ids: string[]; updates: any }) => (await api.post('/staff/bulk/update', data)).data,
         onSuccess: (r: any) => { queryClient.invalidateQueries({ queryKey: ['staff'] }); setSelectedStaffIds(new Set()); setShowBulkTransferModal(false); setBulkTransferData({ branch_id: '', region_id: '', department_id: '', manager_id: '' }); showToast(`Updated ${r.updated} staff${r.failed?.length ? ` (${r.failed.length} failed)` : ''}`); },
@@ -236,6 +246,9 @@ export const StaffManagementPage: React.FC = () => {
         mutationFn: async (file: File) => {
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('send_welcome_email', String(bulkImportOptions.send_welcome_email));
+            formData.append('create_onboarding', String(bulkImportOptions.create_onboarding));
+            formData.append('initial_status', bulkImportOptions.initial_status);
             return (await api.post('/staff/bulk-import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
         },
         onSuccess: (data) => {
@@ -322,7 +335,7 @@ export const StaffManagementPage: React.FC = () => {
                             <Download size={18} />Export CSV
                         </button>
                         <button onClick={() => { setBulkImportFile(null); setBulkImportResult(null); setShowBulkImportModal(true); }} className="flex items-center gap-2 px-4 py-2 border border-emerald-600 text-emerald-700 rounded-lg font-medium hover:bg-emerald-50"><FileSpreadsheet size={18} />Bulk Import</button>
-                        <button onClick={() => { setStaffFormData({ create_onboarding: true }); setShowAddStaffModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add Staff</button>
+                        <button onClick={() => { setStaffFormData({ create_onboarding: true, send_welcome_email: true }); setShowAddStaffModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add Staff</button>
                         <button onClick={() => navigate('/recruitment')} className="flex items-center gap-2 px-4 py-2 border border-[#0066B3] text-[#0066B3] rounded-lg font-medium hover:bg-blue-50"><UserPlus size={20} />Hire via Recruitment</button>
                     </div>}
                     {activeTab === 'users' && isAdmin && <button onClick={() => { setSelectedUser(null); setUserFormData({ is_active: true, role_code: '' }); setShowUserModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add User</button>}
@@ -424,7 +437,7 @@ export const StaffManagementPage: React.FC = () => {
                 )}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50 border-b border-slate-200"><tr><th className="px-4 py-4 w-10"><input type="checkbox" checked={paginatedStaff.length > 0 && paginatedStaff.every((s: Staff) => selectedStaffIds.has(s.id))} onChange={(e) => { if (e.target.checked) { setSelectedStaffIds(new Set(paginatedStaff.map((s: Staff) => s.id))); } else { setSelectedStaffIds(new Set()); } }} className="w-4 h-4 text-[#0066B3] rounded" /></th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Employee</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Position</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th><th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">
                     {staffLoading ? <tr><td colSpan={6} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr> : paginatedStaff.length === 0 ? <tr><td colSpan={6} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No staff found</p></td></tr> : paginatedStaff.map((m: Staff) => (
-                        <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedStaffIds.has(m.id)} onChange={() => { const n = new Set(selectedStaffIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedStaffIds(n); }} className="w-4 h-4 text-[#0066B3] rounded" /></td><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">{m.first_name?.charAt(0)}{m.last_name?.charAt(0)}</div><div><p className="font-medium text-slate-900">{m.first_name} {m.last_name}</p><p className="text-sm text-slate-500">{m.user?.email}</p><p className="text-xs text-slate-400">{m.employee_number}</p></div></div></td><td className="px-6 py-4 text-slate-600">{m.position?.name || '-'}</td><td className="px-6 py-4 text-slate-600 hidden md:table-cell">{m.branch?.name || '-'}</td><td className="px-6 py-4"><StatusBadge status={m.status} /></td><td className="px-6 py-4"><div className="flex items-center justify-end gap-1"><button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><Eye size={18} /></button><div className="relative"><button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>{actionMenuId === m.id && <><div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} /><div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20"><button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View</button><button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button><button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button><button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>{m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}<hr className="my-1" />{m.status === 'suspended' ? <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button> : <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><UserX size={16} />Suspend</button>}</div></>}</div></div></td></tr>
+                        <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedStaffIds.has(m.id)} onChange={() => { const n = new Set(selectedStaffIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedStaffIds(n); }} className="w-4 h-4 text-[#0066B3] rounded" /></td><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">{m.first_name?.charAt(0)}{m.last_name?.charAt(0)}</div><div><p className="font-medium text-slate-900">{m.first_name} {m.last_name}</p><p className="text-sm text-slate-500">{m.user?.email}</p><p className="text-xs text-slate-400">{m.employee_number}</p></div></div></td><td className="px-6 py-4 text-slate-600">{m.position?.name || '-'}</td><td className="px-6 py-4 text-slate-600 hidden md:table-cell">{m.branch?.name || '-'}</td><td className="px-6 py-4"><StatusBadge status={m.status} /></td><td className="px-6 py-4"><div className="flex items-center justify-end gap-1"><button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><Eye size={18} /></button><div className="relative"><button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>{actionMenuId === m.id && <><div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} /><div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20"><button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View</button><button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button><button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button><button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>{m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}{m.user?.email && <button onClick={() => { resendWelcomeMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Key size={16} />Resend Welcome Email</button>}<hr className="my-1" />{m.status === 'suspended' ? <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button> : <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><UserX size={16} />Suspend</button>}</div></>}</div></div></td></tr>
                     ))}
                 </tbody></table></div>
                 {staffTotalPages > 1 && <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50"><p className="text-sm text-slate-500">Page {staffPage} of {staffTotalPages}</p><div className="flex items-center gap-2"><button onClick={() => setStaffPage(p => Math.max(1, p - 1))} disabled={staffPage === 1} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronLeft size={18} /></button><button onClick={() => setStaffPage(p => Math.min(staffTotalPages, p + 1))} disabled={staffPage === staffTotalPages} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronRight size={18} /></button></div></div>}
@@ -858,6 +871,13 @@ export const StaffManagementPage: React.FC = () => {
                                     <p className="text-xs text-slate-500">Automatically create onboarding checklist for this staff member</p>
                                 </div>
                             </label>
+                            <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer">
+                                <input type="checkbox" checked={staffFormData.send_welcome_email !== false} onChange={(e) => setStaffFormData({ ...staffFormData, send_welcome_email: e.target.checked })} className="w-4 h-4 text-[#0066B3] rounded" />
+                                <div>
+                                    <p className="font-medium text-slate-900">Send Welcome Email</p>
+                                    <p className="text-xs text-slate-500">Email staff a 7-day link to set their own password and activate their account</p>
+                                </div>
+                            </label>
                         </div>
                         <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
                             <button onClick={() => { setShowAddStaffModal(false); setStaffFormData({}); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancel</button>
@@ -1120,6 +1140,39 @@ export const StaffManagementPage: React.FC = () => {
                                         </label>
                                     </div>
 
+                                    {/* Step 3: Options */}
+                                    <div>
+                                        <p className="font-medium text-slate-900 mb-3">Step 3 — Import Options</p>
+                                        <div className="space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                            <label className="flex items-start gap-3 cursor-pointer">
+                                                <input type="checkbox" checked={bulkImportOptions.send_welcome_email} onChange={(e) => setBulkImportOptions({ ...bulkImportOptions, send_welcome_email: e.target.checked })} className="mt-0.5 w-4 h-4 text-[#0066B3] rounded" />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-slate-900">Send welcome email with password setup link</p>
+                                                    <p className="text-xs text-slate-500">Each staff receives an email with a 7-day link to set their own password and activate their account.</p>
+                                                </div>
+                                            </label>
+                                            <label className="flex items-start gap-3 cursor-pointer">
+                                                <input type="checkbox" checked={bulkImportOptions.create_onboarding} onChange={(e) => setBulkImportOptions({ ...bulkImportOptions, create_onboarding: e.target.checked })} className="mt-0.5 w-4 h-4 text-[#0066B3] rounded" />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-slate-900">Create onboarding instance for each new staff</p>
+                                                    <p className="text-xs text-slate-500">If you have a default onboarding template, each staff member will have onboarding tasks assigned automatically. Disable when migrating existing staff who don't need onboarding.</p>
+                                                </div>
+                                            </label>
+                                            <div className="flex items-start gap-3 pt-1">
+                                                <div className="w-4 mt-0.5 flex-shrink-0" />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-slate-900 mb-1">Initial status</p>
+                                                    <select value={bulkImportOptions.initial_status} onChange={(e) => setBulkImportOptions({ ...bulkImportOptions, initial_status: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white">
+                                                        <option value="onboarding">Onboarding — new staff</option>
+                                                        <option value="probation">Probation — actively serving probation</option>
+                                                        <option value="active">Active — confirmed permanent employee (migration)</option>
+                                                    </select>
+                                                    <p className="text-xs text-slate-500 mt-1">Choose <strong>Active</strong> when migrating existing staff who already passed probation.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Info notes */}
                                     <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
                                         <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
@@ -1128,15 +1181,15 @@ export const StaffManagementPage: React.FC = () => {
                                         </div>
                                         <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
                                             <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
-                                            <span>Each staff member gets a welcome email to set their own password</span>
-                                        </div>
-                                        <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                            <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
                                             <span>Rows with errors are skipped — valid rows are still imported</span>
                                         </div>
                                         <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
                                             <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
                                             <span>Employee numbers are auto-generated for each staff member</span>
+                                        </div>
+                                        <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
+                                            <span>Duplicates are skipped — emails must be unique system-wide</span>
                                         </div>
                                     </div>
                                 </div>

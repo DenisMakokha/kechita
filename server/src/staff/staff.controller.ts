@@ -52,6 +52,9 @@ export class StaffController {
     async bulkImport(
         @UploadedFile() file: Express.Multer.File,
         @Req() req: AuthenticatedRequest,
+        @Body('send_welcome_email') sendWelcomeEmail?: string,
+        @Body('create_onboarding') createOnboarding?: string,
+        @Body('initial_status') initialStatus?: string,
     ) {
         if (!file) throw new BadRequestException('No file uploaded');
         const allowed = [
@@ -61,7 +64,13 @@ export class StaffController {
         if (!allowed.includes(file.mimetype) && !file.originalname.endsWith('.xlsx')) {
             throw new BadRequestException('Only .xlsx files are accepted');
         }
-        return this.bulkImportService.importStaff(file.buffer, req.user.id);
+        // Multipart sends booleans as strings
+        const options = {
+            send_welcome_email: sendWelcomeEmail !== 'false',
+            create_onboarding: createOnboarding !== 'false',
+            initial_status: (initialStatus as any) || undefined,
+        };
+        return this.bulkImportService.importStaff(file.buffer, req.user.id, options);
     }
 
     // ==================== STAFF CRUD ====================
@@ -463,6 +472,33 @@ export class StaffController {
         });
     }
 
+    @Patch('employment-history/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    updateEmploymentHistory(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: {
+            position_id?: string;
+            region_id?: string;
+            branch_id?: string;
+            employment_type?: string;
+            start_date?: string;
+            end_date?: string;
+            change_reason?: string;
+        },
+    ) {
+        return this.staffService.updateEmploymentHistory(id, {
+            ...data,
+            start_date: data.start_date ? new Date(data.start_date) : undefined,
+            end_date: data.end_date ? new Date(data.end_date) : undefined,
+        });
+    }
+
+    @Delete('employment-history/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteEmploymentHistory(@Param('id', ParseUUIDPipe) id: string) {
+        return this.staffService.deleteEmploymentHistory(id);
+    }
+
     // ==================== PROMOTION ====================
 
     @Post(':id/promote')
@@ -676,6 +712,12 @@ export class StaffController {
     @Roles('CEO', 'HR_MANAGER')
     restore(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.restore(id);
+    }
+
+    @Post(':id/resend-welcome')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    resendWelcome(@Param('id', ParseUUIDPipe) id: string) {
+        return this.staffService.resendWelcomeEmail(id);
     }
 
     // ==================== CONTRACTS ====================

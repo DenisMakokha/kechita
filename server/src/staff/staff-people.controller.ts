@@ -106,6 +106,18 @@ export class StaffPeopleController {
         return this.people.adjustSalary(id, dto, req.user.id);
     }
 
+    @Patch('staff-people/salary-history/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    updateSalaryEntry(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.people.updateSalaryHistory(id, data);
+    }
+
+    @Delete('staff-people/salary-history/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteSalaryEntry(@Param('id', ParseUUIDPipe) id: string) {
+        return this.people.deleteSalaryHistory(id);
+    }
+
     // ───── Probation Reviews ─────
     @Get('staff/:id/probation-reviews')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT', 'BRANCH_MANAGER', 'REGIONAL_MANAGER')
@@ -129,5 +141,17 @@ export class StaffPeopleController {
         @Body() dto: AcknowledgeReviewDto,
     ) {
         return this.people.acknowledgeProbationReview(reviewId, dto.comments);
+    }
+
+    @Patch('staff-people/probation-reviews/:reviewId')
+    @Roles('CEO', 'HR_MANAGER', 'BRANCH_MANAGER', 'REGIONAL_MANAGER')
+    updateReview(@Param('reviewId', ParseUUIDPipe) reviewId: string, @Body() data: any) {
+        return this.people.updateProbationReview(reviewId, data);
+    }
+
+    @Delete('staff-people/probation-reviews/:reviewId')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteReview(@Param('reviewId', ParseUUIDPipe) reviewId: string) {
+        return this.people.deleteProbationReview(reviewId);
     }
 }

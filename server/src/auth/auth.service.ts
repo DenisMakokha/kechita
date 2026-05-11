@@ -323,6 +323,49 @@ export class AuthService {
         return result.affected || 0;
     }
 
+    /**
+     * Issue a password-setup token and send the welcome email to a freshly-created user.
+     * Used by StaffService.create() and BulkImportService.importStaff().
+     * Returns { success } - does NOT throw on email failure (best-effort).
+     */
+    async sendWelcomeToNewUser(userId: string, fullName: string, roleName?: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            const user = await this.usersRepository.findOne({ where: { id: userId } });
+            if (!user) return { success: false, error: 'User not found' };
+
+            // Invalidate any existing tokens
+            await this.resetTokenRepository.update({ user_id: userId, used: false }, { used: true });
+
+            // Generate setup token (valid for 7 days for new accounts)
+            const token = crypto.randomBytes(32).toString('hex');
+            const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
+
+            await this.resetTokenRepository.save(this.resetTokenRepository.create({
+                token: hashedToken,
+                user_id: userId,
+                expires_at: expiresAt,
+            }));
+
+            const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:5173';
+            const setupUrl = `${frontendUrl}/reset-password?token=${token}&welcome=1`;
+
+            await this.emailService.sendWelcomeEmail({
+                email: user.email,
+                name: fullName,
+                role: roleName,
+                setupUrl,
+            });
+
+            this.logger.log(`Welcome email sent to new user: ${user.email}`);
+            return { success: true };
+        } catch (err: any) {
+            this.logger.warn(`Failed to send welcome email to user ${userId}: ${err.message}`);
+            return { success: false, error: err.message };
+        }
+    }
+
     async forgotPassword(email: string): Promise<{ message: string }> {
         const user = await this.usersRepository.findOne({ where: { email } });
 

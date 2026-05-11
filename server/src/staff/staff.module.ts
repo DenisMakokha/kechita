@@ -13,6 +13,7 @@ import { DocumentExpiryScheduler } from './services/document-expiry.scheduler';
 import { StaffPeopleService } from './services/staff-people.service';
 import { StaffProbationScheduler } from './services/staff-probation.scheduler';
 import { NotificationModule } from '../notifications/notification.module';
+import { AuthModule } from '../auth/auth.module';
 
 // Staff Entities
 import { Staff } from './entities/staff.entity';
@@ -79,6 +80,7 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     ]),
     MulterModule.register(standardMulterOptions),
     NotificationModule,
+    AuthModule,
   ],
   controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController],
   providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler],
