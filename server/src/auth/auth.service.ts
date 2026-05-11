@@ -221,6 +221,26 @@ export class AuthService {
         });
 
         if (!storedToken) {
+            // Reuse detection: if the token exists but was already revoked,
+            // it has been replayed — treat as a breach and revoke the entire family
+            const revokedToken = await this.refreshTokenRepository.findOne({
+                where: { token: hashedToken },
+            });
+            if (revokedToken && revokedToken.revoked) {
+                this.logger.warn(
+                    `Refresh token reuse detected for user ${revokedToken.user_id} from ip=${ipAddress}. ` +
+                    `Revoking all sessions for this user.`,
+                );
+                await this.revokeAllUserTokens(revokedToken.user_id);
+                await this.auditService.log({
+                    action: AuditAction.LOGIN_FAILED,
+                    entityType: 'RefreshToken',
+                    entityId: revokedToken.id,
+                    description: 'Refresh-token reuse detected — all sessions revoked',
+                    metadata: { ip: ipAddress, user_agent: userAgent },
+                    isSuccessful: false,
+                }).catch(() => {});
+            }
             throw new UnauthorizedException('Invalid or expired refresh token');
         }
 
