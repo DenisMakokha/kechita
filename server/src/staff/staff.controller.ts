@@ -716,6 +716,25 @@ export class StaffController {
         return this.staffService.restore(id);
     }
 
+    @Get(':id/permanent-delete-blockers')
+    @Roles('CEO', 'HR_MANAGER')
+    permanentDeleteBlockers(@Param('id', ParseUUIDPipe) id: string) {
+        return this.staffService.getPermanentDeleteBlockers(id);
+    }
+
+    @Delete(':id/permanent')
+    @Roles('CEO')
+    permanentDelete(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body('confirm_employee_number') confirmEmployeeNumber: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.staffService.permanentDelete(id, {
+            confirmEmployeeNumber,
+            deletedBy: req.user.id,
+        });
+    }
+
     @Post(':id/resend-welcome')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     resendWelcome(@Param('id', ParseUUIDPipe) id: string) {

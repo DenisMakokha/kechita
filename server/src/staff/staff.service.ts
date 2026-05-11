@@ -1091,6 +1091,85 @@ export class StaffService {
         await this.staffRepo.restore(id);
     }
 
+    /**
+     * Check what historical records reference a staff member (to determine whether
+     * permanent deletion is safe). Returns counts per related domain.
+     */
+    async getPermanentDeleteBlockers(staffId: string): Promise<{
+        payroll_runs: number;
+        leave_requests: number;
+        loans: number;
+        claims: number;
+        petty_cash: number;
+        attendance: number;
+        documents: number;
+        contracts: number;
+        salary_history: number;
+    }> {
+        const q = async (sql: string): Promise<number> => {
+            try {
+                const r = await this.dataSource.query(sql, [staffId]);
+                return r[0]?.c ?? 0;
+            } catch {
+                return 0; // table may not exist
+            }
+        };
+        const [
+            payroll_runs, leave_requests, loans, claims, petty_cash,
+            attendance, documents, contracts, salary_history,
+        ] = await Promise.all([
+            q(`SELECT COUNT(*)::int AS c FROM payroll_payslips WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM leave_requests WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM loan_applications WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM claims WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM petty_cash_floats WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM attendance_records WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM staff_documents WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM staff_contracts WHERE staff_id = $1`),
+            q(`SELECT COUNT(*)::int AS c FROM salary_history WHERE staff_id = $1`),
+        ]);
+        return { payroll_runs, leave_requests, loans, claims, petty_cash, attendance, documents, contracts, salary_history };
+    }
+
+    /**
+     * Hard-delete a staff record. ONLY allowed for already soft-deleted (archived) staff,
+     * and only when there is no historical data that would be referentially orphaned
+     * (payroll, leave, loans, claims, petty cash, attendance). Caller must pass
+     * `confirmEmployeeNumber` matching the record's employee_number to prevent accidents.
+     */
+    async permanentDelete(
+        id: string,
+        opts: { confirmEmployeeNumber: string; deletedBy?: string },
+    ): Promise<{ deleted: true }> {
+        // include soft-deleted
+        const staff = await this.staffRepo.findOne({ where: { id }, withDeleted: true });
+        if (!staff) throw new NotFoundException('Staff not found');
+        if (!staff.deleted_at) {
+            throw new BadRequestException('Staff must be archived (soft-deleted) before permanent deletion');
+        }
+        if (!opts.confirmEmployeeNumber || opts.confirmEmployeeNumber.trim() !== (staff.employee_number || '').trim()) {
+            throw new BadRequestException('Employee number confirmation does not match');
+        }
+        const blockers = await this.getPermanentDeleteBlockers(id);
+        const total = Object.values(blockers).reduce((a, b) => a + b, 0);
+        if (total > 0) {
+            const summary = Object.entries(blockers)
+                .filter(([, v]) => v > 0)
+                .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                .join(', ');
+            throw new BadRequestException(
+                `Cannot permanently delete: historical records still reference this staff (${summary}). Keep archived instead.`,
+            );
+        }
+        // Detach the linked user account too (do not delete it — auth audit trail).
+        if (staff.user) {
+            // best-effort: leave user row but ensure it's deactivated
+            await this.userRepo.update({ id: (staff.user as any).id || (staff as any).user_id }, { is_active: false }).catch(() => undefined);
+        }
+        await this.staffRepo.delete(id);
+        return { deleted: true };
+    }
+
     async resendWelcomeEmail(staffId: string): Promise<{ success: boolean; error?: string }> {
         const staff = await this.findOne(staffId);
         if (!staff.user?.id) throw new BadRequestException('Staff has no linked user account');

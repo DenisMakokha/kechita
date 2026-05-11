@@ -13,7 +13,8 @@ import {
     Key, ChevronLeft, ChevronRight, CheckCircle, AlertCircle,
     Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
     Upload, Download, FileSpreadsheet, SlidersHorizontal, Save,
-    Copy, Link2, Link2Off, LayoutList, LayoutGrid, GitCompare, Lock, Unlock
+    Copy, Link2, Link2Off, LayoutList, LayoutGrid, GitCompare, Lock, Unlock,
+    Archive, ArchiveRestore, Ban
 } from 'lucide-react';
 
 type Tab = 'directory' | 'users' | 'roles';
@@ -34,9 +35,31 @@ const getHighestRank = (roles: { code: string }[]): number => {
 };
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-    const colors: Record<string, string> = { active: 'bg-emerald-100 text-emerald-700', onboarding: 'bg-blue-100 text-blue-700', probation: 'bg-amber-100 text-amber-700', suspended: 'bg-red-100 text-red-700' };
+    const colors: Record<string, string> = {
+        active: 'bg-emerald-100 text-emerald-700',
+        onboarding: 'bg-blue-100 text-blue-700',
+        probation: 'bg-amber-100 text-amber-700',
+        suspended: 'bg-orange-100 text-orange-700',
+        resigned: 'bg-slate-200 text-slate-700',
+        terminated: 'bg-red-100 text-red-700',
+        'ex-staff': 'bg-slate-200 text-slate-700',
+        ex_staff: 'bg-slate-200 text-slate-700',
+    };
     return <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${colors[status] || 'bg-slate-100 text-slate-600'}`}>{status?.replace(/_/g, ' ')}</span>;
 };
+
+const LoginBadge: React.FC<{ user?: { email?: string; is_active?: boolean } | null }> = ({ user }) => {
+    if (!user?.email) {
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500" title="No login account linked"><Link2Off size={11} />No account</span>;
+    }
+    if (user.is_active === false) {
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-700" title="Login disabled"><Lock size={11} />Disabled</span>;
+    }
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700" title="Login enabled"><Unlock size={11} />Login</span>;
+};
+
+const ACTIVE_STATUSES = new Set(['onboarding', 'probation', 'active']);
+const INACTIVE_STATUSES = new Set(['suspended', 'resigned', 'terminated', 'ex-staff', 'ex_staff']);
 
 export const StaffManagementPage: React.FC = () => {
     const navigate = useNavigate();
@@ -51,6 +74,7 @@ export const StaffManagementPage: React.FC = () => {
     // Staff state
     const [staffSearch, setStaffSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [directoryView, setDirectoryView] = useState<'active' | 'inactive' | 'archived'>('active');
     const [branchFilter, setBranchFilter] = useState('all');
     const [staffPage, setStaffPage] = useState(1);
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
@@ -168,17 +192,29 @@ export const StaffManagementPage: React.FC = () => {
     const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => { const res = (await api.get('/staff')).data; return Array.isArray(res) ? res : (res?.data ?? []); }, refetchInterval: 60000 });
     const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data });
     const { data: staffStats } = useQuery<any>({ queryKey: ['staff-stats'], queryFn: async () => (await api.get('/staff/stats')).data, refetchInterval: 60000 });
-    const [showDeleted, setShowDeleted] = useState(false);
     const { data: deletedStaff = [] } = useQuery<any[]>({
         queryKey: ['staff-deleted'],
         queryFn: async () => { const res = (await api.get('/staff?onlyDeleted=true')).data; return Array.isArray(res) ? res : (res?.data ?? []); },
-        enabled: showDeleted,
+        enabled: directoryView === 'archived',
     });
     const restoreStaffMutation = useMutation({
         mutationFn: async (id: string) => (await api.post(`/staff/${id}/restore`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); showToast('Staff restored'); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); showToast('Staff restored from archive'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
     });
+    const archiveStaffMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/staff/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff'] }); queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); showToast('Staff archived'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Cannot archive (must be terminated/resigned first)', 'error'),
+    });
+    const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any | null>(null);
+    const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState('');
+    const permanentDeleteMutation = useMutation({
+        mutationFn: async ({ id, confirm }: { id: string; confirm: string }) => (await api.delete(`/staff/${id}/permanent`, { data: { confirm_employee_number: confirm } })).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); showToast('Staff permanently deleted'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to permanently delete', 'error'),
+    });
+    const isCeo = user?.roles?.some(r => r.code === 'CEO') || false;
     const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data });
     const { data: regions = [] } = useQuery({ queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data });
     const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get('/org/departments')).data });
@@ -276,13 +312,23 @@ export const StaffManagementPage: React.FC = () => {
         }
     };
 
-    // Computed
-    const filteredStaff = useMemo(() => staff.filter((m: Staff) => {
+    // Computed — directory rows depending on sub-view
+    const directoryRows: any[] = useMemo(() => {
+        if (directoryView === 'archived') return deletedStaff;
+        const base = (staff as Staff[]).filter((m) =>
+            directoryView === 'active' ? ACTIVE_STATUSES.has(m.status) : INACTIVE_STATUSES.has(m.status),
+        );
+        return base;
+    }, [staff, deletedStaff, directoryView]);
+    const filteredStaff = useMemo(() => directoryRows.filter((m: any) => {
         const search = staffSearch === '' || `${m.first_name} ${m.last_name}`.toLowerCase().includes(staffSearch.toLowerCase()) || m.user?.email?.toLowerCase().includes(staffSearch.toLowerCase()) || m.employee_number?.toLowerCase().includes(staffSearch.toLowerCase());
         const status = statusFilter === 'all' || m.status === statusFilter;
         const branch = branchFilter === 'all' || m.branch?.id === branchFilter;
         return search && status && branch;
-    }), [staff, staffSearch, statusFilter, branchFilter]);
+    }), [directoryRows, staffSearch, statusFilter, branchFilter]);
+    const activeCount = useMemo(() => (staff as Staff[]).filter((m) => ACTIVE_STATUSES.has(m.status)).length, [staff]);
+    const inactiveCount = useMemo(() => (staff as Staff[]).filter((m) => INACTIVE_STATUSES.has(m.status)).length, [staff]);
+    const archivedCount = staffStats?.deleted ?? 0;
     const staffTotalPages = Math.ceil(filteredStaff.length / 10);
     const paginatedStaff = filteredStaff.slice((staffPage - 1) * 10, staffPage * 10);
     const users = usersData?.data || [];
@@ -376,50 +422,27 @@ export const StaffManagementPage: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        {staffStats.deleted > 0 && (
-                            <button onClick={() => setShowDeleted(d => !d)} className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 flex items-center gap-3 text-left transition">
-                                <div className="p-2 bg-slate-200 rounded-lg"><Trash2 className="text-slate-600" size={18} /></div>
-                                <div className="flex-1">
-                                    <p className="text-xs text-slate-500 font-semibold uppercase">Archived (soft-deleted)</p>
-                                    <p className="text-xl font-bold text-slate-700">{staffStats.deleted}</p>
-                                </div>
-                                <ChevronRight className={`text-slate-400 transition-transform ${showDeleted ? 'rotate-90' : ''}`} size={16} />
-                            </button>
-                        )}
                     </div>
                 )}
 
-                {showDeleted && (
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                            <h3 className="font-semibold text-slate-700 flex items-center gap-2"><Trash2 size={15} />Archived Staff ({deletedStaff.length})</h3>
-                            <button onClick={() => setShowDeleted(false)} className="p-1 hover:bg-slate-200 rounded"><X size={16} /></button>
-                        </div>
-                        {deletedStaff.length === 0 ? (
-                            <p className="p-8 text-center text-slate-400 text-sm">No archived staff</p>
-                        ) : (
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase">
-                                    <tr><th className="text-left px-4 py-2">Employee</th><th className="text-left px-4 py-2">Position</th><th className="text-left px-4 py-2">Termination</th><th className="text-right px-4 py-2">Action</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {deletedStaff.map((s: any) => (
-                                        <tr key={s.id} className="hover:bg-slate-50">
-                                            <td className="px-4 py-2"><div><p className="font-medium text-slate-700">{s.first_name} {s.last_name}</p><p className="text-xs text-slate-400">{s.employee_number}</p></div></td>
-                                            <td className="px-4 py-2 text-xs text-slate-500">{s.position?.name || '—'}</td>
-                                            <td className="px-4 py-2 text-xs text-slate-500">{s.termination_date ? String(s.termination_date).slice(0, 10) : '—'} · <span className="capitalize">{s.status?.replace(/_/g, ' ')}</span></td>
-                                            <td className="px-4 py-2 text-right">
-                                                <button onClick={() => restoreStaffMutation.mutate(s.id)} disabled={restoreStaffMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg disabled:opacity-50">
-                                                    Restore
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                )}
+                {/* Sub-tab bar: Active / Inactive / Archived */}
+                <div className="bg-white rounded-xl border border-slate-200 p-1.5 inline-flex items-center gap-1">
+                    {([
+                        { key: 'active', label: 'Active', count: activeCount, icon: <CheckCircle size={14} /> },
+                        { key: 'inactive', label: 'Inactive', count: inactiveCount, icon: <Ban size={14} /> },
+                        { key: 'archived', label: 'Archived', count: archivedCount, icon: <Archive size={14} /> },
+                    ] as const).map(t => (
+                        <button
+                            key={t.key}
+                            onClick={() => { setDirectoryView(t.key); setStaffPage(1); setStatusFilter('all'); }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${directoryView === t.key ? 'bg-[#0066B3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                        >
+                            {t.icon}
+                            {t.label}
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs ${directoryView === t.key ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>{t.count}</span>
+                        </button>
+                    ))}
+                </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-4"><div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" value={staffSearch} onChange={(e) => { setStaffSearch(e.target.value); setStaffPage(1); }} placeholder="Search by name, email, or employee number..." className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
                     <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setStaffPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white"><option value="all">All Statuses</option>{uniqueStatuses.map((s) => <option key={s} value={s}>{String(s).charAt(0).toUpperCase() + String(s).slice(1)}</option>)}</select>
@@ -435,11 +458,98 @@ export const StaffManagementPage: React.FC = () => {
                         <div className="ml-auto"><button onClick={() => setSelectedStaffIds(new Set())} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} /></button></div>
                     </div>
                 )}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50 border-b border-slate-200"><tr><th className="px-4 py-4 w-10"><input type="checkbox" checked={paginatedStaff.length > 0 && paginatedStaff.every((s: Staff) => selectedStaffIds.has(s.id))} onChange={(e) => { if (e.target.checked) { setSelectedStaffIds(new Set(paginatedStaff.map((s: Staff) => s.id))); } else { setSelectedStaffIds(new Set()); } }} className="w-4 h-4 text-[#0066B3] rounded" /></th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Employee</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Position</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th><th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th><th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">
-                    {staffLoading ? <tr><td colSpan={6} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr> : paginatedStaff.length === 0 ? <tr><td colSpan={6} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No staff found</p></td></tr> : paginatedStaff.map((m: Staff) => (
-                        <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedStaffIds.has(m.id)} onChange={() => { const n = new Set(selectedStaffIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedStaffIds(n); }} className="w-4 h-4 text-[#0066B3] rounded" /></td><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-[#0066B3] flex items-center justify-center text-white font-bold">{m.first_name?.charAt(0)}{m.last_name?.charAt(0)}</div><div><p className="font-medium text-slate-900">{m.first_name} {m.last_name}</p><p className="text-sm text-slate-500">{m.user?.email}</p><p className="text-xs text-slate-400">{m.employee_number}</p></div></div></td><td className="px-6 py-4 text-slate-600">{m.position?.name || '-'}</td><td className="px-6 py-4 text-slate-600 hidden md:table-cell">{m.branch?.name || '-'}</td><td className="px-6 py-4"><StatusBadge status={m.status} /></td><td className="px-6 py-4"><div className="flex items-center justify-end gap-1"><button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><Eye size={18} /></button><div className="relative"><button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>{actionMenuId === m.id && <><div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} /><div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20"><button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View</button><button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button><button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button><button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>{m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}{m.user?.email && <button onClick={() => { resendWelcomeMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Key size={16} />Resend Welcome Email</button>}<hr className="my-1" />{m.status === 'suspended' ? <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button> : <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><UserX size={16} />Suspend</button>}</div></>}</div></div></td></tr>
-                    ))}
-                </tbody></table></div>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th className="px-4 py-4 w-10">
+                                        {directoryView !== 'archived' && (
+                                            <input type="checkbox" checked={paginatedStaff.length > 0 && paginatedStaff.every((s: any) => selectedStaffIds.has(s.id))} onChange={(e) => { if (e.target.checked) { setSelectedStaffIds(new Set(paginatedStaff.map((s: any) => s.id))); } else { setSelectedStaffIds(new Set()); } }} className="w-4 h-4 text-[#0066B3] rounded" />
+                                        )}
+                                    </th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Employee</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Position</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell">Branch</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Status</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden lg:table-cell">Account</th>
+                                    <th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {staffLoading ? (
+                                    <tr><td colSpan={7} className="px-6 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-[#0066B3] mx-auto mb-2" /><p className="text-slate-500">Loading...</p></td></tr>
+                                ) : paginatedStaff.length === 0 ? (
+                                    <tr><td colSpan={7} className="px-6 py-12 text-center"><Users className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">No {directoryView === 'archived' ? 'archived' : directoryView} staff</p></td></tr>
+                                ) : paginatedStaff.map((m: any) => {
+                                    const isArchived = directoryView === 'archived';
+                                    const isInactive = INACTIVE_STATUSES.has(m.status);
+                                    return (
+                                        <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''} ${isArchived ? 'opacity-75' : ''}`}>
+                                            <td className="px-4 py-4">
+                                                {!isArchived && <input type="checkbox" checked={selectedStaffIds.has(m.id)} onChange={() => { const n = new Set(selectedStaffIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedStaffIds(n); }} className="w-4 h-4 text-[#0066B3] rounded" />}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-full ${isArchived ? 'bg-slate-400' : 'bg-[#0066B3]'} flex items-center justify-center text-white font-bold`}>{m.first_name?.charAt(0)}{m.last_name?.charAt(0)}</div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-900">{m.first_name} {m.last_name}</p>
+                                                        <p className="text-sm text-slate-500">{m.user?.email || '—'}</p>
+                                                        <p className="text-xs text-slate-400">{m.employee_number}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">{m.position?.name || '-'}</td>
+                                            <td className="px-6 py-4 text-slate-600 hidden md:table-cell">{m.branch?.name || '-'}</td>
+                                            <td className="px-6 py-4"><StatusBadge status={m.status} /></td>
+                                            <td className="px-6 py-4 hidden lg:table-cell"><LoginBadge user={m.user as any} /></td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="View profile"><Eye size={18} /></button>
+                                                    <div className="relative">
+                                                        <button onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MoreVertical size={18} /></button>
+                                                        {actionMenuId === m.id && (
+                                                            <>
+                                                                <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                                                                <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+                                                                    <button onClick={() => { navigate(`/staff/${m.id}`); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={16} />View Profile</button>
+                                                                    {!isArchived && <>
+                                                                        <button onClick={() => { setSelectedStaff(m); setEditStaffData({ first_name: m.first_name, last_name: m.last_name, phone: m.phone || '', position_id: m.position?.id || '', branch_id: m.branch?.id || '', department_id: m.department?.id || '', region_id: m.region?.id || '' }); setShowEditStaffModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Edit size={16} />Edit</button>
+                                                                        <button onClick={() => { setSelectedStaff(m); setPromoteData({ new_position_id: '', new_salary: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowPromoteModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><ShieldCheck size={16} />Promote</button>
+                                                                        <button onClick={() => { setSelectedStaff(m); setTransferData({ branch_id: '', region_id: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setShowTransferModal(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Building size={16} />Transfer</button>
+                                                                        {m.user?.email && <button onClick={() => { window.location.href = `mailto:${m.user?.email}`; setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Mail size={16} />Email</button>}
+                                                                        {m.user?.email && <button onClick={() => { resendWelcomeMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Key size={16} />Resend Welcome</button>}
+                                                                        <hr className="my-1" />
+                                                                        {m.status === 'suspended' ? (
+                                                                            <button onClick={() => { activateStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reactivate</button>
+                                                                        ) : ACTIVE_STATUSES.has(m.status) ? (
+                                                                            <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><UserX size={16} />Suspend</button>
+                                                                        ) : null}
+                                                                        {isInactive && (
+                                                                            <button onClick={() => { if (confirm(`Archive ${m.first_name} ${m.last_name}? This hides them from the directory but keeps the record.`)) { archiveStaffMutation.mutate(m.id); } setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Archive size={16} />Archive</button>
+                                                                        )}
+                                                                    </>}
+                                                                    {isArchived && <>
+                                                                        <button onClick={() => { restoreStaffMutation.mutate(m.id); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><ArchiveRestore size={16} />Restore from Archive</button>
+                                                                        {isCeo && (
+                                                                            <>
+                                                                                <hr className="my-1" />
+                                                                                <button onClick={() => { setPermanentDeleteTarget(m); setPermanentDeleteConfirm(''); setActionMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"><Trash2 size={16} />Permanently Delete</button>
+                                                                            </>
+                                                                        )}
+                                                                    </>}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 {staffTotalPages > 1 && <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50"><p className="text-sm text-slate-500">Page {staffPage} of {staffTotalPages}</p><div className="flex items-center gap-2"><button onClick={() => setStaffPage(p => Math.max(1, p - 1))} disabled={staffPage === 1} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronLeft size={18} /></button><button onClick={() => setStaffPage(p => Math.min(staffTotalPages, p + 1))} disabled={staffPage === staffTotalPages} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronRight size={18} /></button></div></div>}
                 </div>
             </>)}
@@ -2026,6 +2136,50 @@ export const StaffManagementPage: React.FC = () => {
                                 disabled={bulkTransferStaffMutation.isPending}
                                 className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
                                 {bulkTransferStaffMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Permanent Delete confirmation modal — CEO only, type-to-confirm */}
+            {permanentDeleteTarget && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="px-6 py-4 border-b border-red-200 bg-red-50 rounded-t-2xl flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-red-700 flex items-center gap-2">
+                                <AlertTriangle size={20} />Permanently Delete Staff
+                            </h2>
+                            <button onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }} className="p-2 hover:bg-red-100 rounded-lg"><X size={18} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                                <p className="font-semibold mb-1">This action is irreversible.</p>
+                                <p>The record for <strong>{permanentDeleteTarget.first_name} {permanentDeleteTarget.last_name}</strong> ({permanentDeleteTarget.employee_number}) will be permanently removed from the database. Historical references (payroll, leave, loans, contracts) must already be absent — the server will refuse if any are found.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Type the employee number <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">{permanentDeleteTarget.employee_number}</span> to confirm
+                                </label>
+                                <input
+                                    type="text"
+                                    value={permanentDeleteConfirm}
+                                    onChange={(e) => setPermanentDeleteConfirm(e.target.value)}
+                                    placeholder={permanentDeleteTarget.employee_number}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }} className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => permanentDeleteMutation.mutate({ id: permanentDeleteTarget.id, confirm: permanentDeleteConfirm })}
+                                disabled={permanentDeleteConfirm.trim() !== permanentDeleteTarget.employee_number || permanentDeleteMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {permanentDeleteMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                                Permanently Delete
                             </button>
                         </div>
                     </div>
