@@ -10,11 +10,12 @@ import {
     Upload, Download, Trash2, AlertTriangle, User,
     CreditCard, Shield, History, X, Camera, RefreshCw,
     ChevronRight, AlertCircle, TrendingUp, DollarSign,
-    FileCheck, Plus, RotateCcw, Ban, Play, Heart
+    FileCheck, Plus, RotateCcw, Ban, Play, Heart,
+    KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2
 } from 'lucide-react';
 import StaffPeopleTab from '../components/staff/StaffPeopleTab';
 
-type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'people' | 'actions';
+type Tab = 'overview' | 'documents' | 'contracts' | 'employment' | 'onboarding' | 'people' | 'account' | 'actions';
 
 interface OnboardingTask {
     id: string;
@@ -456,6 +457,45 @@ export const StaffProfilePage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to deactivate', 'error'),
     });
 
+    // =========== ACCOUNT TAB ===========
+    const userId = staff?.user?.id;
+    const { data: account, isLoading: accountLoading } = useQuery<any>({
+        queryKey: ['user-account', userId],
+        queryFn: async () => (await api.get(`/users/${userId}`)).data,
+        enabled: !!userId && activeTab === 'account',
+    });
+    const { data: allRoles = [] } = useQuery<any[]>({
+        queryKey: ['roles-active'],
+        queryFn: async () => { const r = (await api.get('/roles')).data; return Array.isArray(r) ? r : (r?.data ?? []); },
+        enabled: activeTab === 'account',
+    });
+    const accountActivateMutation = useMutation({
+        mutationFn: async () => (await api.post(`/users/${userId}/activate`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['user-account', userId] }); queryClient.invalidateQueries({ queryKey: ['staff', id] }); showToast('Login enabled'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
+    const accountDeactivateMutation = useMutation({
+        mutationFn: async () => (await api.post(`/users/${userId}/deactivate`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['user-account', userId] }); queryClient.invalidateQueries({ queryKey: ['staff', id] }); showToast('Login disabled'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
+    const accountUpdateRoleMutation = useMutation({
+        mutationFn: async (roleCode: string) => (await api.patch(`/users/${userId}/roles`, { role_code: roleCode })).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['user-account', userId] }); showToast('Role updated'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update role', 'error'),
+    });
+    const accountResetPwMutation = useMutation({
+        mutationFn: async (newPassword: string) => (await api.patch(`/users/${userId}/password`, { new_password: newPassword })).data,
+        onSuccess: () => { setShowResetPwDialog(false); showToast('Password reset'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to reset password', 'error'),
+    });
+    const resendWelcomeMutation = useMutation({
+        mutationFn: async () => (await api.post(`/staff/${id}/resend-welcome`)).data,
+        onSuccess: (r: any) => showToast(r?.success ? 'Welcome email sent' : (r?.error || 'Could not send'), r?.success ? 'success' : 'error'),
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
+    const [showResetPwDialog, setShowResetPwDialog] = useState(false);
+
     const openEditModal = () => {
         setFormData({
             first_name: staff?.first_name,
@@ -504,6 +544,7 @@ export const StaffProfilePage: React.FC = () => {
         { key: 'employment' as Tab, label: 'History', icon: History },
         { key: 'onboarding' as Tab, label: 'Onboarding', icon: CheckCircle },
         { key: 'people' as Tab, label: 'People & Comp', icon: Heart },
+        { key: 'account' as Tab, label: 'Account', icon: KeyRound },
         { key: 'actions' as Tab, label: 'Actions', icon: Shield },
     ];
 
@@ -1153,6 +1194,123 @@ export const StaffProfilePage: React.FC = () => {
                     <StaffPeopleTab staffId={id} canEdit={true} showToast={showToast} />
                 )}
 
+                {/* Account Tab — user login, roles, password, MFA */}
+                {activeTab === 'account' && (
+                    <div className="space-y-6">
+                        {!staff.user?.id ? (
+                            <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center">
+                                <Link2Off className="mx-auto text-slate-300 mb-3" size={48} />
+                                <h3 className="text-lg font-semibold text-slate-700 mb-1">No login account linked</h3>
+                                <p className="text-sm text-slate-500 mb-4">This staff record has no user account. They cannot log in.</p>
+                                <p className="text-xs text-slate-400">To create an account, edit the staff record and link a user, or contact HR.</p>
+                            </div>
+                        ) : accountLoading ? (
+                            <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-[#0066B3]" /></div>
+                        ) : !account ? (
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">Could not load account details.</div>
+                        ) : (
+                            <>
+                                {/* Top status card */}
+                                <div className={`rounded-2xl border p-6 ${account.is_active ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                                    <div className="flex items-start gap-4">
+                                        <div className={`p-3 rounded-xl ${account.is_active ? 'bg-emerald-200' : 'bg-red-200'}`}>
+                                            {account.is_active ? <Unlock className="text-emerald-700" size={24} /> : <Lock className="text-red-700" size={24} />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className={`text-lg font-semibold ${account.is_active ? 'text-emerald-900' : 'text-red-900'}`}>
+                                                {account.is_active ? 'Login enabled' : 'Login disabled'}
+                                            </h3>
+                                            <p className={`text-sm ${account.is_active ? 'text-emerald-700' : 'text-red-700'}`}>
+                                                {account.is_active
+                                                    ? 'This user can sign in to the portal with their email and password.'
+                                                    : 'This user cannot sign in. Re-enable login to restore access.'}
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-2">
+                                                Last login: {account.last_login_at ? new Date(account.last_login_at).toLocaleString() : 'Never'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => account.is_active ? accountDeactivateMutation.mutate() : accountActivateMutation.mutate()}
+                                            disabled={accountActivateMutation.isPending || accountDeactivateMutation.isPending}
+                                            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${account.is_active ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'} disabled:opacity-50`}
+                                        >
+                                            {(accountActivateMutation.isPending || accountDeactivateMutation.isPending)
+                                                ? <Loader2 size={14} className="animate-spin" />
+                                                : account.is_active ? <Lock size={14} /> : <Unlock size={14} />}
+                                            {account.is_active ? 'Disable Login' : 'Enable Login'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Account details grid */}
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="bg-white rounded-2xl p-5 border border-slate-200">
+                                        <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2"><Mail size={14} />Sign-in Email</h4>
+                                        <p className="text-base font-medium text-slate-900 break-all">{account.email}</p>
+                                        <p className="text-xs text-slate-400 mt-1">Used for portal login and system notifications.</p>
+                                    </div>
+
+                                    <div className="bg-white rounded-2xl p-5 border border-slate-200">
+                                        <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2"><ShieldCheck size={14} />Two-Factor Authentication</h4>
+                                        {account.two_factor_enabled ? (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium"><ShieldCheck size={14} />Enabled</span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-sm font-medium"><ShieldOff size={14} />Not configured</span>
+                                        )}
+                                        <p className="text-xs text-slate-400 mt-2">The user manages 2FA in their own profile settings.</p>
+                                    </div>
+
+                                    <div className="bg-white rounded-2xl p-5 border border-slate-200 md:col-span-2">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2"><UserCog size={14} />Role</h4>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                                            {(account.roles || []).length === 0 ? (
+                                                <span className="text-sm text-slate-400 italic">No role assigned</span>
+                                            ) : (
+                                                (account.roles || []).map((r: any) => (
+                                                    <span key={r.id} className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">{r.name}</span>
+                                                ))
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                defaultValue={account.roles?.[0]?.code || ''}
+                                                onChange={(e) => { if (e.target.value && e.target.value !== account.roles?.[0]?.code) accountUpdateRoleMutation.mutate(e.target.value); }}
+                                                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                                            >
+                                                <option value="">Select role…</option>
+                                                {(allRoles as any[]).map((r: any) => (
+                                                    <option key={r.id} value={r.code}>{r.name}</option>
+                                                ))}
+                                            </select>
+                                            {accountUpdateRoleMutation.isPending && <Loader2 size={14} className="animate-spin text-slate-400" />}
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-2">Changing the role takes effect on the user's next login (or token refresh).</p>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="bg-white rounded-2xl p-5 border border-slate-200">
+                                    <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Security actions</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={() => setShowResetPwDialog(true)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-sm"
+                                        ><KeyRound size={14} />Reset Password</button>
+                                        <button
+                                            onClick={() => resendWelcomeMutation.mutate()}
+                                            disabled={resendWelcomeMutation.isPending}
+                                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-sm disabled:opacity-50"
+                                        >{resendWelcomeMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}Resend Welcome Email</button>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-3">A welcome email lets the user set their own password without an admin-chosen one.</p>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {/* Actions Tab */}
                 {activeTab === 'actions' && (
                     <div className="space-y-6">
@@ -1722,6 +1880,22 @@ export const StaffProfilePage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Reset Password Dialog (Account tab) */}
+            <InputDialog
+                isOpen={showResetPwDialog}
+                title="Reset Password"
+                message={`Set a new password for ${account?.email || 'this user'}. They will be required to use it on next login.`}
+                inputLabel="New password"
+                placeholder="Minimum 8 characters"
+                confirmLabel="Reset Password"
+                required
+                minLength={8}
+                inputType="password"
+                onConfirm={(pw) => accountResetPwMutation.mutate(pw)}
+                onCancel={() => setShowResetPwDialog(false)}
+                isLoading={accountResetPwMutation.isPending}
+            />
 
             {/* Skip Onboarding Task Dialog */}
             <InputDialog

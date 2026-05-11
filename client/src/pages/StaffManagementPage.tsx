@@ -89,6 +89,7 @@ export const StaffManagementPage: React.FC = () => {
     // Users state
     const [userSearch, setUserSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
+    const [usersOrphansOnly, setUsersOrphansOnly] = useState(true);
     const [userPage, setUserPage] = useState(1);
     const [showUserModal, setShowUserModal] = useState(false);
     const [showRoleAssignModal, setShowRoleAssignModal] = useState(false);
@@ -331,7 +332,8 @@ export const StaffManagementPage: React.FC = () => {
     const archivedCount = staffStats?.deleted ?? 0;
     const staffTotalPages = Math.ceil(filteredStaff.length / 10);
     const paginatedStaff = filteredStaff.slice((staffPage - 1) * 10, staffPage * 10);
-    const users = usersData?.data || [];
+    const usersRaw: User[] = usersData?.data || [];
+    const users: User[] = usersOrphansOnly ? usersRaw.filter((u) => !u.staff) : usersRaw;
     const usersTotalPages = usersData?.totalPages || 1;
     const usersTotal = usersData?.total || 0;
     const filteredRoles = roles.filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase()) || r.code.toLowerCase().includes(roleSearch.toLowerCase()));
@@ -349,7 +351,7 @@ export const StaffManagementPage: React.FC = () => {
     const getRoleColor2 = (code: string): string => ({ CEO: 'bg-purple-100 text-purple-700', HR_MANAGER: 'bg-pink-100 text-pink-700', REGIONAL_MANAGER: 'bg-blue-100 text-blue-700', BRANCH_MANAGER: 'bg-emerald-100 text-emerald-700', ACCOUNTANT: 'bg-amber-100 text-amber-700', HR_ASSISTANT: 'bg-indigo-100 text-indigo-700', BDM: 'bg-teal-100 text-teal-700', RELATIONSHIP_OFFICER: 'bg-cyan-100 text-cyan-700' }[code] || 'bg-slate-100 text-slate-700');
     const formatRelTime = (dateStr?: string) => { if (!dateStr) return 'Never'; const diff = Date.now() - new Date(dateStr).getTime(); if (diff < 60000) return 'Just now'; if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`; if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`; return `${Math.floor(diff/86400000)}d ago`; };
 
-    const tabs = [{ id: 'directory' as Tab, label: 'Staff Directory', icon: Users, count: staff.length }, { id: 'users' as Tab, label: 'User Accounts', icon: UserPlus, count: usersTotal }, { id: 'roles' as Tab, label: 'Roles', icon: Shield, count: roles.length }];
+    const tabs = [{ id: 'directory' as Tab, label: 'Staff Directory', icon: Users, count: staff.length }, { id: 'users' as Tab, label: 'System Accounts', icon: UserPlus, count: usersTotal }, { id: 'roles' as Tab, label: 'Roles', icon: Shield, count: roles.length }];
 
     return (
         <div className="space-y-6">
@@ -554,8 +556,29 @@ export const StaffManagementPage: React.FC = () => {
                 </div>
             </>)}
 
-            {/* USERS */}
+            {/* USERS — System Accounts (orphan logins, not tied to staff) */}
             {activeTab === 'users' && (<>
+                {/* Explanatory banner + orphans toggle */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0"><Shield className="text-[#0066B3]" size={18} /></div>
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-900">System Accounts</p>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                            Login accounts that aren't tied to a staff profile — contractors, system integrations, external auditors, etc.
+                            For employee accounts, manage them on the <strong>staff profile → Account tab</strong>.
+                        </p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                        <input
+                            type="checkbox"
+                            checked={!usersOrphansOnly}
+                            onChange={(e) => { setUsersOrphansOnly(!e.target.checked); setUserPage(1); }}
+                            className="w-4 h-4 rounded border-slate-300 text-[#0066B3] focus:ring-[#0066B3]"
+                        />
+                        <span className="text-xs font-medium text-slate-700 whitespace-nowrap">Include staff accounts</span>
+                    </label>
+                </div>
+
                 {/* Stats row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     <div className="bg-white rounded-xl border border-slate-200 p-4">
