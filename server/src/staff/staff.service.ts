@@ -1283,7 +1283,7 @@ export class StaffService {
         if (!staff.deleted_at) {
             throw new BadRequestException('Staff must be archived (soft-deleted) before permanent deletion');
         }
-        if (!opts.confirmEmployeeNumber || opts.confirmEmployeeNumber.trim() !== (staff.employee_number || '').trim()) {
+        if (!opts.force && (!opts.confirmEmployeeNumber || opts.confirmEmployeeNumber.trim() !== (staff.employee_number || '').trim())) {
             throw new BadRequestException('Employee number confirmation does not match');
         }
         const blockers = await this.getPermanentDeleteBlockers(id);

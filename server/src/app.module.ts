@@ -150,7 +150,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
     }),
     MulterModule.register(standardMulterOptions),
     ConfigModule.forRoot({ isGlobal: true }),
-    CacheModule.register({ isGlobal: true, ttl: 60000, max: 100 }),
+    CacheModule.register({ isGlobal: true, ttl: 0, max: 0 }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
