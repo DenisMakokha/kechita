@@ -496,19 +496,23 @@ export class BulkImportService {
                 // ── Validate required fields ──
                 if (!row.first_name) throw new Error('first_name is required');
                 if (!row.last_name) throw new Error('last_name is required');
-                if (!row.role_code) throw new Error('role_code is required');
                 if (!row.position_name) throw new Error('position_name is required');
 
                 const emailLower = row.email?.toLowerCase();
+
+                // role_code is required only when email present (user account will be created)
+                if (emailLower && !row.role_code) throw new Error('role_code is required when work email is provided');
 
                 // ── Check email uniqueness (file-level + DB-level) only when email present ──
                 if (emailLower) {
                     if (fileDupes.has(emailLower)) throw new Error(`Duplicate email in file: ${row.email}`);
                 }
 
-                // ── Resolve role ──
-                const role = await qr.manager.findOne(Role, { where: { code: row.role_code.toUpperCase(), is_active: true } });
-                if (!role) throw new Error(`Invalid role_code: ${row.role_code}. See Roles Reference sheet.`);
+                // ── Resolve role (only when email present) ──
+                const role = emailLower && row.role_code
+                    ? await qr.manager.findOne(Role, { where: { code: row.role_code.toUpperCase(), is_active: true } })
+                    : null;
+                if (emailLower && row.role_code && !role) throw new Error(`Invalid role_code: ${row.role_code}. See Roles Reference sheet.`);
 
                 // ── Upsert org entities ──
                 let region: Region | undefined;
@@ -547,7 +551,7 @@ export class BulkImportService {
                             email: emailLower,
                             password_hash: hashedPassword,
                             is_active: true,
-                            roles: [role],
+                            roles: [role!],
                         });
                         const savedUser = await qr.manager.save(User, newUser);
                         existingStaff.user = savedUser;
@@ -579,7 +583,7 @@ export class BulkImportService {
                             this.authService.sendWelcomeToNewUser(
                                 existingStaff.user!.id,
                                 `${existingStaff.first_name} ${existingStaff.last_name}`.trim(),
-                                role.name,
+                                role?.name ?? '',
                             ).catch(() => {});
                         }
                     }
@@ -601,7 +605,7 @@ export class BulkImportService {
                         email: emailLower,
                         password_hash: hashedPassword,
                         is_active: true,
-                        roles: [role],
+                        roles: [role!],
                     });
                     savedUser = await qr.manager.save(User, user);
                     dbEmailSet.add(emailLower);
@@ -706,7 +710,7 @@ export class BulkImportService {
                     this.authService.sendWelcomeToNewUser(
                         savedUser.id,
                         `${row.first_name} ${row.last_name}`.trim(),
-                        role.name,
+                        role?.name ?? '',
                     ).catch(() => {/* logged inside */});
                 }
 
