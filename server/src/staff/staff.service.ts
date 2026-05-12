@@ -1299,7 +1299,9 @@ export class StaffService {
                 );
             }
             // Force: cascade-delete all historical/linked records in dependency order
-            const del = (sql: string) => this.dataSource.query(sql, [id]).catch(() => undefined);
+            const del = (sql: string) => this.dataSource.query(sql, [id]).catch((err: any) => {
+                console.error(`[permanentDelete] FAILED: ${sql} | staff=${id} | error: ${err?.message}`);
+            });
             // Onboarding
             await del(`DELETE FROM onboarding_task_statuses WHERE instance_id IN (SELECT id FROM onboarding_instances WHERE staff_id = $1)`);
             await del(`DELETE FROM onboarding_instances WHERE staff_id = $1`);
@@ -1383,7 +1385,12 @@ export class StaffService {
             },
             isSuccessful: true,
         });
-        await this.staffRepo.delete(id);
+        try {
+            await this.staffRepo.delete(id);
+        } catch (err: any) {
+            console.error(`[permanentDelete] Final DELETE staff id=${id} FAILED: ${err?.message}`);
+            throw err;
+        }
         return { deleted: true };
     }
 
