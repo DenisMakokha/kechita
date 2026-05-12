@@ -80,6 +80,9 @@ import { StaffLoan } from './loans/entities/staff-loan.entity';
 import { StaffLoanRepayment } from './loans/entities/staff-loan-repayment.entity';
 // Recruitment Entities
 import { JobPost } from './recruitment/entities/job-post.entity';
+import { KnockoutQuestion } from './recruitment/entities/knockout-question.entity';
+import { ScreeningCriteria } from './recruitment/entities/screening-criteria.entity';
+import { ScreeningResult } from './recruitment/entities/screening-result.entity';
 import { PipelineStage } from './recruitment/entities/pipeline-stage.entity';
 import { Candidate } from './recruitment/entities/candidate.entity';
 import { Application } from './recruitment/entities/application.entity';
@@ -180,6 +183,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         // Recruitment
         JobPost, PipelineStage, Candidate, Application, Interview, Offer, CandidateNote,
         BackgroundCheck, ReferenceCheck, OfferSignature,
+        KnockoutQuestion, ScreeningCriteria, ScreeningResult,
         // Reporting
         BranchDailyReport,
         // Notifications
