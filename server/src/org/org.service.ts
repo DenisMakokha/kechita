@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Region } from './entities/region.entity';
 import { Branch } from './entities/branch.entity';
 import { Department } from './entities/department.entity';
@@ -23,6 +23,7 @@ export class OrgService {
         private departmentRepo: Repository<Department>,
         @InjectRepository(Position)
         private positionRepo: Repository<Position>,
+        private dataSource: DataSource,
     ) { }
 
     // ==================== REGIONS ====================
@@ -176,20 +177,25 @@ export class OrgService {
         return this.branchRepo.save(branch);
     }
 
-    async deleteBranch(id: string): Promise<{ message: string }> {
+    async deleteBranch(id: string, force = false): Promise<{ message: string }> {
         const branch = await this.getBranch(id);
 
         const staffCount = await this.branchRepo.manager.count('staff', {
             where: { branch_id: id },
         }).catch(() => 0);
         if (staffCount > 0) {
-            throw new BadRequestException(
-                `Cannot delete branch "${branch.name}" - it has ${staffCount} staff member(s) assigned to it.`
+            if (!force) {
+                throw new BadRequestException(
+                    `Cannot delete branch "${branch.name}" - it has ${staffCount} staff member(s) assigned to it.`
+                );
+            }
+            await this.dataSource.query(
+                `UPDATE staff SET branch_id = NULL WHERE branch_id = $1`, [id]
             );
         }
 
         await this.branchRepo.remove(branch);
-        return { message: 'Branch deleted successfully' };
+        return { message: `Branch deleted successfully${force && staffCount > 0 ? ` (${staffCount} staff member(s) unlinked)` : ''}` };
     }
 
     // ==================== DEPARTMENTS ====================
@@ -261,7 +267,7 @@ export class OrgService {
         return this.departmentRepo.save(department);
     }
 
-    async deleteDepartment(id: string): Promise<{ message: string }> {
+    async deleteDepartment(id: string, force = false): Promise<{ message: string }> {
         const department = await this.departmentRepo.findOne({
             where: { id },
             relations: ['children'],
@@ -269,8 +275,13 @@ export class OrgService {
         if (!department) throw new NotFoundException('Department not found');
 
         if (department.children && department.children.length > 0) {
-            throw new BadRequestException(
-                `Cannot delete department "${department.name}" - it has ${department.children.length} child department(s)`
+            if (!force) {
+                throw new BadRequestException(
+                    `Cannot delete department "${department.name}" - it has ${department.children.length} child department(s)`
+                );
+            }
+            await this.dataSource.query(
+                `UPDATE departments SET parent_id = NULL WHERE parent_id = $1`, [id]
             );
         }
 
@@ -278,8 +289,21 @@ export class OrgService {
             where: { department: { id } },
         });
         if (positionCount > 0) {
-            throw new BadRequestException(
-                `Cannot delete department "${department.name}" - it has ${positionCount} position(s) assigned to it. Reassign or delete them first.`
+            if (!force) {
+                throw new BadRequestException(
+                    `Cannot delete department "${department.name}" - it has ${positionCount} position(s) assigned to it. Reassign or delete them first.`
+                );
+            }
+            // Nullify staff department references through positions first
+            await this.dataSource.query(
+                `UPDATE staff SET department_id = NULL WHERE department_id = $1`, [id]
+            );
+            await this.dataSource.query(
+                `UPDATE positions SET department_id = NULL WHERE department_id = $1`, [id]
+            );
+        } else {
+            await this.dataSource.query(
+                `UPDATE staff SET department_id = NULL WHERE department_id = $1`, [id]
             );
         }
 
@@ -371,20 +395,25 @@ export class OrgService {
         return this.positionRepo.save(position);
     }
 
-    async deletePosition(id: string): Promise<{ message: string }> {
+    async deletePosition(id: string, force = false): Promise<{ message: string }> {
         const position = await this.getPosition(id);
 
         const staffCount = await this.positionRepo.manager.count('staff', {
             where: { position_id: id },
         }).catch(() => 0);
         if (staffCount > 0) {
-            throw new BadRequestException(
-                `Cannot delete position "${position.name}" - it is assigned to ${staffCount} staff member(s).`
+            if (!force) {
+                throw new BadRequestException(
+                    `Cannot delete position "${position.name}" - it is assigned to ${staffCount} staff member(s).`
+                );
+            }
+            await this.dataSource.query(
+                `UPDATE staff SET position_id = NULL WHERE position_id = $1`, [id]
             );
         }
 
         await this.positionRepo.remove(position);
-        return { message: 'Position deleted successfully' };
+        return { message: `Position deleted successfully${force && staffCount > 0 ? ` (${staffCount} staff member(s) unlinked)` : ''}` };
     }
 
     // ==================== STATS ====================

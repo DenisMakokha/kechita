@@ -95,8 +95,8 @@ export class OrgController {
 
     @Delete('branches/:id')
     @Roles('CEO', 'HR_MANAGER')
-    deleteBranch(@Param('id', ParseUUIDPipe) id: string) {
-        return this.orgService.deleteBranch(id);
+    deleteBranch(@Param('id', ParseUUIDPipe) id: string, @Query('force') force?: string) {
+        return this.orgService.deleteBranch(id, force === 'true');
     }
 
     // ==================== DEPARTMENTS ====================
@@ -127,8 +127,8 @@ export class OrgController {
 
     @Delete('departments/:id')
     @Roles('CEO')
-    deleteDepartment(@Param('id', ParseUUIDPipe) id: string) {
-        return this.orgService.deleteDepartment(id);
+    deleteDepartment(@Param('id', ParseUUIDPipe) id: string, @Query('force') force?: string) {
+        return this.orgService.deleteDepartment(id, force === 'true');
     }
 
     // ==================== POSITIONS ====================
@@ -159,8 +159,8 @@ export class OrgController {
 
     @Delete('positions/:id')
     @Roles('CEO')
-    deletePosition(@Param('id', ParseUUIDPipe) id: string) {
-        return this.orgService.deletePosition(id);
+    deletePosition(@Param('id', ParseUUIDPipe) id: string, @Query('force') force?: string) {
+        return this.orgService.deletePosition(id, force === 'true');
     }
 
     // ==================== ACTIVATE/DEACTIVATE ====================

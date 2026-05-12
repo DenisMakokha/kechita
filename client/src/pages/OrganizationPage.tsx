@@ -283,6 +283,24 @@ export const OrganizationPage: React.FC = () => {
     };
 
     const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; name: string } | null>(null);
+    const [forceTarget, setForceTarget] = useState<{ type: string; id: string; name: string; reason: string } | null>(null);
+
+    const forceDeleteMutation = useMutation({
+        mutationFn: async ({ type, id }: { type: string; id: string }) => {
+            const urlMap: Record<string, string> = { regions: 'regions', branches: 'branches', departments: 'departments', positions: 'positions' };
+            return (await api.delete(`/org/${urlMap[type]}/${id}?force=true`)).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['regions'] });
+            queryClient.invalidateQueries({ queryKey: ['branches'] });
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+            queryClient.invalidateQueries({ queryKey: ['positions'] });
+            queryClient.invalidateQueries({ queryKey: ['org-stats'] });
+            setForceTarget(null);
+            showToast('Deleted successfully (dependent records unlinked)');
+        },
+        onError: (e: any) => { setForceTarget(null); showToast(e?.response?.data?.message || 'Force delete failed', 'error'); },
+    });
 
     const handleDelete = (type: string, id: string, name: string) => {
         setDeleteTarget({ type, id, name });
@@ -290,11 +308,20 @@ export const OrganizationPage: React.FC = () => {
 
     const confirmDelete = () => {
         if (!deleteTarget) return;
-        switch (deleteTarget.type) {
-            case 'regions': deleteRegionMutation.mutate(deleteTarget.id); break;
-            case 'branches': deleteBranchMutation.mutate(deleteTarget.id); break;
-            case 'departments': deleteDepartmentMutation.mutate(deleteTarget.id); break;
-            case 'positions': deletePositionMutation.mutate(deleteTarget.id); break;
+        const target = deleteTarget;
+        const onBlockError = (e: any) => {
+            const msg = e?.response?.data?.message || '';
+            if (e?.response?.status === 400 && msg) {
+                setForceTarget({ type: target.type, id: target.id, name: target.name, reason: msg });
+            } else {
+                showToast(msg || 'Failed to delete', 'error');
+            }
+        };
+        switch (target.type) {
+            case 'regions': deleteRegionMutation.mutate(target.id, { onError: onBlockError }); break;
+            case 'branches': deleteBranchMutation.mutate(target.id, { onError: onBlockError }); break;
+            case 'departments': deleteDepartmentMutation.mutate(target.id, { onError: onBlockError }); break;
+            case 'positions': deletePositionMutation.mutate(target.id, { onError: onBlockError }); break;
         }
         setDeleteTarget(null);
     };
@@ -923,6 +950,31 @@ export const OrganizationPage: React.FC = () => {
                 onConfirm={confirmDelete}
                 onCancel={() => setDeleteTarget(null)}
             />
+
+            {/* Force Delete Dialog (CEO only — shown when normal delete is blocked) */}
+            {forceTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+                        <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                            <span className="text-red-600">⚠</span> Force Delete
+                        </h3>
+                        <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">{forceTarget.reason}</p>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Force-deleting <strong>{forceTarget.name}</strong> will unlink all dependent records (staff assignments, child records) and permanently remove it. This cannot be undone.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setForceTarget(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Cancel</button>
+                            <button
+                                onClick={() => forceDeleteMutation.mutate({ type: forceTarget.type, id: forceTarget.id })}
+                                disabled={forceDeleteMutation.isPending}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {forceDeleteMutation.isPending ? 'Deleting…' : 'Force Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
