@@ -437,6 +437,7 @@ export class BulkImportService {
     // ─── Main Import ──────────────────────────────────────────────────────────
 
     async importStaff(buffer: Buffer, importedBy?: string, options: BulkImportOptions = {}): Promise<BulkImportResult> {
+        try {
         const rows = await this.parseExcel(buffer);
         if (rows.length === 0) throw new BadRequestException('No data rows found in the uploaded file');
 
@@ -721,5 +722,9 @@ export class BulkImportService {
         }
 
         return result;
+        } catch (err: any) {
+            this.logger.error(`[importStaff] Unexpected top-level error: ${err?.message}`, err?.stack);
+            throw err;
+        }
     }
 }
