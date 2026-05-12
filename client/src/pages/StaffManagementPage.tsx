@@ -257,6 +257,37 @@ export const StaffManagementPage: React.FC = () => {
             }
         },
     });
+    const [selectedArchivedIds, setSelectedArchivedIds] = useState<Set<string>>(new Set());
+    const [showBulkForceDeleteConfirm, setShowBulkForceDeleteConfirm] = useState(false);
+    const [bulkForceDeleteProgress, setBulkForceDeleteProgress] = useState<{ done: number; total: number; errors: string[] } | null>(null);
+    const bulkForceDeleteMutation = useMutation({
+        mutationFn: async (ids: string[]) => {
+            const errors: string[] = [];
+            setBulkForceDeleteProgress({ done: 0, total: ids.length, errors: [] });
+            for (let i = 0; i < ids.length; i++) {
+                const member = deletedStaff.find((s: any) => s.id === ids[i]);
+                try {
+                    await api.delete(`/staff/${ids[i]}/permanent`, {
+                        data: { confirm_employee_number: member?.employee_number || '', force: true },
+                    });
+                } catch (e: any) {
+                    errors.push(`${member?.first_name ?? ids[i]}: ${e?.response?.data?.message || e.message}`);
+                }
+                setBulkForceDeleteProgress({ done: i + 1, total: ids.length, errors });
+            }
+            return errors;
+        },
+        onSuccess: (errors) => {
+            queryClient.invalidateQueries({ queryKey: ['staff-deleted'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-stats'] });
+            setSelectedArchivedIds(new Set());
+            setShowBulkForceDeleteConfirm(false);
+            setBulkForceDeleteProgress(null);
+            if (errors.length === 0) showToast('All selected staff permanently deleted');
+            else showToast(`Deleted with ${errors.length} error(s) — check details`, 'error');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Bulk delete failed', 'error'),
+    });
     const isCeo = user?.roles?.some(r => r.code === 'CEO') || false;
     const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data });
     const { data: regions = [] } = useQuery({ queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data });
@@ -492,7 +523,7 @@ export const StaffManagementPage: React.FC = () => {
                     <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setStaffPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white"><option value="all">All Statuses</option>{uniqueStatuses.map((s) => <option key={s} value={s}>{String(s).charAt(0).toUpperCase() + String(s).slice(1)}</option>)}</select>
                     <select value={branchFilter} onChange={(e) => { setBranchFilter(e.target.value); setStaffPage(1); }} className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white"><option value="all">All Branches</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
                 </div></div>
-                {selectedStaffIds.size > 0 && (
+                {selectedStaffIds.size > 0 && directoryView !== 'archived' && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-[#0066B3] text-white rounded-xl shadow-lg">
                         <span className="font-semibold text-sm">{selectedStaffIds.size} selected</span>
                         <div className="h-4 w-px bg-white/30" />
@@ -500,6 +531,14 @@ export const StaffManagementPage: React.FC = () => {
                         <button onClick={() => bulkDeactivateStaffMutation.mutate(Array.from(selectedStaffIds))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><AlertCircle size={14} />Deactivate</button>
                         <button onClick={() => setShowBulkTransferModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><Building size={14} />Transfer</button>
                         <div className="ml-auto"><button onClick={() => setSelectedStaffIds(new Set())} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} /></button></div>
+                    </div>
+                )}
+                {selectedArchivedIds.size > 0 && directoryView === 'archived' && isCeo && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-red-700 text-white rounded-xl shadow-lg">
+                        <span className="font-semibold text-sm">{selectedArchivedIds.size} archived selected</span>
+                        <div className="h-4 w-px bg-white/30" />
+                        <button onClick={() => setShowBulkForceDeleteConfirm(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium"><Trash2 size={14} />Force Delete All</button>
+                        <div className="ml-auto"><button onClick={() => setSelectedArchivedIds(new Set())} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} /></button></div>
                     </div>
                 )}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -510,6 +549,9 @@ export const StaffManagementPage: React.FC = () => {
                                     <th className="px-4 py-4 w-10">
                                         {directoryView !== 'archived' && (
                                             <input type="checkbox" checked={paginatedStaff.length > 0 && paginatedStaff.every((s: any) => selectedStaffIds.has(s.id))} onChange={(e) => { if (e.target.checked) { setSelectedStaffIds(new Set(paginatedStaff.map((s: any) => s.id))); } else { setSelectedStaffIds(new Set()); } }} className="w-4 h-4 text-[#0066B3] rounded" />
+                                        )}
+                                        {directoryView === 'archived' && isCeo && (
+                                            <input type="checkbox" checked={paginatedStaff.length > 0 && paginatedStaff.every((s: any) => selectedArchivedIds.has(s.id))} onChange={(e) => { if (e.target.checked) { setSelectedArchivedIds(new Set(paginatedStaff.map((s: any) => s.id))); } else { setSelectedArchivedIds(new Set()); } }} className="w-4 h-4 text-red-600 rounded" />
                                         )}
                                     </th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Employee</th>
@@ -534,6 +576,7 @@ export const StaffManagementPage: React.FC = () => {
                                         <tr key={m.id} className={`hover:bg-slate-50 ${selectedStaffIds.has(m.id) ? 'bg-blue-50' : ''} ${isArchived ? 'opacity-75' : ''}`}>
                                             <td className="px-4 py-4">
                                                 {!isArchived && <input type="checkbox" checked={selectedStaffIds.has(m.id)} onChange={() => { const n = new Set(selectedStaffIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedStaffIds(n); }} className="w-4 h-4 text-[#0066B3] rounded" />}
+                                                {isArchived && isCeo && <input type="checkbox" checked={selectedArchivedIds.has(m.id)} onChange={() => { const n = new Set(selectedArchivedIds); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setSelectedArchivedIds(n); }} className="w-4 h-4 text-red-600 rounded" />}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
@@ -2529,6 +2572,50 @@ export const StaffManagementPage: React.FC = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* Bulk Force Delete Confirm — CEO only, archived view */}
+            {showBulkForceDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+                        <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                            <span className="text-red-600">⚠</span> Bulk Force Delete
+                        </h3>
+                        <p className="text-sm text-slate-600 mb-4">
+                            You are about to permanently erase <strong>{selectedArchivedIds.size} archived staff record{selectedArchivedIds.size !== 1 ? 's' : ''}</strong> and all their linked data (payroll, leave, loans, contracts, documents, etc.). This <strong>cannot be undone</strong>.
+                        </p>
+                        {bulkForceDeleteProgress && (
+                            <div className="mb-4">
+                                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Deleting… {bulkForceDeleteProgress.done} / {bulkForceDeleteProgress.total}</span>
+                                    <span>{Math.round((bulkForceDeleteProgress.done / bulkForceDeleteProgress.total) * 100)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-2">
+                                    <div className="bg-red-600 h-2 rounded-full transition-all" style={{ width: `${(bulkForceDeleteProgress.done / bulkForceDeleteProgress.total) * 100}%` }} />
+                                </div>
+                                {bulkForceDeleteProgress.errors.length > 0 && (
+                                    <ul className="mt-2 text-xs text-red-700 space-y-0.5 max-h-24 overflow-y-auto">
+                                        {bulkForceDeleteProgress.errors.map((e, i) => <li key={i}>• {e}</li>)}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => { setShowBulkForceDeleteConfirm(false); setBulkForceDeleteProgress(null); }}
+                                disabled={bulkForceDeleteMutation.isPending}
+                                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                            >Cancel</button>
+                            <button
+                                onClick={() => bulkForceDeleteMutation.mutate(Array.from(selectedArchivedIds))}
+                                disabled={bulkForceDeleteMutation.isPending}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {bulkForceDeleteMutation.isPending ? 'Deleting…' : `Force Delete ${selectedArchivedIds.size} Record${selectedArchivedIds.size !== 1 ? 's' : ''}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
