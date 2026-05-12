@@ -1288,17 +1288,17 @@ export class StaffService {
         }
         const blockers = await this.getPermanentDeleteBlockers(id);
         const total = Object.values(blockers).reduce((a, b) => a + b, 0);
-        if (total > 0) {
-            if (!opts.force) {
-                const summary = Object.entries(blockers)
-                    .filter(([, v]) => v > 0)
-                    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
-                    .join(', ');
-                throw new BadRequestException(
-                    `Cannot permanently delete: historical records still reference this staff (${summary}). Use force=true to cascade-delete all linked records.`,
-                );
-            }
-            // Force: cascade-delete all historical/linked records in dependency order
+        if (total > 0 && !opts.force) {
+            const summary = Object.entries(blockers)
+                .filter(([, v]) => v > 0)
+                .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                .join(', ');
+            throw new BadRequestException(
+                `Cannot permanently delete: historical records still reference this staff (${summary}). Use force=true to cascade-delete all linked records.`,
+            );
+        }
+        if (opts.force) {
+            // Always cascade-nullify/delete ALL FK references regardless of blocker count
             const del = (sql: string) => this.dataSource.query(sql, [id]).catch((err: any) => {
                 console.error(`[permanentDelete] FAILED: ${sql} | staff=${id} | error: ${err?.message}`);
             });
