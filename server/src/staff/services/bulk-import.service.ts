@@ -360,73 +360,49 @@ export class BulkImportService {
         return pos;
     }
 
-    // ─── Generate Employee Number ─────────────────────────────────────────────
+    // ─── Generate Employee Numbers (pre-batch) ────────────────────────────────
 
-    // In-memory tracker for numbers allocated in the current batch (across per-row transactions)
-    private allocatedEmpNumbers = new Set<string>();
-
-    private async generateEmployeeNumber(manager: any): Promise<string> {
+    /**
+     * Pre-generate N unique employee numbers BEFORE any transactions start.
+     * Uses staffRepo directly (not a transaction manager) so it always sees
+     * committed data. Numbers are allocated sequentially and guaranteed unique
+     * against both the DB state and each other within the batch.
+     */
+    private async preallocateEmployeeNumbers(count: number): Promise<string[]> {
         const year = new Date().getFullYear().toString().slice(-2);
         const prefix = `EMP${year}`;
 
-        // Get all existing employee numbers for this year prefix from DB
-        const existingStaff = await manager.find(Staff, {
+        // Fetch all existing numbers for this year from the DB (committed state)
+        const existingStaff = await this.staffRepo.find({
             where: { employee_number: Like(`${prefix}%`) },
             select: ['employee_number'],
         });
 
-        // Find maximum number from DB
+        const usedSet = new Set<string>();
         let maxNum = 0;
-        for (const staff of existingStaff) {
-            if (staff.employee_number) {
-                const numPart = staff.employee_number.replace(prefix, '');
-                const num = parseInt(numPart, 10);
-                if (!isNaN(num) && num > maxNum) {
-                    maxNum = num;
-                }
+
+        for (const s of existingStaff) {
+            if (s.employee_number) {
+                usedSet.add(s.employee_number);
+                const num = parseInt(s.employee_number.replace(prefix, ''), 10);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
             }
         }
 
-        // Also consider numbers allocated earlier in this batch (not yet committed/visible)
-        for (const allocated of this.allocatedEmpNumbers) {
-            if (allocated.startsWith(prefix)) {
-                const num = parseInt(allocated.replace(prefix, ''), 10);
-                if (!isNaN(num) && num > maxNum) {
-                    maxNum = num;
-                }
-            }
-        }
-
-        // Generate next number with collision check
+        const allocated: string[] = [];
         let nextNum = maxNum + 1;
-        let empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-        let attempts = 0;
-        const maxAttempts = 1000;
 
-        while (attempts < maxAttempts) {
-            // Skip if already allocated in this batch
-            if (!this.allocatedEmpNumbers.has(empNumber)) {
-                // Check if this number already exists in DB
-                const exists = await manager.findOne(Staff, {
-                    where: { employee_number: empNumber },
-                    select: ['id'],
-                });
-
-                if (!exists) {
-                    this.allocatedEmpNumbers.add(empNumber);
-                    return empNumber;
-                }
+        while (allocated.length < count) {
+            const candidate = `${prefix}${String(nextNum).padStart(4, '0')}`;
+            if (!usedSet.has(candidate)) {
+                usedSet.add(candidate); // reserve it so the next iteration skips it
+                allocated.push(candidate);
             }
-
             nextNum++;
-            empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
-            attempts++;
+            if (nextNum > maxNum + count + 10000) break; // safety
         }
 
-        // Fallback: timestamp + random suffix
-        const fallback = `EMP${year}${Date.now().toString().slice(-5)}${Math.floor(Math.random() * 10)}`;
-        this.allocatedEmpNumbers.add(fallback);
-        return fallback;
+        return allocated;
     }
 
     // ─── Main Import ──────────────────────────────────────────────────────────
@@ -447,14 +423,37 @@ export class BulkImportService {
             created: [],
         };
 
-        // Reset in-batch tracker for employee numbers
-        this.allocatedEmpNumbers = new Set<string>();
+        // ── Pre-flight checks ──────────────────────────────────────────────────
+        // 1. Detect duplicate emails within the uploaded file itself
+        const fileEmailSet = new Set<string>();
+        const fileDupes = new Set<string>();
+        for (const row of rows) {
+            const em = row.email?.toLowerCase();
+            if (em) {
+                if (fileEmailSet.has(em)) fileDupes.add(em);
+                else fileEmailSet.add(em);
+            }
+        }
 
+        // 2. Check all emails against DB in one query
+        const allEmails = [...fileEmailSet];
+        const existingUsers = allEmails.length > 0
+            ? await this.userRepo.find({
+                where: allEmails.map(e => ({ email: e })),
+                select: ['email'],
+            })
+            : [];
+        const dbEmailSet = new Set(existingUsers.map(u => u.email.toLowerCase()));
+
+        // 3. Pre-allocate exactly enough employee numbers for all rows
+        const empNumbers = await this.preallocateEmployeeNumbers(rows.length);
+        let empIndex = 0;
+
+        // ── Per-row processing ────────────────────────────────────────────────
         for (const row of rows) {
             const qr = this.dataSource.createQueryRunner();
             await qr.connect();
             await qr.startTransaction();
-            let allocatedNumber: string | undefined;
 
             try {
                 // ── Validate required fields ──
@@ -464,9 +463,11 @@ export class BulkImportService {
                 if (!row.role_code) throw new Error('role_code is required');
                 if (!row.position_name) throw new Error('position_name is required');
 
-                // ── Check duplicate email ──
-                const existing = await qr.manager.findOne(User, { where: { email: row.email.toLowerCase() } });
-                if (existing) throw new Error(`Email already exists: ${row.email}`);
+                const emailLower = row.email.toLowerCase();
+
+                // ── Check email uniqueness (file-level + DB-level) ──
+                if (fileDupes.has(emailLower)) throw new Error(`Duplicate email in file: ${row.email}`);
+                if (dbEmailSet.has(emailLower)) throw new Error(`Email already exists: ${row.email}`);
 
                 // ── Resolve role ──
                 const role = await qr.manager.findOne(Role, { where: { code: row.role_code.toUpperCase(), is_active: true } });
@@ -496,21 +497,19 @@ export class BulkImportService {
                 const tempPassword = crypto.randomBytes(16).toString('hex');
                 const hashedPassword = await bcrypt.hash(tempPassword, 10);
                 const user = qr.manager.create(User, {
-                    email: row.email.toLowerCase(),
+                    email: emailLower,
                     password_hash: hashedPassword,
                     is_active: true,
                     roles: [role],
                 });
                 const savedUser = await qr.manager.save(User, user);
 
-                // ── Create Staff ──
+                // ── Create Staff with pre-allocated employee number ──
+                const empNumber = empNumbers[empIndex++];
                 const hireDate = row.hire_date ? new Date(row.hire_date) : new Date();
                 const probationMonths = row.probation_months ? parseInt(String(row.probation_months)) : 3;
                 const probationEndDate = new Date(hireDate);
                 probationEndDate.setMonth(probationEndDate.getMonth() + probationMonths);
-
-                const empNumber = await this.generateEmployeeNumber(qr.manager);
-                allocatedNumber = empNumber;
 
                 const staff = qr.manager.create(Staff, {
                     user: savedUser,
@@ -562,6 +561,9 @@ export class BulkImportService {
 
                 await qr.commitTransaction();
 
+                // Mark email as now in DB so subsequent rows in same batch don't collide
+                dbEmailSet.add(emailLower);
+
                 result.succeeded++;
                 result.created.push({ row: row.row, email: row.email, employee_number: empNumber });
                 this.logger.log(`Bulk import: created staff ${row.email} (${empNumber})`);
@@ -581,8 +583,7 @@ export class BulkImportService {
 
             } catch (err: any) {
                 await qr.rollbackTransaction();
-                // Release the reserved employee number so it can be reused
-                if (allocatedNumber) this.allocatedEmpNumbers.delete(allocatedNumber);
+                empIndex++; // advance index even on failure so numbers stay aligned
                 result.failed++;
                 result.errors.push({ row: row.row, email: row.email || '(unknown)', error: err.message });
                 this.logger.warn(`Bulk import row ${row.row} failed: ${err.message}`);
