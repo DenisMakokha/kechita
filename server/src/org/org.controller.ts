@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';  // kept for stats endpoint
 import { OrgService } from './org.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -35,8 +35,6 @@ export class OrgController {
     // ==================== REGIONS ====================
 
     @Get('regions')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(300000)
     getRegions(@Query('include_inactive') includeInactive?: string) {
         return this.orgService.getRegions(includeInactive === 'true');
     }
@@ -67,8 +65,6 @@ export class OrgController {
     // ==================== BRANCHES ====================
 
     @Get('branches')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(300000)
     getBranches(
         @Query('region_id') regionId?: string,
         @Query('include_inactive') includeInactive?: string,
@@ -102,8 +98,6 @@ export class OrgController {
     // ==================== DEPARTMENTS ====================
 
     @Get('departments')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(300000)
     getDepartments(@Query('include_inactive') includeInactive?: string) {
         return this.orgService.getDepartments(includeInactive === 'true');
     }
@@ -134,8 +128,6 @@ export class OrgController {
     // ==================== POSITIONS ====================
 
     @Get('positions')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(300000)
     getPositions(@Query('include_inactive') includeInactive?: string) {
         return this.orgService.getPositions(includeInactive === 'true');
     }
