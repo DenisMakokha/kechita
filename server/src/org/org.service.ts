@@ -178,6 +178,16 @@ export class OrgService {
 
     async deleteBranch(id: string): Promise<{ message: string }> {
         const branch = await this.getBranch(id);
+
+        const staffCount = await this.branchRepo.manager.count('staff', {
+            where: { branch_id: id },
+        }).catch(() => 0);
+        if (staffCount > 0) {
+            throw new BadRequestException(
+                `Cannot delete branch "${branch.name}" - it has ${staffCount} staff member(s) assigned to it.`
+            );
+        }
+
         await this.branchRepo.remove(branch);
         return { message: 'Branch deleted successfully' };
     }
@@ -261,6 +271,15 @@ export class OrgService {
         if (department.children && department.children.length > 0) {
             throw new BadRequestException(
                 `Cannot delete department "${department.name}" - it has ${department.children.length} child department(s)`
+            );
+        }
+
+        const positionCount = await this.positionRepo.count({
+            where: { department: { id } },
+        });
+        if (positionCount > 0) {
+            throw new BadRequestException(
+                `Cannot delete department "${department.name}" - it has ${positionCount} position(s) assigned to it. Reassign or delete them first.`
             );
         }
 
@@ -354,6 +373,16 @@ export class OrgService {
 
     async deletePosition(id: string): Promise<{ message: string }> {
         const position = await this.getPosition(id);
+
+        const staffCount = await this.positionRepo.manager.count('staff', {
+            where: { position_id: id },
+        }).catch(() => 0);
+        if (staffCount > 0) {
+            throw new BadRequestException(
+                `Cannot delete position "${position.name}" - it is assigned to ${staffCount} staff member(s).`
+            );
+        }
+
         await this.positionRepo.remove(position);
         return { message: 'Position deleted successfully' };
     }
