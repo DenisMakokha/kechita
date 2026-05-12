@@ -1299,69 +1299,98 @@ export class StaffService {
         }
         if (opts.force) {
             // Always cascade-nullify/delete ALL FK references regardless of blocker count
+            // Table/column names verified from information_schema
             const del = (sql: string) => this.dataSource.query(sql, [id]).catch((err: any) => {
                 console.error(`[permanentDelete] FAILED: ${sql} | staff=${id} | error: ${err?.message}`);
             });
             // Onboarding
+            await del(`UPDATE onboarding_task_statuses SET completed_by_id = NULL WHERE completed_by_id = $1`);
+            await del(`UPDATE onboarding_instances SET assigned_mentor_id = NULL WHERE assigned_mentor_id = $1`);
             await del(`DELETE FROM onboarding_task_statuses WHERE instance_id IN (SELECT id FROM onboarding_instances WHERE staff_id = $1)`);
             await del(`DELETE FROM onboarding_instances WHERE staff_id = $1`);
             // Staff records
             await del(`DELETE FROM staff_documents WHERE staff_id = $1`);
             await del(`DELETE FROM staff_contracts WHERE staff_id = $1`);
-            await del(`DELETE FROM salary_history WHERE staff_id = $1`);
+            await del(`DELETE FROM staff_salary_history WHERE staff_id = $1`);
             await del(`DELETE FROM employment_history WHERE staff_id = $1`);
-            await del(`DELETE FROM probation_reviews WHERE staff_id = $1`);
-            await del(`DELETE FROM next_of_kin WHERE staff_id = $1`);
-            await del(`DELETE FROM dependents WHERE staff_id = $1`);
+            await del(`UPDATE staff_probation_reviews SET reviewer_id = NULL WHERE reviewer_id = $1`);
+            await del(`DELETE FROM staff_probation_reviews WHERE staff_id = $1`);
+            await del(`DELETE FROM staff_next_of_kin WHERE staff_id = $1`);
+            await del(`DELETE FROM staff_dependents WHERE staff_id = $1`);
             // Assets
             await del(`DELETE FROM asset_assignments WHERE staff_id = $1`);
             // Approvals
+            await del(`UPDATE approval_actions SET delegated_to_id = NULL WHERE delegated_to_id = $1`);
             await del(`DELETE FROM approval_actions WHERE approver_staff_id = $1`);
             await del(`UPDATE approval_instances SET resolved_by_id = NULL WHERE resolved_by_id = $1`);
-            await del(`DELETE FROM approval_instances WHERE requested_by_staff_id = $1`);
+            await del(`UPDATE approval_instances SET current_approver_id = NULL WHERE current_approver_id = $1`);
+            await del(`DELETE FROM approval_instances WHERE requester_id = $1`);
             // Leave
+            await del(`UPDATE leave_requests SET reliever_id = NULL WHERE reliever_id = $1`);
+            await del(`UPDATE leave_requests SET cancelled_by_id = NULL WHERE cancelled_by_id = $1`);
+            await del(`UPDATE leave_requests SET final_approver_id = NULL WHERE final_approver_id = $1`);
             await del(`DELETE FROM leave_balances WHERE staff_id = $1`);
             await del(`DELETE FROM leave_requests WHERE staff_id = $1`);
             // Attendance
             await del(`DELETE FROM roster_assignments WHERE staff_id = $1`);
             await del(`DELETE FROM time_entries WHERE staff_id = $1`);
-            await del(`DELETE FROM attendance_records WHERE staff_id = $1`);
-            // Loans (repayments first, then loans)
-            await del(`DELETE FROM staff_loan_repayments WHERE loan_id IN (SELECT id FROM staff_loans WHERE staff_id = $1)`);
+            // Loans — nullify refs first, then delete owned loans
             await del(`UPDATE staff_loans SET guarantor_id = NULL WHERE guarantor_id = $1`);
+            await del(`UPDATE staff_loans SET approved_by_id = NULL WHERE approved_by_id = $1`);
+            await del(`UPDATE staff_loans SET rejected_by_id = NULL WHERE rejected_by_id = $1`);
+            await del(`UPDATE staff_loans SET disbursed_by_id = NULL WHERE disbursed_by_id = $1`);
+            await del(`UPDATE staff_loans SET created_by_id = NULL WHERE created_by_id = $1`);
             await del(`DELETE FROM staff_loans WHERE staff_id = $1`);
-            await del(`DELETE FROM loan_applications WHERE staff_id = $1`);
-            // Claims
-            await del(`DELETE FROM claim_items WHERE claim_id IN (SELECT id FROM claims WHERE staff_id = $1)`);
+            // Claims — nullify refs first, then delete
+            await del(`UPDATE claims SET submitted_by_id = NULL WHERE submitted_by_id = $1`);
+            await del(`UPDATE claims SET approved_by_id = NULL WHERE approved_by_id = $1`);
+            await del(`UPDATE claims SET rejected_by_id = NULL WHERE rejected_by_id = $1`);
             await del(`DELETE FROM claims WHERE staff_id = $1`);
             // Payroll
-            await del(`DELETE FROM payslip_lines WHERE payslip_id IN (SELECT id FROM payslips WHERE staff_id = $1)`);
             await del(`DELETE FROM payslips WHERE staff_id = $1`);
-            await del(`DELETE FROM payroll_payslips WHERE staff_id = $1`);
             await del(`DELETE FROM staff_recurring_deductions WHERE staff_id = $1`);
             await del(`DELETE FROM staff_allowances WHERE staff_id = $1`);
-            // Petty cash
-            await del(`DELETE FROM petty_cash_floats WHERE custodian_id = $1`);
+            // Petty cash — nullify refs
+            await del(`UPDATE petty_cash_floats SET custodian_id = NULL WHERE custodian_id = $1`);
+            await del(`UPDATE petty_cash_replenishments SET requested_by_id = NULL WHERE requested_by_id = $1`);
+            await del(`UPDATE petty_cash_replenishments SET approved_by_id = NULL WHERE approved_by_id = $1`);
+            await del(`UPDATE petty_cash_replenishments SET disbursed_by_id = NULL WHERE disbursed_by_id = $1`);
+            await del(`UPDATE petty_cash_transactions SET created_by_id = NULL WHERE created_by_id = $1`);
+            await del(`UPDATE petty_cash_transactions SET approved_by_id = NULL WHERE approved_by_id = $1`);
+            await del(`UPDATE petty_cash_reconciliations SET verified_by_id = NULL WHERE verified_by_id = $1`);
+            await del(`UPDATE petty_cash_reconciliations SET counted_by_id = NULL WHERE counted_by_id = $1`);
             // Performance
-            await del(`DELETE FROM key_results WHERE goal_id IN (SELECT id FROM goals WHERE staff_id = $1)`);
+            await del(`UPDATE reviews SET reviewer_id = NULL WHERE reviewer_id = $1`);
+            await del(`DELETE FROM reviews WHERE reviewee_id = $1`);
             await del(`DELETE FROM goals WHERE staff_id = $1`);
             // Disciplinary
-            await del(`DELETE FROM disciplinary_cases WHERE staff_id = $1`);
             await del(`UPDATE disciplinary_cases SET raised_by_staff_id = NULL WHERE raised_by_staff_id = $1`);
+            await del(`DELETE FROM disciplinary_cases WHERE staff_id = $1`);
             // Training
             await del(`DELETE FROM training_enrollments WHERE staff_id = $1`);
             // Benefits
             await del(`DELETE FROM benefit_enrollments WHERE staff_id = $1`);
-            // Recruitment (unlink, don't delete)
+            // Announcements
+            await del(`DELETE FROM announcement_reads WHERE staff_id = $1`);
+            await del(`UPDATE announcements SET published_by_id = NULL WHERE published_by_id = $1`);
+            await del(`UPDATE announcements SET created_by_id = NULL WHERE created_by_id = $1`);
+            // Recruitment — nullify refs, don't delete records
+            await del(`UPDATE applications SET screened_by_id = NULL WHERE screened_by_id = $1`);
+            await del(`UPDATE applications SET assigned_to_id = NULL WHERE assigned_to_id = $1`);
+            await del(`UPDATE interviews SET lead_interviewer_id = NULL WHERE lead_interviewer_id = $1`);
             await del(`UPDATE interviews SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
+            await del(`DELETE FROM interview_interviewers WHERE staff_id = $1`);
             await del(`UPDATE offers SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
             await del(`UPDATE offers SET approved_by_staff_id = NULL WHERE approved_by_staff_id = $1`);
+            await del(`UPDATE candidate_notes SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
+            await del(`UPDATE background_checks SET reviewed_by_id = NULL WHERE reviewed_by_id = $1`);
+            await del(`UPDATE background_checks SET initiated_by_id = NULL WHERE initiated_by_id = $1`);
+            await del(`UPDATE reference_checks SET contacted_by_id = NULL WHERE contacted_by_id = $1`);
             await del(`UPDATE job_posts SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
             await del(`UPDATE job_posts SET hiring_manager_id = NULL WHERE hiring_manager_id = $1`);
-            await del(`UPDATE job_posts SET approved_by_staff_id = NULL WHERE approved_by_staff_id = $1`);
-            // Notifications
-            await del(`DELETE FROM notifications WHERE staff_id = $1`);
-            // Unlink subordinates and manager refs
+            // Branch reports
+            await del(`UPDATE branch_daily_reports SET submitted_by_staff_id = NULL WHERE submitted_by_staff_id = $1`);
+            // Unlink subordinates
             await this.dataSource.query(`UPDATE staff SET manager_id = NULL WHERE manager_id = $1`, [id]);
         }
         // Detach the linked user account (deactivate but keep for audit trail)
