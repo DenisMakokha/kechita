@@ -1300,8 +1300,10 @@ export class StaffService {
             }
             // Force: cascade-delete all historical/linked records in dependency order
             const del = (sql: string) => this.dataSource.query(sql, [id]).catch(() => undefined);
+            // Onboarding
             await del(`DELETE FROM onboarding_task_statuses WHERE instance_id IN (SELECT id FROM onboarding_instances WHERE staff_id = $1)`);
             await del(`DELETE FROM onboarding_instances WHERE staff_id = $1`);
+            // Staff records
             await del(`DELETE FROM staff_documents WHERE staff_id = $1`);
             await del(`DELETE FROM staff_contracts WHERE staff_id = $1`);
             await del(`DELETE FROM salary_history WHERE staff_id = $1`);
@@ -1309,17 +1311,52 @@ export class StaffService {
             await del(`DELETE FROM probation_reviews WHERE staff_id = $1`);
             await del(`DELETE FROM next_of_kin WHERE staff_id = $1`);
             await del(`DELETE FROM dependents WHERE staff_id = $1`);
+            // Assets
             await del(`DELETE FROM asset_assignments WHERE staff_id = $1`);
+            // Approvals
             await del(`DELETE FROM approval_actions WHERE approver_staff_id = $1`);
             await del(`DELETE FROM approval_instances WHERE requested_by_staff_id = $1`);
+            // Leave
             await del(`DELETE FROM leave_balances WHERE staff_id = $1`);
             await del(`DELETE FROM leave_requests WHERE staff_id = $1`);
+            // Attendance
+            await del(`DELETE FROM roster_assignments WHERE staff_id = $1`);
+            await del(`DELETE FROM time_entries WHERE staff_id = $1`);
             await del(`DELETE FROM attendance_records WHERE staff_id = $1`);
+            // Loans (repayments first, then loans)
+            await del(`DELETE FROM staff_loan_repayments WHERE loan_id IN (SELECT id FROM staff_loans WHERE staff_id = $1)`);
+            await del(`DELETE FROM staff_loans WHERE staff_id = $1`);
             await del(`DELETE FROM loan_applications WHERE staff_id = $1`);
+            // Claims
+            await del(`DELETE FROM claim_items WHERE claim_id IN (SELECT id FROM claims WHERE staff_id = $1)`);
             await del(`DELETE FROM claims WHERE staff_id = $1`);
-            await del(`DELETE FROM petty_cash_floats WHERE staff_id = $1`);
+            // Payroll
+            await del(`DELETE FROM payslip_lines WHERE payslip_id IN (SELECT id FROM payslips WHERE staff_id = $1)`);
+            await del(`DELETE FROM payslips WHERE staff_id = $1`);
             await del(`DELETE FROM payroll_payslips WHERE staff_id = $1`);
-            // Unlink subordinates
+            await del(`DELETE FROM staff_recurring_deductions WHERE staff_id = $1`);
+            await del(`DELETE FROM staff_allowances WHERE staff_id = $1`);
+            // Petty cash
+            await del(`DELETE FROM petty_cash_floats WHERE custodian_id = $1`);
+            // Performance
+            await del(`DELETE FROM key_results WHERE goal_id IN (SELECT id FROM goals WHERE staff_id = $1)`);
+            await del(`DELETE FROM goals WHERE staff_id = $1`);
+            // Disciplinary
+            await del(`DELETE FROM disciplinary_cases WHERE staff_id = $1`);
+            await del(`UPDATE disciplinary_cases SET raised_by_staff_id = NULL WHERE raised_by_staff_id = $1`);
+            // Training
+            await del(`DELETE FROM training_enrollments WHERE staff_id = $1`);
+            // Benefits
+            await del(`DELETE FROM benefit_enrollments WHERE staff_id = $1`);
+            // Recruitment (unlink, don't delete)
+            await del(`UPDATE interviews SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
+            await del(`UPDATE offers SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
+            await del(`UPDATE offers SET approved_by_staff_id = NULL WHERE approved_by_staff_id = $1`);
+            await del(`UPDATE job_posts SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
+            await del(`UPDATE job_posts SET hiring_manager_id = NULL WHERE hiring_manager_id = $1`);
+            // Notifications
+            await del(`DELETE FROM notifications WHERE staff_id = $1`);
+            // Unlink subordinates and manager refs
             await this.dataSource.query(`UPDATE staff SET manager_id = NULL WHERE manager_id = $1`, [id]);
         }
         // Detach the linked user account (deactivate but keep for audit trail)
