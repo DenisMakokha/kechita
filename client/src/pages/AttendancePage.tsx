@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { InputDialog } from '../components/ui/InputDialog';
 import {
     Clock, LogIn, LogOut, Calendar, MapPin, Users, X, AlertTriangle,
-    CheckCircle, Loader2, Plus, AlertCircle, Ban,
+    CheckCircle, Loader2, Plus, AlertCircle, Ban, Edit,
 } from 'lucide-react';
 
 type Tab = 'my' | 'shifts' | 'roster' | 'entries';
@@ -133,19 +133,66 @@ const AttendancePage: React.FC = () => {
 
     // Shift management
     const [showShiftModal, setShowShiftModal] = useState(false);
-    const [shiftForm, setShiftForm] = useState({ code: '', name: '', start_time: '08:00', end_time: '17:00', break_minutes: 60, grace_minutes: 5, is_night_shift: false });
+    const [editingShift, setEditingShift] = useState<Shift | null>(null);
+    const [deleteShiftTarget, setDeleteShiftTarget] = useState<Shift | null>(null);
+    const emptyShiftForm = { code: '', name: '', start_time: '08:00', end_time: '17:00', break_minutes: 60, grace_minutes: 5, is_night_shift: false };
+    const [shiftForm, setShiftForm] = useState(emptyShiftForm);
     const [approveEntryId, setApproveEntryId] = useState<string | null>(null);
     const [rejectEntryId, setRejectEntryId] = useState<string | null>(null);
+
+    // Manual entry
+    const [showManualModal, setShowManualModal] = useState(false);
+    const [manualForm, setManualForm] = useState({ staff_id: '', date: new Date().toISOString().split('T')[0], clock_in_at: '', clock_out_at: '', notes: '' });
+
+    const openShiftModal = (shift?: Shift) => {
+        if (shift) {
+            setEditingShift(shift);
+            setShiftForm({ code: shift.code, name: shift.name, start_time: shift.start_time.slice(0, 5), end_time: shift.end_time.slice(0, 5), break_minutes: shift.break_minutes, grace_minutes: shift.grace_minutes, is_night_shift: shift.is_night_shift });
+        } else {
+            setEditingShift(null);
+            setShiftForm(emptyShiftForm);
+        }
+        setShowShiftModal(true);
+    };
 
     const createShiftMutation = useMutation({
         mutationFn: async () => (await api.post('/attendance/shifts', shiftForm)).data,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['shifts'] });
             setShowShiftModal(false);
-            setShiftForm({ code: '', name: '', start_time: '08:00', end_time: '17:00', break_minutes: 60, grace_minutes: 5, is_night_shift: false });
+            setShiftForm(emptyShiftForm);
             showToast('Shift created');
         },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create shift', 'error'),
+    });
+
+    const updateShiftMutation = useMutation({
+        mutationFn: async () => (await api.patch(`/attendance/shifts/${editingShift!.id}`, shiftForm)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shifts'] });
+            setShowShiftModal(false);
+            setEditingShift(null);
+            setShiftForm(emptyShiftForm);
+            showToast('Shift updated');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update shift', 'error'),
+    });
+
+    const deleteShiftMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/attendance/shifts/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['shifts'] }); setDeleteShiftTarget(null); showToast('Shift deleted'); },
+        onError: (e: any) => { setDeleteShiftTarget(null); showToast(e?.response?.data?.message || 'Failed to delete shift', 'error'); },
+    });
+
+    const manualEntryMutation = useMutation({
+        mutationFn: async () => (await api.post('/attendance/entries/manual', manualForm)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['all-attendance'] });
+            setShowManualModal(false);
+            setManualForm({ staff_id: '', date: new Date().toISOString().split('T')[0], clock_in_at: '', clock_out_at: '', notes: '' });
+            showToast('Manual entry added');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to add entry', 'error'),
     });
 
     const approveEntryMutation = useMutation({
@@ -328,12 +375,12 @@ const AttendancePage: React.FC = () => {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-slate-600">{shifts.length} shift{shifts.length === 1 ? '' : 's'}</p>
-                        <button onClick={() => setShowShiftModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={16} />New Shift</button>
+                        <button onClick={() => openShiftModal()} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={16} />New Shift</button>
                     </div>
                     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase">
-                                <tr><th className="px-5 py-3 text-left">Code</th><th className="px-5 py-3 text-left">Name</th><th className="px-5 py-3 text-left">Hours</th><th className="px-5 py-3 text-center">Break</th><th className="px-5 py-3 text-center">Grace</th><th className="px-5 py-3 text-center">Active</th></tr>
+                                <tr><th className="px-5 py-3 text-left">Code</th><th className="px-5 py-3 text-left">Name</th><th className="px-5 py-3 text-left">Hours</th><th className="px-5 py-3 text-center">Break</th><th className="px-5 py-3 text-center">Grace</th><th className="px-5 py-3 text-center">Active</th><th className="px-5 py-3"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {shifts.map(s => (
@@ -344,9 +391,15 @@ const AttendancePage: React.FC = () => {
                                         <td className="px-5 py-3 text-center">{s.break_minutes}m</td>
                                         <td className="px-5 py-3 text-center">{s.grace_minutes}m</td>
                                         <td className="px-5 py-3 text-center">{s.is_active ? <CheckCircle size={16} className="inline text-emerald-500" /> : <X size={16} className="inline text-slate-300" />}</td>
+                                        <td className="px-5 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button onClick={() => openShiftModal(s)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Edit"><Edit size={13} /></button>
+                                                <button onClick={() => setDeleteShiftTarget(s)} className="p-1.5 hover:bg-red-50 rounded text-red-400" title="Delete"><X size={13} /></button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
-                                {shifts.length === 0 && <tr><td colSpan={6} className="text-center p-8 text-slate-400">No shifts yet. Create one to start scheduling.</td></tr>}
+                                {shifts.length === 0 && <tr><td colSpan={7} className="text-center p-8 text-slate-400">No shifts yet. Create one to start scheduling.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -402,12 +455,44 @@ const AttendancePage: React.FC = () => {
                 </div>
             )}
 
-            {/* ROSTER (admin placeholder) */}
+            {/* ROSTER (admin) */}
             {tab === 'roster' && isAdmin && (
-                <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-                    <Calendar className="mx-auto text-slate-300 mb-3" size={48} />
-                    <p className="text-slate-500 font-medium">Roster planner — use API for bulk assignment</p>
-                    <p className="text-sm text-slate-400 mt-1">POST /attendance/roster/assign with an array of staff_id/shift_id/date entries.</p>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-slate-500">Assign shifts to staff for specific dates</p>
+                        <button onClick={() => setShowManualModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299]"><Plus size={16} />Manual Entry</button>
+                    </div>
+                    <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+                        <Calendar className="mx-auto text-slate-300 mb-3" size={40} />
+                        <p className="text-slate-500 font-medium">Visual roster planner coming soon</p>
+                        <p className="text-sm text-slate-400 mt-1">Use the Manual Entry button above to add time records for staff.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Manual Entry Modal */}
+            {showManualModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="font-semibold text-slate-900">Manual Time Entry</h2>
+                            <button onClick={() => setShowManualModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-3">
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Date</label><input type="date" value={manualForm.date} onChange={(e) => setManualForm({ ...manualForm, date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="block text-sm font-medium text-slate-700 mb-1">Clock In</label><input type="time" value={manualForm.clock_in_at} onChange={(e) => setManualForm({ ...manualForm, clock_in_at: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                                <div><label className="block text-sm font-medium text-slate-700 mb-1">Clock Out</label><input type="time" value={manualForm.clock_out_at} onChange={(e) => setManualForm({ ...manualForm, clock_out_at: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                            </div>
+                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Notes</label><input type="text" value={manualForm.notes} onChange={(e) => setManualForm({ ...manualForm, notes: e.target.value })} placeholder="Optional reason / note" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setShowManualModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button onClick={() => manualEntryMutation.mutate()} disabled={!manualForm.date || !manualForm.clock_in_at || manualEntryMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
+                                {manualEntryMutation.isPending ? <AlertCircle size={15} className="animate-pulse" /> : <Plus size={15} />}Add Entry
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -416,8 +501,8 @@ const AttendancePage: React.FC = () => {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h2 className="font-semibold text-slate-900">New Shift</h2>
-                            <button onClick={() => setShowShiftModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                            <h2 className="font-semibold text-slate-900">{editingShift ? 'Edit Shift' : 'New Shift'}</h2>
+                            <button onClick={() => { setShowShiftModal(false); setEditingShift(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
                         </div>
                         <div className="p-6 space-y-3">
                             <div className="grid grid-cols-2 gap-3">
@@ -439,13 +524,29 @@ const AttendancePage: React.FC = () => {
                         </div>
                         <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
                             <button onClick={() => setShowShiftModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
-                            <button onClick={() => createShiftMutation.mutate()} disabled={!shiftForm.code || !shiftForm.name || createShiftMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
-                                {createShiftMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}Create
+                            <button
+                                onClick={() => editingShift ? updateShiftMutation.mutate() : createShiftMutation.mutate()}
+                                disabled={!shiftForm.code || !shiftForm.name || createShiftMutation.isPending || updateShiftMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50">
+                                {(createShiftMutation.isPending || updateShiftMutation.isPending) ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                                {editingShift ? 'Update' : 'Create'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Delete shift dialog */}
+            <ConfirmDialog
+                isOpen={!!deleteShiftTarget}
+                title="Delete Shift"
+                message={`Delete shift "${deleteShiftTarget?.name}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                variant="danger"
+                onConfirm={() => { if (deleteShiftTarget) deleteShiftMutation.mutate(deleteShiftTarget.id); }}
+                onCancel={() => setDeleteShiftTarget(null)}
+                isLoading={deleteShiftMutation.isPending}
+            />
 
             {/* Approve dialog */}
             <ConfirmDialog

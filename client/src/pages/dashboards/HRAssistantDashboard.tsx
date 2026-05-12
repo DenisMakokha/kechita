@@ -58,7 +58,7 @@ export const HRAssistantDashboard: React.FC = () => {
     // Overdue onboarding instances
     const { data: overdueOnboarding } = useQuery({
         queryKey: ['overdue-onboarding-hra'],
-        queryFn: () => api.get('/onboarding/instances/overdue').then(r => r.data).catch(() => []),
+        queryFn: () => api.get('/staff/onboarding/instances/overdue').then(r => r.data).catch(() => []),
     });
 
     // Recruitment stats
