@@ -363,9 +363,44 @@ export class BulkImportService {
     // ─── Generate Employee Number ─────────────────────────────────────────────
 
     private async generateEmployeeNumber(manager: any): Promise<string> {
-        const count = await manager.count(Staff);
         const year = new Date().getFullYear().toString().slice(-2);
-        return `EMP${year}${String(count + 1).padStart(4, '0')}`;
+        const prefix = `EMP${year}`;
+        
+        // Find the highest existing employee number for this year
+        const existing = await manager
+            .createQueryBuilder(Staff, 's')
+            .select("MAX(CAST(REPLACE(s.employee_number, :prefix, '') AS INTEGER))", 'maxNum')
+            .where('s.employee_number LIKE :pattern', { pattern: `${prefix}%` })
+            .setParameter('prefix', prefix)
+            .getRawOne();
+        
+        const maxNum = existing?.maxNum || 0;
+        let nextNum = maxNum + 1;
+        
+        // Ensure the number doesn't already exist (race condition safety)
+        let empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
+        let attempts = 0;
+        const maxAttempts = 100;
+        
+        while (attempts < maxAttempts) {
+            const exists = await manager.findOne(Staff, { 
+                where: { employee_number: empNumber },
+                select: ['id']
+            });
+            
+            if (!exists) {
+                return empNumber;
+            }
+            
+            // Try next number
+            nextNum++;
+            empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
+            attempts++;
+        }
+        
+        // Fallback: use timestamp-based number if sequential approach fails
+        const timestamp = Date.now().toString().slice(-6);
+        return `EMP${year}${timestamp}`;
     }
 
     // ─── Main Import ──────────────────────────────────────────────────────────
