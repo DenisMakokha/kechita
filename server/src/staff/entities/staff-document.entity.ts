@@ -75,7 +75,7 @@ export class StaffDocument {
     reminder_sent_expired: boolean;
 
     // Audit
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'uploaded_at' })
     uploaded_at: Date;
 
     @UpdateDateColumn()

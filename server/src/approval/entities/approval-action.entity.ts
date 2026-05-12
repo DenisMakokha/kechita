@@ -54,6 +54,6 @@ export class ApprovalAction {
     @Column({ nullable: true })
     user_agent?: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'acted_at' })
     acted_at: Date;
 }

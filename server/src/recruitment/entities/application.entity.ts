@@ -121,7 +121,7 @@ export class Application {
     @Column({ type: 'int', default: 0 })
     interview_count: number;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'applied_at' })
     applied_at: Date;
 
     @UpdateDateColumn()

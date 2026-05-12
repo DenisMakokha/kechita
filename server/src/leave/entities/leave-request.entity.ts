@@ -92,7 +92,7 @@ export class LeaveRequest {
     @Column({ nullable: true })
     contact_address?: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'requested_at' })
     requested_at: Date;
 
     @UpdateDateColumn()
