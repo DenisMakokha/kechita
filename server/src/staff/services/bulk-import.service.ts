@@ -291,15 +291,42 @@ export class BulkImportService {
             keys.forEach((key, i) => {
                 const cell = row.getCell(i + 1);
                 let val = cell.value;
+
+                // Unwrap formula result
+                if (val !== null && typeof val === 'object' && 'result' in (val as any)) {
+                    val = (val as any).result;
+                }
+
                 if (val === null || val === undefined || val === '') {
                     obj[key] = undefined;
-                } else {
-                    hasData = true;
-                    if (typeof val === 'object' && 'text' in (val as any)) {
-                        val = (val as any).text;
-                    }
-                    obj[key] = String(val).trim();
+                    return;
                 }
+
+                hasData = true;
+
+                // Rich-text object
+                if (typeof val === 'object' && 'richText' in (val as any)) {
+                    val = (val as any).richText.map((r: any) => r.text).join('');
+                } else if (typeof val === 'object' && 'text' in (val as any)) {
+                    val = (val as any).text;
+                }
+
+                // Date object — format as YYYY-MM-DD
+                if (val instanceof Date) {
+                    const y = val.getFullYear();
+                    const m = String(val.getMonth() + 1).padStart(2, '0');
+                    const d = String(val.getDate()).padStart(2, '0');
+                    obj[key] = `${y}-${m}-${d}`;
+                    return;
+                }
+
+                // Number — keep as number for numeric fields, string otherwise
+                if (typeof val === 'number') {
+                    obj[key] = val; // kept as number; service code does parseFloat/parseInt
+                    return;
+                }
+
+                obj[key] = String(val).trim();
             });
             if (hasData && obj.email) rows.push(obj as BulkImportRow);
         });
@@ -506,31 +533,59 @@ export class BulkImportService {
 
                 // ── Create Staff with pre-allocated employee number ──
                 const empNumber = empNumbers[empIndex++];
-                const hireDate = row.hire_date ? new Date(row.hire_date) : new Date();
-                const probationMonths = row.probation_months ? parseInt(String(row.probation_months)) : 3;
+
+                // Helper: safe string trim (value may be number from Excel)
+                const s = (v: any) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : undefined);
+
+                // Helper: parse date string as local date (avoids timezone-shift)
+                const parseDate = (v: any): Date | undefined => {
+                    if (!v) return undefined;
+                    const str = String(v).trim();
+                    if (!str) return undefined;
+                    // YYYY-MM-DD format (safe, no tz shift)
+                    const iso = /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : null;
+                    if (iso) {
+                        const [yr, mo, dy] = iso.split('-').map(Number);
+                        return new Date(yr, mo - 1, dy);
+                    }
+                    // Fallback
+                    const d = new Date(str);
+                    return isNaN(d.getTime()) ? undefined : d;
+                };
+
+                const hireDateStr = row.hire_date
+                    ? String(row.hire_date).trim()
+                    : new Date().toISOString().split('T')[0];
+                const hireDate = parseDate(hireDateStr) || new Date();
+
+                const probationMonths = row.probation_months ? parseInt(String(row.probation_months), 10) : 3;
                 const probationEndDate = new Date(hireDate);
                 probationEndDate.setMonth(probationEndDate.getMonth() + probationMonths);
+
+                const salaryRaw = row.basic_salary !== undefined && row.basic_salary !== null
+                    ? parseFloat(String(row.basic_salary))
+                    : undefined;
 
                 const staff = qr.manager.create(Staff, {
                     user: savedUser,
                     employee_number: empNumber,
                     first_name: row.first_name.trim(),
-                    middle_name: row.middle_name?.trim() || undefined,
+                    middle_name: s(row.middle_name),
                     last_name: row.last_name.trim(),
-                    personal_email: row.personal_email?.trim() || undefined,
-                    phone: row.phone?.trim() || undefined,
-                    gender: (row.gender?.toLowerCase() as any) || undefined,
-                    date_of_birth: row.date_of_birth ? new Date(row.date_of_birth) as any : undefined,
-                    national_id: row.national_id?.trim() || undefined,
-                    tax_pin: row.tax_pin?.trim() || undefined,
-                    address: row.address?.trim() || undefined,
-                    city: row.city?.trim() || undefined,
-                    emergency_contact_name: row.emergency_contact_name?.trim() || undefined,
-                    emergency_contact_phone: row.emergency_contact_phone?.trim() || undefined,
-                    emergency_contact_relationship: row.emergency_contact_relationship?.trim() || undefined,
-                    bank_name: row.bank_name?.trim() || undefined,
-                    bank_account_number: row.bank_account_number?.trim() || undefined,
-                    basic_salary: row.basic_salary ? parseFloat(String(row.basic_salary)) : undefined,
+                    personal_email: s(row.personal_email),
+                    phone: s(row.phone),
+                    gender: row.gender ? (String(row.gender).toLowerCase().trim() as any) : undefined,
+                    date_of_birth: parseDate(row.date_of_birth) as any,
+                    national_id: s(row.national_id),
+                    tax_pin: s(row.tax_pin),
+                    address: s(row.address),
+                    city: s(row.city),
+                    emergency_contact_name: s(row.emergency_contact_name),
+                    emergency_contact_phone: s(row.emergency_contact_phone),
+                    emergency_contact_relationship: s(row.emergency_contact_relationship),
+                    bank_name: s(row.bank_name),
+                    bank_account_number: s(row.bank_account_number),
+                    basic_salary: salaryRaw && !isNaN(salaryRaw) ? salaryRaw : undefined,
                     status: initialStatus,
                     position,
                     ...(region ? { region } : {}),
