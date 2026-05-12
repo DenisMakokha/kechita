@@ -180,9 +180,9 @@ export class OrgService {
     async deleteBranch(id: string, force = false): Promise<{ message: string }> {
         const branch = await this.getBranch(id);
 
-        const staffCount = await this.branchRepo.manager.count('staff', {
-            where: { branch_id: id },
-        }).catch(() => 0);
+        const [{ c: staffCount }] = await this.dataSource.query(
+            `SELECT COUNT(*)::int AS c FROM staff WHERE branch_id = $1`, [id]
+        ).catch(() => [{ c: 0 }]);
         if (staffCount > 0) {
             if (!force) {
                 throw new BadRequestException(
@@ -398,9 +398,9 @@ export class OrgService {
     async deletePosition(id: string, force = false): Promise<{ message: string }> {
         const position = await this.getPosition(id);
 
-        const staffCount = await this.positionRepo.manager.count('staff', {
-            where: { position_id: id },
-        }).catch(() => 0);
+        const [{ c: staffCount }] = await this.dataSource.query(
+            `SELECT COUNT(*)::int AS c FROM staff WHERE position_id = $1`, [id]
+        ).catch(() => [{ c: 0 }]);
         if (staffCount > 0) {
             if (!force) {
                 throw new BadRequestException(
