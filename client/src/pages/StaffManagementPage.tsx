@@ -234,10 +234,28 @@ export const StaffManagementPage: React.FC = () => {
     });
     const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any | null>(null);
     const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState('');
+    const [permanentDeleteForce, setPermanentDeleteForce] = useState(false);
+    const [permanentDeleteBlockerMsg, setPermanentDeleteBlockerMsg] = useState('');
     const permanentDeleteMutation = useMutation({
-        mutationFn: async ({ id, confirm }: { id: string; confirm: string }) => (await api.delete(`/staff/${id}/permanent`, { data: { confirm_employee_number: confirm } })).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-deleted'] }); queryClient.invalidateQueries({ queryKey: ['staff-stats'] }); setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); showToast('Staff permanently deleted'); },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to permanently delete', 'error'),
+        mutationFn: async ({ id, confirm, force }: { id: string; confirm: string; force?: boolean }) =>
+            (await api.delete(`/staff/${id}/permanent`, { data: { confirm_employee_number: confirm, force: force || false } })).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-deleted'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-stats'] });
+            setPermanentDeleteTarget(null);
+            setPermanentDeleteConfirm('');
+            setPermanentDeleteForce(false);
+            setPermanentDeleteBlockerMsg('');
+            showToast('Staff permanently deleted');
+        },
+        onError: (e: any) => {
+            const msg = e?.response?.data?.message || 'Failed to permanently delete';
+            if (msg.includes('cascade-delete')) {
+                setPermanentDeleteBlockerMsg(msg);
+            } else {
+                showToast(msg, 'error');
+            }
+        },
     });
     const isCeo = user?.roles?.some(r => r.code === 'CEO') || false;
     const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data });
@@ -2453,21 +2471,21 @@ export const StaffManagementPage: React.FC = () => {
             {/* Permanent Delete confirmation modal — CEO only, type-to-confirm */}
             <Modal
                 isOpen={!!permanentDeleteTarget}
-                onClose={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }}
+                onClose={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); setPermanentDeleteForce(false); setPermanentDeleteBlockerMsg(''); }}
                 title="Permanently Delete Staff"
                 icon={AlertTriangle}
                 tone="danger"
                 size="md"
                 footer={permanentDeleteTarget && (
                     <>
-                        <ModalCancelButton onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); }} />
+                        <ModalCancelButton onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteConfirm(''); setPermanentDeleteForce(false); setPermanentDeleteBlockerMsg(''); }} />
                         <ModalPrimaryButton
-                            onClick={() => permanentDeleteMutation.mutate({ id: permanentDeleteTarget.id, confirm: permanentDeleteConfirm })}
+                            onClick={() => permanentDeleteMutation.mutate({ id: permanentDeleteTarget.id, confirm: permanentDeleteConfirm, force: permanentDeleteForce })}
                             disabled={permanentDeleteConfirm.trim() !== permanentDeleteTarget.employee_number}
                             loading={permanentDeleteMutation.isPending}
                             tone="danger"
                             icon={Trash2}
-                        >Permanently Delete</ModalPrimaryButton>
+                        >Permanently Delete{permanentDeleteForce ? ' (Force)' : ''}</ModalPrimaryButton>
                     </>
                 )}
             >
@@ -2475,8 +2493,26 @@ export const StaffManagementPage: React.FC = () => {
                     <div className="space-y-4">
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
                             <p className="font-semibold mb-1">This action is irreversible.</p>
-                            <p>The record for <strong>{permanentDeleteTarget.first_name} {permanentDeleteTarget.last_name}</strong> ({permanentDeleteTarget.employee_number}) will be permanently removed from the database. Historical references (payroll, leave, loans, contracts) must already be absent — the server will refuse if any are found.</p>
+                            <p>The record for <strong>{permanentDeleteTarget.first_name} {permanentDeleteTarget.last_name}</strong> ({permanentDeleteTarget.employee_number}) will be permanently erased. This cannot be undone.</p>
                         </div>
+                        {permanentDeleteBlockerMsg && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                                <p className="font-semibold mb-1">Historical records found</p>
+                                <p className="mb-2">{permanentDeleteBlockerMsg}</p>
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={permanentDeleteForce}
+                                        onChange={(e) => setPermanentDeleteForce(e.target.checked)}
+                                        className="mt-0.5 w-4 h-4 text-red-600 rounded"
+                                    />
+                                    <div>
+                                        <p className="font-medium text-slate-800">Force delete (CEO override)</p>
+                                        <p className="text-xs text-slate-500">All linked records (payroll, leave, loans, contracts, documents, etc.) will be permanently erased. Recorded in audit log.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                                 Type the employee number <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">{permanentDeleteTarget.employee_number}</span> to confirm

@@ -729,11 +729,13 @@ export class StaffController {
     permanentDelete(
         @Param('id', ParseUUIDPipe) id: string,
         @Body('confirm_employee_number') confirmEmployeeNumber: string,
+        @Body('force') force: boolean,
         @Req() req: AuthenticatedRequest,
     ) {
         return this.staffService.permanentDelete(id, {
             confirmEmployeeNumber,
             deletedBy: req.user.id,
+            force: force === true || (force as any) === 'true',
         });
     }
 

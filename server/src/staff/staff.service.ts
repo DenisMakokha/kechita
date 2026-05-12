@@ -1275,7 +1275,7 @@ export class StaffService {
      */
     async permanentDelete(
         id: string,
-        opts: { confirmEmployeeNumber: string; deletedBy?: string },
+        opts: { confirmEmployeeNumber: string; deletedBy?: string; force?: boolean },
     ): Promise<{ deleted: true }> {
         // include soft-deleted
         const staff = await this.staffRepo.findOne({ where: { id }, withDeleted: true });
@@ -1289,18 +1289,43 @@ export class StaffService {
         const blockers = await this.getPermanentDeleteBlockers(id);
         const total = Object.values(blockers).reduce((a, b) => a + b, 0);
         if (total > 0) {
-            const summary = Object.entries(blockers)
-                .filter(([, v]) => v > 0)
-                .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
-                .join(', ');
-            throw new BadRequestException(
-                `Cannot permanently delete: historical records still reference this staff (${summary}). Keep archived instead.`,
-            );
+            if (!opts.force) {
+                const summary = Object.entries(blockers)
+                    .filter(([, v]) => v > 0)
+                    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                    .join(', ');
+                throw new BadRequestException(
+                    `Cannot permanently delete: historical records still reference this staff (${summary}). Use force=true to cascade-delete all linked records.`,
+                );
+            }
+            // Force: cascade-delete all historical/linked records in dependency order
+            const del = (sql: string) => this.dataSource.query(sql, [id]).catch(() => undefined);
+            await del(`DELETE FROM onboarding_task_statuses WHERE instance_id IN (SELECT id FROM onboarding_instances WHERE staff_id = $1)`);
+            await del(`DELETE FROM onboarding_instances WHERE staff_id = $1`);
+            await del(`DELETE FROM staff_documents WHERE staff_id = $1`);
+            await del(`DELETE FROM staff_contracts WHERE staff_id = $1`);
+            await del(`DELETE FROM salary_history WHERE staff_id = $1`);
+            await del(`DELETE FROM employment_history WHERE staff_id = $1`);
+            await del(`DELETE FROM probation_reviews WHERE staff_id = $1`);
+            await del(`DELETE FROM next_of_kin WHERE staff_id = $1`);
+            await del(`DELETE FROM dependents WHERE staff_id = $1`);
+            await del(`DELETE FROM asset_assignments WHERE staff_id = $1`);
+            await del(`DELETE FROM approval_actions WHERE approver_staff_id = $1`);
+            await del(`DELETE FROM approval_instances WHERE requested_by_staff_id = $1`);
+            await del(`DELETE FROM leave_balances WHERE staff_id = $1`);
+            await del(`DELETE FROM leave_requests WHERE staff_id = $1`);
+            await del(`DELETE FROM attendance_records WHERE staff_id = $1`);
+            await del(`DELETE FROM loan_applications WHERE staff_id = $1`);
+            await del(`DELETE FROM claims WHERE staff_id = $1`);
+            await del(`DELETE FROM petty_cash_floats WHERE staff_id = $1`);
+            await del(`DELETE FROM payroll_payslips WHERE staff_id = $1`);
+            // Unlink subordinates
+            await this.dataSource.query(`UPDATE staff SET manager_id = NULL WHERE manager_id = $1`, [id]);
         }
-        // Detach the linked user account too (do not delete it — auth audit trail).
-        if (staff.user) {
-            // best-effort: leave user row but ensure it's deactivated
-            await this.userRepo.update({ id: (staff.user as any).id || (staff as any).user_id }, { is_active: false }).catch(() => undefined);
+        // Detach the linked user account (deactivate but keep for audit trail)
+        const userId = (staff as any).user_id || staff.user?.id;
+        if (userId) {
+            await this.userRepo.update({ id: userId }, { is_active: false }).catch(() => undefined);
         }
         // Audit BEFORE deleting so the record snapshot is preserved
         await this.audit({
@@ -1310,9 +1335,9 @@ export class StaffService {
             entityType: 'Staff',
             entityId: id,
             entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
-            description: `Staff PERMANENTLY DELETED (irreversible). Confirmation: ${opts.confirmEmployeeNumber}`,
+            description: `Staff PERMANENTLY DELETED (irreversible${opts.force ? ', forced cascade' : ''}). Confirmation: ${opts.confirmEmployeeNumber}`,
             metadata: {
-                archive_type: 'hard_delete',
+                archive_type: opts.force ? 'hard_delete_forced' : 'hard_delete',
                 previous_status: staff.status,
                 employee_number: staff.employee_number,
                 hire_date: staff.hire_date,
