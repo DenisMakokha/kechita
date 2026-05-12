@@ -1317,6 +1317,7 @@ export class StaffService {
             await del(`DELETE FROM asset_assignments WHERE staff_id = $1`);
             // Approvals
             await del(`DELETE FROM approval_actions WHERE approver_staff_id = $1`);
+            await del(`UPDATE approval_instances SET resolved_by_id = NULL WHERE resolved_by_id = $1`);
             await del(`DELETE FROM approval_instances WHERE requested_by_staff_id = $1`);
             // Leave
             await del(`DELETE FROM leave_balances WHERE staff_id = $1`);
@@ -1327,6 +1328,7 @@ export class StaffService {
             await del(`DELETE FROM attendance_records WHERE staff_id = $1`);
             // Loans (repayments first, then loans)
             await del(`DELETE FROM staff_loan_repayments WHERE loan_id IN (SELECT id FROM staff_loans WHERE staff_id = $1)`);
+            await del(`UPDATE staff_loans SET guarantor_id = NULL WHERE guarantor_id = $1`);
             await del(`DELETE FROM staff_loans WHERE staff_id = $1`);
             await del(`DELETE FROM loan_applications WHERE staff_id = $1`);
             // Claims
@@ -1356,6 +1358,7 @@ export class StaffService {
             await del(`UPDATE offers SET approved_by_staff_id = NULL WHERE approved_by_staff_id = $1`);
             await del(`UPDATE job_posts SET created_by_staff_id = NULL WHERE created_by_staff_id = $1`);
             await del(`UPDATE job_posts SET hiring_manager_id = NULL WHERE hiring_manager_id = $1`);
+            await del(`UPDATE job_posts SET approved_by_staff_id = NULL WHERE approved_by_staff_id = $1`);
             // Notifications
             await del(`DELETE FROM notifications WHERE staff_id = $1`);
             // Unlink subordinates and manager refs
