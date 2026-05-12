@@ -366,26 +366,35 @@ export class BulkImportService {
         const year = new Date().getFullYear().toString().slice(-2);
         const prefix = `EMP${year}`;
         
-        // Find the highest existing employee number for this year
-        const existing = await manager
-            .createQueryBuilder(Staff, 's')
-            .select("MAX(CAST(REPLACE(s.employee_number, :prefix, '') AS INTEGER))", 'maxNum')
-            .where('s.employee_number LIKE :pattern', { pattern: `${prefix}%` })
-            .setParameter('prefix', prefix)
-            .getRawOne();
+        // Get all existing employee numbers for this year prefix
+        const existingStaff = await manager.find(Staff, {
+            where: { employee_number: { $like: `${prefix}%` } } as any,
+            select: ['employee_number'],
+        });
         
-        const maxNum = existing?.maxNum || 0;
+        // Extract numbers and find the maximum
+        let maxNum = 0;
+        for (const staff of existingStaff) {
+            if (staff.employee_number) {
+                const numPart = staff.employee_number.replace(prefix, '');
+                const num = parseInt(numPart, 10);
+                if (!isNaN(num) && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        }
+        
+        // Generate next number with collision check
         let nextNum = maxNum + 1;
-        
-        // Ensure the number doesn't already exist (race condition safety)
         let empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
         let attempts = 0;
-        const maxAttempts = 100;
+        const maxAttempts = 1000; // High limit for safety
         
         while (attempts < maxAttempts) {
-            const exists = await manager.findOne(Staff, { 
-                where: { employee_number: empNumber },
-                select: ['id']
+            // Check if this number already exists
+            const exists = await manager.findOne(Staff, {
+                where: { employee_number: empNumber } as any,
+                select: ['id'],
             });
             
             if (!exists) {
