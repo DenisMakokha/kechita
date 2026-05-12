@@ -76,18 +76,31 @@ export class OrgService {
         return this.regionRepo.save(region);
     }
 
-    async deleteRegion(id: string): Promise<{ message: string }> {
-        const region = await this.regionRepo.findOne({
-            where: { id },
-            relations: ['branches'],
-        });
+    async deleteRegion(id: string, force = false): Promise<{ message: string }> {
+        const region = await this.regionRepo.findOne({ where: { id }, relations: ['branches'] });
         if (!region) throw new NotFoundException('Region not found');
 
         if (region.branches && region.branches.length > 0) {
-            throw new BadRequestException(
-                `Cannot delete region "${region.name}" - it has ${region.branches.length} branch(es)`
-            );
+            if (!force) {
+                throw new BadRequestException(
+                    `Cannot delete region "${region.name}" - it has ${region.branches.length} branch(es). Use force delete to remove anyway.`
+                );
+            }
+            // Nullify all branch FKs that point to this region's branches
+            const branchIds = region.branches.map(b => b.id);
+            for (const bid of branchIds) {
+                await this.dataSource.query(`UPDATE staff SET branch_id = NULL WHERE branch_id = $1`, [bid]);
+                await this.dataSource.query(`UPDATE employment_history SET branch_id = NULL WHERE branch_id = $1`, [bid]);
+                await this.dataSource.query(`UPDATE petty_cash_floats SET branch_id = NULL WHERE branch_id = $1`, [bid]).catch(() => undefined);
+                await this.dataSource.query(`UPDATE job_posts SET branch_id = NULL WHERE branch_id = $1`, [bid]).catch(() => undefined);
+                await this.dataSource.query(`UPDATE branch_daily_reports SET branch_id = NULL WHERE branch_id = $1`, [bid]).catch(() => undefined);
+            }
+            await this.dataSource.query(`UPDATE branches SET region_id = NULL WHERE region_id = $1`, [id]);
         }
+        // Always nullify region refs on staff and employment history
+        await this.dataSource.query(`UPDATE staff SET region_id = NULL WHERE region_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE employment_history SET region_id = NULL WHERE region_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE job_posts SET region_id = NULL WHERE region_id = $1`, [id]).catch(() => undefined);
 
         await this.regionRepo.remove(region);
         return { message: 'Region deleted successfully' };
@@ -183,16 +196,19 @@ export class OrgService {
         const [{ c: staffCount }] = await this.dataSource.query(
             `SELECT COUNT(*)::int AS c FROM staff WHERE branch_id = $1`, [id]
         ).catch(() => [{ c: 0 }]);
-        if (staffCount > 0) {
-            if (!force) {
-                throw new BadRequestException(
-                    `Cannot delete branch "${branch.name}" - it has ${staffCount} staff member(s) assigned to it.`
-                );
-            }
-            await this.dataSource.query(
-                `UPDATE staff SET branch_id = NULL WHERE branch_id = $1`, [id]
+
+        if (staffCount > 0 && !force) {
+            throw new BadRequestException(
+                `Cannot delete branch "${branch.name}" - it has ${staffCount} staff member(s) assigned to it.`
             );
         }
+
+        // Nullify all FK references to this branch
+        await this.dataSource.query(`UPDATE staff SET branch_id = NULL WHERE branch_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE employment_history SET branch_id = NULL WHERE branch_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE petty_cash_floats SET branch_id = NULL WHERE branch_id = $1`, [id]).catch(() => undefined);
+        await this.dataSource.query(`UPDATE job_posts SET branch_id = NULL WHERE branch_id = $1`, [id]).catch(() => undefined);
+        await this.dataSource.query(`UPDATE branch_daily_reports SET branch_id = NULL WHERE branch_id = $1`, [id]).catch(() => undefined);
 
         await this.branchRepo.remove(branch);
         return { message: `Branch deleted successfully${force && staffCount > 0 ? ` (${staffCount} staff member(s) unlinked)` : ''}` };
@@ -268,44 +284,31 @@ export class OrgService {
     }
 
     async deleteDepartment(id: string, force = false): Promise<{ message: string }> {
-        const department = await this.departmentRepo.findOne({
-            where: { id },
-            relations: ['children'],
-        });
+        const department = await this.departmentRepo.findOne({ where: { id }, relations: ['children'] });
         if (!department) throw new NotFoundException('Department not found');
 
         if (department.children && department.children.length > 0) {
             if (!force) {
                 throw new BadRequestException(
-                    `Cannot delete department "${department.name}" - it has ${department.children.length} child department(s)`
+                    `Cannot delete department "${department.name}" - it has ${department.children.length} child department(s).`
                 );
             }
-            await this.dataSource.query(
-                `UPDATE departments SET parent_id = NULL WHERE parent_id = $1`, [id]
+            await this.dataSource.query(`UPDATE departments SET parent_id = NULL WHERE parent_id = $1`, [id]);
+        }
+
+        const positionCount = await this.positionRepo.count({ where: { department: { id } } });
+        if (positionCount > 0 && !force) {
+            throw new BadRequestException(
+                `Cannot delete department "${department.name}" - it has ${positionCount} position(s) assigned to it.`
             );
         }
 
-        const positionCount = await this.positionRepo.count({
-            where: { department: { id } },
-        });
-        if (positionCount > 0) {
-            if (!force) {
-                throw new BadRequestException(
-                    `Cannot delete department "${department.name}" - it has ${positionCount} position(s) assigned to it. Reassign or delete them first.`
-                );
-            }
-            // Nullify staff department references through positions first
-            await this.dataSource.query(
-                `UPDATE staff SET department_id = NULL WHERE department_id = $1`, [id]
-            );
-            await this.dataSource.query(
-                `UPDATE positions SET department_id = NULL WHERE department_id = $1`, [id]
-            );
-        } else {
-            await this.dataSource.query(
-                `UPDATE staff SET department_id = NULL WHERE department_id = $1`, [id]
-            );
-        }
+        // Nullify ALL FK references to this department
+        await this.dataSource.query(`UPDATE staff SET department_id = NULL WHERE department_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE positions SET department_id = NULL WHERE department_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE employment_history SET department_id = NULL WHERE department_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE onboarding_templates SET department_id = NULL WHERE department_id = $1`, [id]).catch(() => undefined);
+        await this.dataSource.query(`UPDATE job_posts SET department_id = NULL WHERE department_id = $1`, [id]).catch(() => undefined);
 
         await this.departmentRepo.remove(department);
         return { message: 'Department deleted successfully' };
@@ -401,16 +404,18 @@ export class OrgService {
         const [{ c: staffCount }] = await this.dataSource.query(
             `SELECT COUNT(*)::int AS c FROM staff WHERE position_id = $1`, [id]
         ).catch(() => [{ c: 0 }]);
-        if (staffCount > 0) {
-            if (!force) {
-                throw new BadRequestException(
-                    `Cannot delete position "${position.name}" - it is assigned to ${staffCount} staff member(s).`
-                );
-            }
-            await this.dataSource.query(
-                `UPDATE staff SET position_id = NULL WHERE position_id = $1`, [id]
+
+        if (staffCount > 0 && !force) {
+            throw new BadRequestException(
+                `Cannot delete position "${position.name}" - it is assigned to ${staffCount} staff member(s).`
             );
         }
+
+        // Nullify ALL FK references to this position
+        await this.dataSource.query(`UPDATE staff SET position_id = NULL WHERE position_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE employment_history SET position_id = NULL WHERE position_id = $1`, [id]);
+        await this.dataSource.query(`UPDATE onboarding_templates SET position_id = NULL WHERE position_id = $1`, [id]).catch(() => undefined);
+        await this.dataSource.query(`UPDATE job_posts SET position_id = NULL WHERE position_id = $1`, [id]).catch(() => undefined);
 
         await this.positionRepo.remove(position);
         return { message: `Position deleted successfully${force && staffCount > 0 ? ` (${staffCount} staff member(s) unlinked)` : ''}` };

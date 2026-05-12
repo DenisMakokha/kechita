@@ -60,8 +60,8 @@ export class OrgController {
 
     @Delete('regions/:id')
     @Roles('CEO')
-    deleteRegion(@Param('id', ParseUUIDPipe) id: string) {
-        return this.orgService.deleteRegion(id);
+    deleteRegion(@Param('id', ParseUUIDPipe) id: string, @Query('force') force?: string) {
+        return this.orgService.deleteRegion(id, force === 'true');
     }
 
     // ==================== BRANCHES ====================
