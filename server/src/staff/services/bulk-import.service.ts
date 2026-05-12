@@ -28,7 +28,7 @@ export interface BulkImportRow {
     first_name: string;
     middle_name?: string;
     last_name: string;
-    email: string;
+    email?: string;
     personal_email?: string;
     phone?: string;
     gender?: string;
@@ -64,8 +64,9 @@ export interface BulkImportResult {
     total: number;
     succeeded: number;
     failed: number;
+    accounts_created: number;
     errors: { row: number; email: string; error: string }[];
-    created: { row: number; email: string; employee_number: string }[];
+    created: { row: number; email: string; employee_number: string; had_email: boolean }[];
 }
 
 @Injectable()
@@ -102,7 +103,7 @@ export class BulkImportService {
             { header: 'First Name *', key: 'first_name', width: 18, required: true },
             { header: 'Middle Name', key: 'middle_name', width: 18 },
             { header: 'Last Name *', key: 'last_name', width: 18, required: true },
-            { header: 'Work Email *', key: 'email', width: 28, required: true, note: 'Used for system login' },
+            { header: 'Work Email', key: 'email', width: 28, note: 'Optional — staff created without login if blank' },
             { header: 'Personal Email', key: 'personal_email', width: 28 },
             { header: 'Phone', key: 'phone', width: 16 },
             { header: 'Gender', key: 'gender', width: 12, note: 'male / female / other' },
@@ -328,7 +329,7 @@ export class BulkImportService {
 
                 obj[key] = String(val).trim();
             });
-            if (hasData && obj.email) rows.push(obj as BulkImportRow);
+            if (hasData && (obj.first_name || obj.last_name)) rows.push(obj as BulkImportRow);
         });
 
         return rows;
@@ -447,6 +448,7 @@ export class BulkImportService {
             total: rows.length,
             succeeded: 0,
             failed: 0,
+            accounts_created: 0,
             errors: [],
             created: [],
         };
@@ -473,8 +475,14 @@ export class BulkImportService {
             : [];
         const dbEmailSet = new Set(existingUsers.map(u => u.email.toLowerCase()));
 
-        // 3. Pre-allocate exactly enough employee numbers for all rows
-        const empNumbers = await this.preallocateEmployeeNumbers(rows.length);
+        // 3. Count only new staff rows (no national_id match in DB) for employee number pre-allocation
+        const allNationalIds = rows.map(r => r.national_id).filter(Boolean) as string[];
+        const existingStaffByNid = allNationalIds.length > 0
+            ? await this.staffRepo.find({ where: allNationalIds.map(n => ({ national_id: n })), select: ['id', 'national_id'] })
+            : [];
+        const existingNidSet = new Set(existingStaffByNid.map(s => s.national_id?.toLowerCase()));
+        const newStaffCount = rows.filter(r => !r.national_id || !existingNidSet.has(r.national_id.toLowerCase())).length;
+        const empNumbers = await this.preallocateEmployeeNumbers(newStaffCount);
         let empIndex = 0;
 
         // ── Per-row processing ────────────────────────────────────────────────
@@ -487,15 +495,15 @@ export class BulkImportService {
                 // ── Validate required fields ──
                 if (!row.first_name) throw new Error('first_name is required');
                 if (!row.last_name) throw new Error('last_name is required');
-                if (!row.email) throw new Error('email is required');
                 if (!row.role_code) throw new Error('role_code is required');
                 if (!row.position_name) throw new Error('position_name is required');
 
-                const emailLower = row.email.toLowerCase();
+                const emailLower = row.email?.toLowerCase();
 
-                // ── Check email uniqueness (file-level + DB-level) ──
-                if (fileDupes.has(emailLower)) throw new Error(`Duplicate email in file: ${row.email}`);
-                if (dbEmailSet.has(emailLower)) throw new Error(`Email already exists: ${row.email}`);
+                // ── Check email uniqueness (file-level + DB-level) only when email present ──
+                if (emailLower) {
+                    if (fileDupes.has(emailLower)) throw new Error(`Duplicate email in file: ${row.email}`);
+                }
 
                 // ── Resolve role ──
                 const role = await qr.manager.findOne(Role, { where: { code: row.role_code.toUpperCase(), is_active: true } });
@@ -521,16 +529,82 @@ export class BulkImportService {
 
                 const position = await this.upsertPosition(qr.manager, row.position_name, row.position_code, department);
 
-                // ── Create User ──
-                const tempPassword = crypto.randomBytes(16).toString('hex');
-                const hashedPassword = await bcrypt.hash(tempPassword, 10);
-                const user = qr.manager.create(User, {
-                    email: emailLower,
-                    password_hash: hashedPassword,
-                    is_active: true,
-                    roles: [role],
-                });
-                const savedUser = await qr.manager.save(User, user);
+                // ── Check if existing staff record (match by national_id) ──
+                const nidLower = row.national_id?.toLowerCase();
+                const existingStaff = nidLower
+                    ? await qr.manager.findOne(Staff, { where: { national_id: row.national_id }, relations: ['user'] })
+                    : null;
+
+                if (existingStaff) {
+                    // ── UPDATE MODE: staff exists, possibly add user account + fill missing fields ──
+                    let accountCreated = false;
+                    if (emailLower && !existingStaff.user) {
+                        if (dbEmailSet.has(emailLower)) throw new Error(`Email already exists: ${row.email}`);
+                        const tempPassword = crypto.randomBytes(16).toString('hex');
+                        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+                        const newUser = qr.manager.create(User, {
+                            email: emailLower,
+                            password_hash: hashedPassword,
+                            is_active: true,
+                            roles: [role],
+                        });
+                        const savedUser = await qr.manager.save(User, newUser);
+                        existingStaff.user = savedUser;
+                        dbEmailSet.add(emailLower);
+                        accountCreated = true;
+                    } else if (emailLower && existingStaff.user) {
+                        // already has an account — skip silently
+                    }
+                    // Patch any missing fields
+                    const s = (v: any) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : undefined);
+                    if (!existingStaff.phone && s(row.phone)) existingStaff.phone = s(row.phone)!;
+                    if (!existingStaff.personal_email && s(row.personal_email)) existingStaff.personal_email = s(row.personal_email)!;
+                    if (!existingStaff.bank_name && s(row.bank_name)) existingStaff.bank_name = s(row.bank_name)!;
+                    if (!existingStaff.bank_account_number && s(row.bank_account_number)) existingStaff.bank_account_number = s(row.bank_account_number)!;
+                    if (!existingStaff.address && s(row.address)) existingStaff.address = s(row.address)!;
+                    if (!existingStaff.city && s(row.city)) existingStaff.city = s(row.city)!;
+                    if (!existingStaff.tax_pin && s(row.tax_pin)) existingStaff.tax_pin = s(row.tax_pin)!;
+                    if (!existingStaff.emergency_contact_name && s(row.emergency_contact_name)) existingStaff.emergency_contact_name = s(row.emergency_contact_name)!;
+                    if (!existingStaff.emergency_contact_phone && s(row.emergency_contact_phone)) existingStaff.emergency_contact_phone = s(row.emergency_contact_phone)!;
+                    if (region && !existingStaff.region) existingStaff.region = region;
+                    if (branch && !existingStaff.branch) existingStaff.branch = branch;
+                    if (department && !existingStaff.department) existingStaff.department = department;
+                    await qr.manager.save(Staff, existingStaff);
+                    await qr.commitTransaction();
+                    if (accountCreated) {
+                        result.accounts_created++;
+                        dbEmailSet.add(emailLower!);
+                        if (sendEmails) {
+                            this.authService.sendWelcomeToNewUser(
+                                existingStaff.user!.id,
+                                `${existingStaff.first_name} ${existingStaff.last_name}`.trim(),
+                                role.name,
+                            ).catch(() => {});
+                        }
+                    }
+                    result.succeeded++;
+                    result.created.push({ row: row.row, email: row.email ?? '', employee_number: existingStaff.employee_number ?? '', had_email: Boolean(emailLower) });
+                    this.logger.log(`Bulk import: updated existing staff ${existingStaff.employee_number}${accountCreated ? ' (user account created)' : ''}`);
+                    continue;
+                }
+
+                // ── NEW STAFF ──
+                if (emailLower && dbEmailSet.has(emailLower)) throw new Error(`Email already exists: ${row.email}`);
+
+                // Optionally create user account
+                let savedUser: User | null = null;
+                if (emailLower) {
+                    const tempPassword = crypto.randomBytes(16).toString('hex');
+                    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+                    const user = qr.manager.create(User, {
+                        email: emailLower,
+                        password_hash: hashedPassword,
+                        is_active: true,
+                        roles: [role],
+                    });
+                    savedUser = await qr.manager.save(User, user);
+                    dbEmailSet.add(emailLower);
+                }
 
                 // ── Create Staff with pre-allocated employee number ──
                 const empNumber = empNumbers[empIndex++];
@@ -568,7 +642,7 @@ export class BulkImportService {
                     : undefined;
 
                 const staff = qr.manager.create(Staff, {
-                    user: savedUser,
+                    ...(savedUser ? { user: savedUser } : {}),  
                     employee_number: empNumber,
                     first_name: row.first_name.trim(),
                     middle_name: s(row.middle_name),
@@ -617,19 +691,17 @@ export class BulkImportService {
 
                 await qr.commitTransaction();
 
-                // Mark email as now in DB so subsequent rows in same batch don't collide
-                dbEmailSet.add(emailLower);
-
                 result.succeeded++;
-                result.created.push({ row: row.row, email: row.email, employee_number: empNumber });
-                this.logger.log(`Bulk import: created staff ${row.email} (${empNumber})`);
+                if (savedUser) result.accounts_created++;
+                result.created.push({ row: row.row, email: row.email || '', employee_number: empNumber, had_email: !!emailLower });
+                this.logger.log(`Bulk import: created staff ${row.email || '(no email)'} (${empNumber})`);
 
                 // Post-commit: onboarding instance + welcome email (best-effort)
                 if (createOnboarding) {
                     try { await this.onboardingService.createInstance(savedStaff.id, undefined, importedBy); }
                     catch (e: any) { this.logger.warn(`Onboarding instance failed for ${row.email}: ${e.message}`); }
                 }
-                if (sendEmails) {
+                if (sendEmails && savedUser) {
                     this.authService.sendWelcomeToNewUser(
                         savedUser.id,
                         `${row.first_name} ${row.last_name}`.trim(),
@@ -639,7 +711,7 @@ export class BulkImportService {
 
             } catch (err: any) {
                 await qr.rollbackTransaction();
-                empIndex++; // advance index even on failure so numbers stay aligned
+                if (!err.message?.includes('existing staff')) empIndex++; // advance index for new staff rows only
                 result.failed++;
                 result.errors.push({ row: row.row, email: row.email || '(unknown)', error: err.message });
                 this.logger.warn(`Bulk import row ${row.row} failed: ${err.message}`);
