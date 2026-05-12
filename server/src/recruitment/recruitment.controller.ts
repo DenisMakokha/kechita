@@ -2,7 +2,6 @@ import {
     Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Res,
     UseGuards, Req, UseInterceptors, UploadedFile, Ip, Headers, BadRequestException, ParseUUIDPipe,
 } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { RecruitmentService } from './recruitment.service';
 import { BackgroundCheckService, InitiateBackgroundCheckDto, CreateReferenceCheckDto, SubmitReferenceResponseDto } from './background-check.service';
 import { SignatureService } from './signature.service';
@@ -385,8 +384,6 @@ export class RecruitmentController {
     @Get('stats')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(60000)
     getStats() {
         return this.recruitmentService.getDashboardStats();
     }

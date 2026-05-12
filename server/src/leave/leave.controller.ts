@@ -3,7 +3,6 @@ import {
     UseGuards, Req, BadRequestException, ParseUUIDPipe, UseInterceptors,
     UploadedFile, HttpStatus,
 } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LeaveService } from './leave.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -184,8 +183,6 @@ export class LeaveController {
 
     @Get('stats')
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(60000)
     getLeaveStats(
         @Query('year') year?: string,
         @Query('branchId') branchId?: string,

@@ -58,7 +58,7 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 30_000,        // Data considered fresh for 30 seconds
+      staleTime: 0,             // Always refetch after invalidation
       gcTime: 10 * 60_000,      // Keep unused data in cache for 10 minutes
       refetchOnReconnect: true, // Refetch when network reconnects
       networkMode: 'online',    // Only fetch when online
@@ -68,20 +68,20 @@ const queryClient = new QueryClient({
 
 // Cache time presets for different data types
 export const CachePresets = {
-  // Reference data (branches, departments, positions, roles) - changes rarely
+  // Reference data (branches, departments, positions, roles)
   reference: {
-    staleTime: 5 * 60 * 1000,  // 5 minutes
-    gcTime: 30 * 60 * 1000,    // 30 minutes
+    staleTime: 0,
+    gcTime: 30 * 60 * 1000,
   },
-  // Master data (staff, users) - changes occasionally
+  // Master data (staff, users)
   master: {
-    staleTime: 2 * 60 * 1000,  // 2 minutes
-    gcTime: 15 * 60 * 1000,    // 15 minutes
+    staleTime: 0,
+    gcTime: 15 * 60 * 1000,
   },
-  // Transactional data (claims, leave, loans, petty cash) - changes frequently
+  // Transactional data (claims, leave, loans, petty cash)
   transactional: {
-    staleTime: 30_000,         // 30 seconds
-    gcTime: 5 * 60_000,        // 5 minutes
+    staleTime: 0,
+    gcTime: 5 * 60_000,
   },
   // Real-time data (notifications, dashboard) - always fresh
   realtime: {

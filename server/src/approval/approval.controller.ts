@@ -2,7 +2,6 @@ import {
     Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
     UseGuards, UseInterceptors, Req, BadRequestException, Ip, ParseUUIDPipe,
 } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApprovalService } from './approval.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -194,8 +193,6 @@ export class ApprovalController {
     // ==================== STATS ====================
 
     @Get('stats')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(30000)
     getStats(@Req() req: AuthenticatedRequest, @Query('all') all?: string) {
         const staffId = all === 'true' ? undefined : req.user?.staff_id;
         return this.approvalService.getApprovalStats(staffId);

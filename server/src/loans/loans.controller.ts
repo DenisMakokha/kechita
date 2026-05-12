@@ -2,7 +2,6 @@ import {
     Controller, Get, Post, Patch, Body, Param, Query,
     UseGuards, UseInterceptors, Req, BadRequestException, ParseUUIDPipe,
 } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { LoansService } from './loans.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -82,8 +81,6 @@ export class LoansController {
 
     @Get('stats')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(60000)
     getStats(@Query('staffId') staffId?: string, @Query('year') year?: string) {
         return this.loansService.getLoanStats({
             staffId,

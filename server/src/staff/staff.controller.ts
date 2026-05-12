@@ -3,7 +3,6 @@ import {
     UseGuards, UseInterceptors, UploadedFile, Req, Res, BadRequestException, NotFoundException,
     ParseFilePipeBuilder, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StaffService } from './staff.service';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
@@ -127,8 +126,6 @@ export class StaffController {
 
     @Get('stats')
     @Roles('CEO', 'HR_MANAGER')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(60000)
     getStats() {
         return this.staffService.getStaffStats();
     }
@@ -406,8 +403,6 @@ export class StaffController {
 
     @Get('onboarding/stats')
     @Roles('CEO', 'HR_MANAGER')
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(60000)
     getOnboardingStats() {
         return this.onboardingService.getOnboardingStats();
     }
