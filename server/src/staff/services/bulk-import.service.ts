@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Like } from 'typeorm';
 import * as ExcelJS from 'exceljs';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -362,17 +362,20 @@ export class BulkImportService {
 
     // ─── Generate Employee Number ─────────────────────────────────────────────
 
+    // In-memory tracker for numbers allocated in the current batch (across per-row transactions)
+    private allocatedEmpNumbers = new Set<string>();
+
     private async generateEmployeeNumber(manager: any): Promise<string> {
         const year = new Date().getFullYear().toString().slice(-2);
         const prefix = `EMP${year}`;
-        
-        // Get all existing employee numbers for this year prefix
+
+        // Get all existing employee numbers for this year prefix from DB
         const existingStaff = await manager.find(Staff, {
-            where: { employee_number: { $like: `${prefix}%` } } as any,
+            where: { employee_number: Like(`${prefix}%`) },
             select: ['employee_number'],
         });
-        
-        // Extract numbers and find the maximum
+
+        // Find maximum number from DB
         let maxNum = 0;
         for (const staff of existingStaff) {
             if (staff.employee_number) {
@@ -383,33 +386,47 @@ export class BulkImportService {
                 }
             }
         }
-        
+
+        // Also consider numbers allocated earlier in this batch (not yet committed/visible)
+        for (const allocated of this.allocatedEmpNumbers) {
+            if (allocated.startsWith(prefix)) {
+                const num = parseInt(allocated.replace(prefix, ''), 10);
+                if (!isNaN(num) && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        }
+
         // Generate next number with collision check
         let nextNum = maxNum + 1;
         let empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
         let attempts = 0;
-        const maxAttempts = 1000; // High limit for safety
-        
+        const maxAttempts = 1000;
+
         while (attempts < maxAttempts) {
-            // Check if this number already exists
-            const exists = await manager.findOne(Staff, {
-                where: { employee_number: empNumber } as any,
-                select: ['id'],
-            });
-            
-            if (!exists) {
-                return empNumber;
+            // Skip if already allocated in this batch
+            if (!this.allocatedEmpNumbers.has(empNumber)) {
+                // Check if this number already exists in DB
+                const exists = await manager.findOne(Staff, {
+                    where: { employee_number: empNumber },
+                    select: ['id'],
+                });
+
+                if (!exists) {
+                    this.allocatedEmpNumbers.add(empNumber);
+                    return empNumber;
+                }
             }
-            
-            // Try next number
+
             nextNum++;
             empNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
             attempts++;
         }
-        
-        // Fallback: use timestamp-based number if sequential approach fails
-        const timestamp = Date.now().toString().slice(-6);
-        return `EMP${year}${timestamp}`;
+
+        // Fallback: timestamp + random suffix
+        const fallback = `EMP${year}${Date.now().toString().slice(-5)}${Math.floor(Math.random() * 10)}`;
+        this.allocatedEmpNumbers.add(fallback);
+        return fallback;
     }
 
     // ─── Main Import ──────────────────────────────────────────────────────────
@@ -430,10 +447,14 @@ export class BulkImportService {
             created: [],
         };
 
+        // Reset in-batch tracker for employee numbers
+        this.allocatedEmpNumbers = new Set<string>();
+
         for (const row of rows) {
             const qr = this.dataSource.createQueryRunner();
             await qr.connect();
             await qr.startTransaction();
+            let allocatedNumber: string | undefined;
 
             try {
                 // ── Validate required fields ──
@@ -489,6 +510,7 @@ export class BulkImportService {
                 probationEndDate.setMonth(probationEndDate.getMonth() + probationMonths);
 
                 const empNumber = await this.generateEmployeeNumber(qr.manager);
+                allocatedNumber = empNumber;
 
                 const staff = qr.manager.create(Staff, {
                     user: savedUser,
@@ -559,6 +581,8 @@ export class BulkImportService {
 
             } catch (err: any) {
                 await qr.rollbackTransaction();
+                // Release the reserved employee number so it can be reused
+                if (allocatedNumber) this.allocatedEmpNumbers.delete(allocatedNumber);
                 result.failed++;
                 result.errors.push({ row: row.row, email: row.email || '(unknown)', error: err.message });
                 this.logger.warn(`Bulk import row ${row.row} failed: ${err.message}`);
