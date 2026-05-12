@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Like } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as ExcelJS from 'exceljs';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -399,16 +399,17 @@ export class BulkImportService {
         const year = new Date().getFullYear().toString().slice(-2);
         const prefix = `EMP${year}`;
 
-        // Fetch all existing numbers for this year from the DB (committed state)
-        const existingStaff = await this.staffRepo.find({
-            where: { employee_number: Like(`${prefix}%`) },
-            select: ['employee_number'],
-        });
+        // Use raw SQL to include soft-deleted rows — staffRepo.find() excludes them
+        // by default (DeleteDateColumn), which causes collisions on the unique constraint.
+        const rows: { employee_number: string }[] = await this.dataSource.query(
+            `SELECT employee_number FROM staff WHERE employee_number LIKE $1`,
+            [`${prefix}%`],
+        );
 
         const usedSet = new Set<string>();
         let maxNum = 0;
 
-        for (const s of existingStaff) {
+        for (const s of rows) {
             if (s.employee_number) {
                 usedSet.add(s.employee_number);
                 const num = parseInt(s.employee_number.replace(prefix, ''), 10);
@@ -422,7 +423,7 @@ export class BulkImportService {
         while (allocated.length < count) {
             const candidate = `${prefix}${String(nextNum).padStart(4, '0')}`;
             if (!usedSet.has(candidate)) {
-                usedSet.add(candidate); // reserve it so the next iteration skips it
+                usedSet.add(candidate); // reserve it so next iteration skips it
                 allocated.push(candidate);
             }
             nextNum++;
