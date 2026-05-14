@@ -454,13 +454,17 @@ export class BulkImportService {
             errors: [],
             created: [],
         };
+        const normalizeEmail = (value: any): string | undefined => {
+            const email = value !== undefined && value !== null ? String(value).trim().toLowerCase() : '';
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : undefined;
+        };
 
         // ── Pre-flight checks ──────────────────────────────────────────────────
         // 1. Detect duplicate emails within the uploaded file itself
         const fileEmailSet = new Set<string>();
         const fileDupes = new Set<string>();
         for (const row of rows) {
-            const em = row.email?.toLowerCase();
+            const em = normalizeEmail(row.email);
             if (em) {
                 if (fileEmailSet.has(em)) fileDupes.add(em);
                 else fileEmailSet.add(em);
@@ -499,7 +503,7 @@ export class BulkImportService {
                 if (!row.last_name) throw new Error('last_name is required');
                 if (!row.position_name) throw new Error('position_name is required');
 
-                const emailLower = row.email?.toLowerCase();
+                const emailLower = normalizeEmail(row.email);
 
                 // role_code is required only when email present (user account will be created)
                 if (emailLower && !row.role_code) throw new Error('role_code is required when work email is provided');
