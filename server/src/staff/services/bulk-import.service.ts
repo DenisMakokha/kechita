@@ -36,7 +36,7 @@ export interface BulkImportRow {
     national_id?: string;
     tax_pin?: string;
     // Employment
-    role_code: string;
+    role_code?: string;
     position_name: string;
     position_code?: string;
     region_name?: string;
@@ -111,7 +111,7 @@ export class BulkImportService {
             { header: 'National ID', key: 'national_id', width: 16 },
             { header: 'Tax PIN (KRA)', key: 'tax_pin', width: 16 },
             // Employment
-            { header: 'Role Code *', key: 'role_code', width: 22, required: true, note: 'See Roles sheet' },
+            { header: 'Role Code', key: 'role_code', width: 22, note: 'Required only when Work Email is provided' },
             { header: 'Position Name *', key: 'position_name', width: 22, required: true, note: 'Created if not exists' },
             { header: 'Position Code', key: 'position_code', width: 16, note: 'Auto-generated if blank' },
             { header: 'Region Name', key: 'region_name', width: 20, note: 'Created if not exists' },
@@ -233,7 +233,7 @@ export class BulkImportService {
             ['1. Fill in the "Staff Import" sheet starting from row 3 (rows 1-2 are headers).'],
             ['2. Delete the sample rows (rows 3-4) before uploading.'],
             ['3. Required fields are marked with * and have a blue header.'],
-            ['4. Refer to the "Roles Reference" sheet for valid Role Codes.'],
+            ['4. Refer to the "Roles Reference" sheet for valid Role Codes when creating login accounts.'],
             [''],
             ['ORGANIZATION AUTO-CREATION:'],
             ['• Region, Branch, Department, and Position will be created automatically if they do not exist.'],
@@ -246,7 +246,8 @@ export class BulkImportService {
             ['• Hire Date defaults to today if left blank.'],
             [''],
             ['AFTER IMPORT:'],
-            ['• Each staff member receives a welcome email with a link to set their password.'],
+            ['• Staff without Work Email are imported as profiles only; no login account is created.'],
+            ['• When Work Email is later added on re-upload, a login account is created and a welcome email is sent.'],
             ['• A summary of successes and errors is shown after upload.'],
             ['• Rows with errors are skipped; valid rows are still imported.'],
         ];
@@ -533,6 +534,30 @@ export class BulkImportService {
                 }
 
                 const position = await this.upsertPosition(qr.manager, row.position_name, row.position_code, department);
+                const s = (v: any) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : undefined);
+                const parseDate = (v: any): Date | undefined => {
+                    if (!v) return undefined;
+                    const str = String(v).trim();
+                    if (!str) return undefined;
+                    const iso = /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : null;
+                    if (iso) {
+                        const [yr, mo, dy] = iso.split('-').map(Number);
+                        return new Date(yr, mo - 1, dy);
+                    }
+                    const d = new Date(str);
+                    return isNaN(d.getTime()) ? undefined : d;
+                };
+                const hireDateStr = row.hire_date
+                    ? String(row.hire_date).trim()
+                    : new Date().toISOString().split('T')[0];
+                const hireDate = parseDate(hireDateStr) || new Date();
+                const probationMonths = row.probation_months ? parseInt(String(row.probation_months), 10) : 3;
+                const probationEndDate = new Date(hireDate);
+                probationEndDate.setMonth(probationEndDate.getMonth() + probationMonths);
+                const salaryRaw = row.basic_salary !== undefined && row.basic_salary !== null
+                    ? parseFloat(String(row.basic_salary))
+                    : undefined;
+                const genderValue = row.gender ? String(row.gender).toLowerCase().trim() : undefined;
 
                 // ── Check if existing staff record (match by national_id) ──
                 const nidLower = row.national_id?.toLowerCase();
@@ -561,19 +586,31 @@ export class BulkImportService {
                         // already has an account — skip silently
                     }
                     // Patch any missing fields
-                    const s = (v: any) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : undefined);
-                    if (!existingStaff.phone && s(row.phone)) existingStaff.phone = s(row.phone)!;
-                    if (!existingStaff.personal_email && s(row.personal_email)) existingStaff.personal_email = s(row.personal_email)!;
-                    if (!existingStaff.bank_name && s(row.bank_name)) existingStaff.bank_name = s(row.bank_name)!;
-                    if (!existingStaff.bank_account_number && s(row.bank_account_number)) existingStaff.bank_account_number = s(row.bank_account_number)!;
-                    if (!existingStaff.address && s(row.address)) existingStaff.address = s(row.address)!;
-                    if (!existingStaff.city && s(row.city)) existingStaff.city = s(row.city)!;
-                    if (!existingStaff.tax_pin && s(row.tax_pin)) existingStaff.tax_pin = s(row.tax_pin)!;
-                    if (!existingStaff.emergency_contact_name && s(row.emergency_contact_name)) existingStaff.emergency_contact_name = s(row.emergency_contact_name)!;
-                    if (!existingStaff.emergency_contact_phone && s(row.emergency_contact_phone)) existingStaff.emergency_contact_phone = s(row.emergency_contact_phone)!;
-                    if (region && !existingStaff.region) existingStaff.region = region;
-                    if (branch && !existingStaff.branch) existingStaff.branch = branch;
-                    if (department && !existingStaff.department) existingStaff.department = department;
+                    existingStaff.first_name = row.first_name.trim();
+                    existingStaff.last_name = row.last_name.trim();
+                    if (s(row.middle_name)) existingStaff.middle_name = s(row.middle_name);
+                    if (s(row.phone)) existingStaff.phone = s(row.phone)!;
+                    if (s(row.personal_email)) existingStaff.personal_email = s(row.personal_email)!;
+                    if (s(row.bank_name)) existingStaff.bank_name = s(row.bank_name)!;
+                    if (s(row.bank_account_number)) existingStaff.bank_account_number = s(row.bank_account_number)!;
+                    if (s(row.address)) existingStaff.address = s(row.address)!;
+                    if (s(row.city)) existingStaff.city = s(row.city)!;
+                    if (s(row.tax_pin)) existingStaff.tax_pin = s(row.tax_pin)!;
+                    if (s(row.emergency_contact_name)) existingStaff.emergency_contact_name = s(row.emergency_contact_name)!;
+                    if (s(row.emergency_contact_phone)) existingStaff.emergency_contact_phone = s(row.emergency_contact_phone)!;
+                    if (s(row.emergency_contact_relationship)) existingStaff.emergency_contact_relationship = s(row.emergency_contact_relationship)!;
+                    if (genderValue) existingStaff.gender = genderValue as any;
+                    if (parseDate(row.date_of_birth)) existingStaff.date_of_birth = parseDate(row.date_of_birth) as any;
+                    if (salaryRaw !== undefined && !isNaN(salaryRaw)) existingStaff.basic_salary = salaryRaw;
+                    existingStaff.position = position;
+                    if (region) existingStaff.region = region;
+                    if (branch) existingStaff.branch = branch;
+                    if (department) existingStaff.department = department;
+                    if (row.hire_date) existingStaff.hire_date = hireDate;
+                    if (row.probation_months) {
+                        existingStaff.probation_months = probationMonths;
+                        existingStaff.probation_end_date = probationEndDate;
+                    }
                     await qr.manager.save(Staff, existingStaff);
                     await qr.commitTransaction();
                     if (accountCreated) {
@@ -614,38 +651,6 @@ export class BulkImportService {
                 // ── Create Staff with pre-allocated employee number ──
                 const empNumber = empNumbers[empIndex++];
 
-                // Helper: safe string trim (value may be number from Excel)
-                const s = (v: any) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : undefined);
-
-                // Helper: parse date string as local date (avoids timezone-shift)
-                const parseDate = (v: any): Date | undefined => {
-                    if (!v) return undefined;
-                    const str = String(v).trim();
-                    if (!str) return undefined;
-                    // YYYY-MM-DD format (safe, no tz shift)
-                    const iso = /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : null;
-                    if (iso) {
-                        const [yr, mo, dy] = iso.split('-').map(Number);
-                        return new Date(yr, mo - 1, dy);
-                    }
-                    // Fallback
-                    const d = new Date(str);
-                    return isNaN(d.getTime()) ? undefined : d;
-                };
-
-                const hireDateStr = row.hire_date
-                    ? String(row.hire_date).trim()
-                    : new Date().toISOString().split('T')[0];
-                const hireDate = parseDate(hireDateStr) || new Date();
-
-                const probationMonths = row.probation_months ? parseInt(String(row.probation_months), 10) : 3;
-                const probationEndDate = new Date(hireDate);
-                probationEndDate.setMonth(probationEndDate.getMonth() + probationMonths);
-
-                const salaryRaw = row.basic_salary !== undefined && row.basic_salary !== null
-                    ? parseFloat(String(row.basic_salary))
-                    : undefined;
-
                 const staff = qr.manager.create(Staff, {
                     ...(savedUser ? { user: savedUser } : {}),  
                     employee_number: empNumber,
@@ -654,7 +659,7 @@ export class BulkImportService {
                     last_name: row.last_name.trim(),
                     personal_email: s(row.personal_email),
                     phone: s(row.phone),
-                    gender: row.gender ? (String(row.gender).toLowerCase().trim() as any) : undefined,
+                    gender: genderValue as any,
                     date_of_birth: parseDate(row.date_of_birth) as any,
                     national_id: s(row.national_id),
                     tax_pin: s(row.tax_pin),
