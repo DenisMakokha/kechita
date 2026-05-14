@@ -42,6 +42,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const path = request.url;
         const method = request.method;
         const correlationId = request.headers['x-correlation-id'] as string;
+        const maybeMulterError = exception as { name?: string; code?: string; message?: string; field?: string };
+
+        if (maybeMulterError?.name === 'MulterError') {
+            const message = maybeMulterError.code === 'LIMIT_FILE_SIZE'
+                ? 'Uploaded file is too large. Maximum allowed size is 50MB.'
+                : maybeMulterError.message || 'File upload failed';
+
+            return {
+                statusCode: HttpStatus.BAD_REQUEST,
+                errorCode: maybeMulterError.code || 'FILE_UPLOAD_ERROR',
+                message,
+                details: {
+                    code: maybeMulterError.code,
+                    field: maybeMulterError.field,
+                },
+                timestamp,
+                path,
+                method,
+                correlationId,
+            };
+        }
 
         // Handle HTTP exceptions from NestJS
         if (exception instanceof HttpException) {

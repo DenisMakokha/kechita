@@ -47,7 +47,7 @@ export class StaffController {
 
     @Post('bulk-import')
     @Roles('CEO', 'HR_MANAGER')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
     async bulkImport(
         @UploadedFile() file: Express.Multer.File,
         @Req() req: AuthenticatedRequest,
