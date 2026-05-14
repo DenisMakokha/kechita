@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository, Like, ILike } from 'typeorm';
+import { DataSource, Repository, Like, ILike } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { User } from './entities/user.entity';
@@ -46,6 +46,7 @@ export class UserService {
         private emailService: EmailService,
         private configService: ConfigService,
         private auditService: AuditService,
+        private dataSource: DataSource,
     ) {}
 
     // Role hierarchy: lower number = higher rank
@@ -333,8 +334,14 @@ export class UserService {
         const user = await this.findOne(id);
         if (actorRoles) this.assertCanModifyUser(actorRoles, user);
 
+        await this.dataSource.transaction(async (manager) => {
+            await manager.query('UPDATE staff SET user_id = NULL WHERE user_id = $1', [id]);
+            await manager.query('UPDATE audit_logs SET user_id = NULL WHERE user_id = $1', [id]);
+            await manager.query('DELETE FROM user_roles WHERE user_id = $1', [id]);
+            await manager.delete(User, id);
+        });
+
         await this.auditService.log({
-            userId: id,
             action: AuditAction.DELETE,
             entityType: 'User',
             entityId: id,
@@ -342,7 +349,6 @@ export class UserService {
             isSuccessful: true,
         }).catch(() => {});
 
-        await this.userRepository.remove(user);
         return { message: 'User deleted successfully' };
     }
 
