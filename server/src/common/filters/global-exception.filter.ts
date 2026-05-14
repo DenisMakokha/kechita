@@ -7,6 +7,7 @@ import {
     Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as fs from 'fs';
 import { QueryFailedError, EntityNotFoundError } from 'typeorm';
 
 interface ErrorResponse {
@@ -237,6 +238,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
         if (errorResponse.statusCode >= 500) {
             this.logger.error(logMessage, exception instanceof Error ? exception.stack : undefined);
+            try {
+                fs.appendFileSync(
+                    '/tmp/kechita-api-errors.log',
+                    `${new Date().toISOString()} ${logMessage}\n${exception instanceof Error ? exception.stack : JSON.stringify(exception)}\n\n`,
+                );
+            } catch {}
         } else if (errorResponse.statusCode >= 400) {
             this.logger.warn(logMessage);
         }

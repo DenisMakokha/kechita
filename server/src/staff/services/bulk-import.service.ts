@@ -478,12 +478,12 @@ export class BulkImportService {
         const dbEmailSet = new Set(existingUsers.map(u => u.email.toLowerCase()));
 
         // 3. Count only new staff rows (no national_id match in DB) for employee number pre-allocation
-        const allNationalIds = rows.map(r => r.national_id).filter(Boolean) as string[];
+        const allNationalIds = rows.map(r => r.national_id ? String(r.national_id).trim() : undefined).filter(Boolean) as string[];
         const existingStaffByNid = allNationalIds.length > 0
             ? await this.staffRepo.find({ where: allNationalIds.map(n => ({ national_id: n })), select: ['id', 'national_id'] })
             : [];
-        const existingNidSet = new Set(existingStaffByNid.map(s => s.national_id?.toLowerCase()));
-        const newStaffCount = rows.filter(r => !r.national_id || !existingNidSet.has(r.national_id.toLowerCase())).length;
+        const existingNidSet = new Set(existingStaffByNid.map(s => s.national_id ? String(s.national_id).toLowerCase() : undefined));
+        const newStaffCount = rows.filter(r => !r.national_id || !existingNidSet.has(String(r.national_id).toLowerCase())).length;
         const empNumbers = await this.preallocateEmployeeNumbers(newStaffCount);
         let empIndex = 0;
 
@@ -560,9 +560,10 @@ export class BulkImportService {
                 const genderValue = row.gender ? String(row.gender).toLowerCase().trim() : undefined;
 
                 // ── Check if existing staff record (match by national_id) ──
-                const nidLower = row.national_id?.toLowerCase();
+                const nationalId = s(row.national_id);
+                const nidLower = nationalId?.toLowerCase();
                 const existingStaff = nidLower
-                    ? await qr.manager.findOne(Staff, { where: { national_id: row.national_id }, relations: ['user'] })
+                    ? await qr.manager.findOne(Staff, { where: { national_id: nationalId }, relations: ['user'] })
                     : null;
 
                 if (existingStaff) {
