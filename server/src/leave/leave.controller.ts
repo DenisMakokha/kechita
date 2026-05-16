@@ -240,7 +240,7 @@ export class LeaveController {
     ) {
         return this.leaveService.updatePublicHoliday(id, {
             name: dto.name,
-            date: dto.date ? new Date(dto.date) : undefined,
+            date: dto.date ? dto.date.slice(0, 10) : undefined,
             is_recurring: dto.is_recurring,
         });
     }

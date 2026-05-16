@@ -152,7 +152,7 @@ async function seed() {
                 await holidayRepo.save(holidayRepo.create({
                     ...h,
                     year: 2025,
-                    date: new Date(h.date),
+                    date: h.date,
                 }));
                 console.log(`  Created holiday: ${h.name}`);
             }
@@ -185,7 +185,7 @@ async function seed() {
                 await holidayRepo.save(holidayRepo.create({
                     ...h,
                     year: 2026,
-                    date: new Date(h.date),
+                    date: h.date,
                 }));
                 console.log(`  Created holiday: ${h.name}`);
             }

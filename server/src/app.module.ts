@@ -217,6 +217,9 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
+        // Force every pooled connection to UTC so date-only columns are
+        // not shifted by the host server timezone (e.g. America/Chicago).
+        options: '-c TimeZone=UTC',
       },
     }),
     AuthModule,

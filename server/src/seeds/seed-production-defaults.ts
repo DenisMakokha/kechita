@@ -326,7 +326,7 @@ export async function seedProductionDefaults() {
                 await holidayRepo.save(holidayRepo.create({
                     ...h,
                     year: year as number,
-                    date: new Date(h.date),
+                    date: h.date,
                 }));
                 created++;
             }

@@ -165,8 +165,8 @@ describe('LeaveService', () => {
     describe('getPublicHolidays', () => {
         it('should return holidays for a given year', async () => {
             const holidays = [
-                { id: '1', name: 'New Year', date: new Date('2024-01-01') },
-            ] as PublicHoliday[];
+                { id: '1', name: 'New Year', date: '2024-01-01' },
+            ] as unknown as PublicHoliday[];
             publicHolidayRepo.find.mockResolvedValue(holidays);
 
             const result = await service.getPublicHolidays(2024);

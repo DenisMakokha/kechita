@@ -6,9 +6,10 @@ export class CreatePublicHolidayDto {
     @IsNotEmpty()
     name: string;
 
+    // Keep as YYYY-MM-DD string so the Postgres `date` column doesn't shift across timezones
     @IsDateString()
-    @Transform(({ value }) => new Date(value))
-    date: Date;
+    @Transform(({ value }) => (typeof value === 'string' ? value.slice(0, 10) : value))
+    date: string;
 
     @IsOptional()
     @IsString()

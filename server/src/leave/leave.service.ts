@@ -605,9 +605,15 @@ export class LeaveService {
     }
 
     async createPublicHoliday(data: Partial<PublicHoliday>): Promise<PublicHoliday> {
+        // Derive year from the YYYY-MM-DD string directly to avoid timezone shifts
+        const yearFromDate = (d: any): number => {
+            if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return parseInt(d.slice(0, 4), 10);
+            if (d instanceof Date) return d.getUTCFullYear();
+            return new Date().getFullYear();
+        };
         const holiday = this.holidayRepo.create({
             ...data,
-            year: data.date ? new Date(data.date).getFullYear() : new Date().getFullYear(),
+            year: data.date ? yearFromDate(data.date) : new Date().getFullYear(),
         });
         return this.holidayRepo.save(holiday);
     }
@@ -1015,14 +1021,20 @@ export class LeaveService {
 
     // ==================== UPDATE PUBLIC HOLIDAY ====================
 
-    async updatePublicHoliday(id: string, data: { name?: string; date?: Date; is_recurring?: boolean }): Promise<PublicHoliday> {
+    async updatePublicHoliday(id: string, data: { name?: string; date?: string; is_recurring?: boolean }): Promise<PublicHoliday> {
         const holiday = await this.holidayRepo.findOne({ where: { id } });
         if (!holiday) throw new NotFoundException('Public holiday not found');
-        
+
         if (data.name !== undefined) holiday.name = data.name;
-        if (data.date !== undefined) holiday.date = data.date;
+        if (data.date !== undefined) {
+            // Normalise to YYYY-MM-DD so the date column doesn't shift
+            const raw = data.date as any;
+            const iso = typeof raw === 'string' ? raw.slice(0, 10) : new Date(raw).toISOString().slice(0, 10);
+            holiday.date = iso;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) holiday.year = parseInt(iso.slice(0, 4), 10);
+        }
         if (data.is_recurring !== undefined) holiday.is_recurring = data.is_recurring;
-        
+
         return this.holidayRepo.save(holiday);
     }
 

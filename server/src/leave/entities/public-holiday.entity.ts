@@ -9,7 +9,7 @@ export class PublicHoliday {
     name: string;
 
     @Column({ type: 'date' })
-    date: Date;
+    date: string;
 
     @Column()
     year: number;
