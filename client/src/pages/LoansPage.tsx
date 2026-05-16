@@ -64,6 +64,92 @@ interface StaffLoan {
 
 const LOANS_MANAGER_ROLES = ['CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER'];
 
+// Early-settlement calculator widget for an active loan
+const EarlySettlementWidget: React.FC<{ loan: any }> = ({ loan }) => {
+    const repayments: any[] = Array.isArray(loan.repayments) ? loan.repayments : [];
+    const unpaid = repayments.filter(r => r.status !== 'paid');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const [settleDate, setSettleDate] = React.useState<string>(todayStr);
+    const [waiverPct, setWaiverPct] = React.useState<number>(50); // % of remaining interest to waive
+
+    // Sums
+    const remainingPrincipal = unpaid.reduce((sum, r) => sum + Math.max(0, Number(r.principal_amount || 0) - Number(r.paid_principal || 0)), 0);
+    const remainingInterest = unpaid.reduce((sum, r) => sum + Math.max(0, Number(r.interest_amount || 0) - Number(r.paid_interest || 0)), 0);
+    const remainingFees = unpaid.reduce((sum, r) => sum + Math.max(0, Number(r.fees || 0) - Number(r.paid_fees || 0)), 0);
+    const remainingPenalties = unpaid.reduce((sum, r) => sum + Math.max(0, Number(r.penalty || 0) - Number(r.paid_penalty || 0)), 0);
+
+    const waivedInterest = remainingInterest * (waiverPct / 100);
+    const payoff = remainingPrincipal + (remainingInterest - waivedInterest) + remainingFees + remainingPenalties;
+    const totalContractualRemaining = remainingPrincipal + remainingInterest + remainingFees + remainingPenalties;
+    const savings = totalContractualRemaining - payoff;
+
+    const fmt = (n: number) => `KES ${n.toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
+
+    if (unpaid.length === 0) {
+        return (
+            <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-700">
+                This loan has no outstanding installments. Nothing to settle.
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-4 bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+                <h5 className="font-semibold text-slate-900 text-sm">Early Settlement Calculator</h5>
+                <span className="text-xs text-slate-500">{unpaid.length} unpaid installment{unpaid.length === 1 ? '' : 's'}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">Settlement date</label>
+                    <input
+                        type="date"
+                        value={settleDate}
+                        onChange={(e) => setSettleDate(e.target.value)}
+                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white"
+                    />
+                </div>
+                <div>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">Interest waiver: <strong>{waiverPct}%</strong></label>
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={waiverPct}
+                        onChange={(e) => setWaiverPct(parseInt(e.target.value))}
+                        className="w-full"
+                        aria-label="Interest waiver percent"
+                    />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+                <div className="bg-white rounded-md p-2 border border-blue-100">
+                    <p className="text-[11px] text-slate-500">Principal</p>
+                    <p className="font-semibold text-sm text-slate-900">{fmt(remainingPrincipal)}</p>
+                </div>
+                <div className="bg-white rounded-md p-2 border border-blue-100">
+                    <p className="text-[11px] text-slate-500">Interest (after waiver)</p>
+                    <p className="font-semibold text-sm text-slate-900">{fmt(remainingInterest - waivedInterest)}</p>
+                </div>
+                <div className="bg-white rounded-md p-2 border border-blue-100">
+                    <p className="text-[11px] text-slate-500">Fees + Penalties</p>
+                    <p className="font-semibold text-sm text-slate-900">{fmt(remainingFees + remainingPenalties)}</p>
+                </div>
+                <div className="bg-emerald-50 rounded-md p-2 border border-emerald-200">
+                    <p className="text-[11px] text-emerald-700">Savings vs schedule</p>
+                    <p className="font-semibold text-sm text-emerald-700">{fmt(savings)}</p>
+                </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-blue-200 pt-3">
+                <p className="text-sm text-slate-600">Payoff amount on <strong>{new Date(settleDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong></p>
+                <p className="text-xl font-bold text-[#0066B3]">{fmt(payoff)}</p>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2 italic">Indicative only — confirm with Finance for final figures.</p>
+        </div>
+    );
+};
+
 const LoansPage: React.FC = () => {
     const queryClient = useQueryClient();
     const { user } = useAuthStore();
@@ -1055,6 +1141,11 @@ const LoansPage: React.FC = () => {
                                                     </tbody>
                                                 </table>
                                             </div>
+
+                                            {/* Early-settlement calculator */}
+                                            {selectedLoan.status === 'active' || selectedLoan.status === 'approved' ? (
+                                                <EarlySettlementWidget loan={selectedLoan} />
+                                            ) : null}
                                         </div>
                                     )}
 

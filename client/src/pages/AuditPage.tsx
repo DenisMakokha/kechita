@@ -56,6 +56,67 @@ const getActionColor = (action: string) => {
     return 'bg-slate-100 text-slate-600';
 };
 
+// Field-level diff component: shows only changed keys side-by-side
+const AuditDiff: React.FC<{ oldValues: Record<string, any>; newValues: Record<string, any> }> = ({ oldValues, newValues }) => {
+    const keys = Array.from(new Set([...Object.keys(oldValues), ...Object.keys(newValues)])).sort();
+    const fmt = (v: any) => {
+        if (v === null || v === undefined) return <span className="text-slate-400 italic">∅ empty</span>;
+        if (typeof v === 'object') return JSON.stringify(v);
+        return String(v);
+    };
+    const changed = keys.filter(k => JSON.stringify(oldValues[k]) !== JSON.stringify(newValues[k]));
+    const unchanged = keys.filter(k => !changed.includes(k));
+
+    if (changed.length === 0 && unchanged.length === 0) return null;
+
+    return (
+        <div>
+            <p className="text-xs text-slate-500 uppercase mb-2">Changes ({changed.length})</p>
+            {changed.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No field-level differences captured.</p>
+            ) : (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th className="text-left px-3 py-2 font-semibold text-slate-600 w-1/4">Field</th>
+                                <th className="text-left px-3 py-2 font-semibold text-rose-600">Before</th>
+                                <th className="text-left px-3 py-2 font-semibold text-emerald-600">After</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {changed.map(k => (
+                                <tr key={k} className="align-top">
+                                    <td className="px-3 py-2 font-medium text-slate-700 font-mono">{k}</td>
+                                    <td className="px-3 py-2 bg-rose-50/40 text-rose-900 break-all">{fmt(oldValues[k])}</td>
+                                    <td className="px-3 py-2 bg-emerald-50/40 text-emerald-900 break-all">{fmt(newValues[k])}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+            {unchanged.length > 0 && (
+                <details className="mt-3 text-xs">
+                    <summary className="cursor-pointer text-slate-500 hover:text-slate-700">Show {unchanged.length} unchanged field{unchanged.length === 1 ? '' : 's'}</summary>
+                    <div className="mt-2 border border-slate-100 rounded-lg overflow-hidden">
+                        <table className="w-full">
+                            <tbody className="divide-y divide-slate-100">
+                                {unchanged.map(k => (
+                                    <tr key={k}>
+                                        <td className="px-3 py-1.5 font-mono text-slate-500 w-1/4">{k}</td>
+                                        <td className="px-3 py-1.5 text-slate-600 break-all">{fmt(newValues[k] ?? oldValues[k])}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            )}
+        </div>
+    );
+};
+
 const formatTimeAgo = (date: string) => {
     const now = new Date();
     const then = new Date(date);
@@ -505,21 +566,11 @@ export const AuditPage: React.FC = () => {
                                     <p className="text-red-700">{selectedLog.error_message}</p>
                                 </div>
                             )}
-                            {selectedLog.old_values && Object.keys(selectedLog.old_values).length > 0 && (
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase mb-1">Previous Values</p>
-                                    <pre className="bg-slate-50 rounded-lg p-3 text-xs overflow-auto">
-                                        {JSON.stringify(selectedLog.old_values, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-                            {selectedLog.new_values && Object.keys(selectedLog.new_values).length > 0 && (
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase mb-1">New Values</p>
-                                    <pre className="bg-slate-50 rounded-lg p-3 text-xs overflow-auto">
-                                        {JSON.stringify(selectedLog.new_values, null, 2)}
-                                    </pre>
-                                </div>
+                            {(selectedLog.old_values || selectedLog.new_values) && (
+                                <AuditDiff
+                                    oldValues={selectedLog.old_values || {}}
+                                    newValues={selectedLog.new_values || {}}
+                                />
                             )}
                             {selectedLog.user_agent && (
                                 <div>
