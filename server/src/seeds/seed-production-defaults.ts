@@ -62,8 +62,8 @@ const ROLES = [
 const LEAVE_TYPES = [
     { code: 'ANNUAL', name: 'Annual Leave', max_days_per_year: 21, color: '#0066B3' },
     { code: 'SICK', name: 'Sick Leave', max_days_per_year: 14, requires_attachment: true, color: '#DC2626' },
-    { code: 'MATERNITY', name: 'Maternity Leave', max_days_per_year: 90, color: '#EC4899' },
-    { code: 'PATERNITY', name: 'Paternity Leave', max_days_per_year: 14, color: '#8B5CF6' },
+    { code: 'MATERNITY', name: 'Maternity Leave', max_days_per_year: 90, color: '#EC4899', applicable_gender: 'female', requires_attachment: true },
+    { code: 'PATERNITY', name: 'Paternity Leave', max_days_per_year: 14, color: '#8B5CF6', applicable_gender: 'male', requires_attachment: true },
     { code: 'COMPASSIONATE', name: 'Compassionate Leave', max_days_per_year: 5, is_emergency: true, color: '#6B7280' },
     { code: 'STUDY', name: 'Study Leave', max_days_per_year: 10, color: '#F59E0B' },
     { code: 'UNPAID', name: 'Unpaid Leave', max_days_per_year: 30, color: '#94A3B8' },

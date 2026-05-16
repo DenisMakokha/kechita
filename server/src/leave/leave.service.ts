@@ -411,9 +411,16 @@ export class LeaveService {
 
     async getMyBalance(staffId: string, year?: number): Promise<LeaveBalance[]> {
         const currentYear = year || new Date().getFullYear();
-        return this.leaveBalanceRepo.find({
+        const staff = await this.staffRepo.findOneBy({ id: staffId });
+        const balances = await this.leaveBalanceRepo.find({
             where: { staff: { id: staffId }, year: currentYear },
             relations: ['leaveType'],
+        });
+        // Hide leave types not applicable to staff's gender (e.g. maternity for male, paternity for female)
+        return balances.filter(b => {
+            const applicable = b.leaveType?.applicable_gender;
+            if (!applicable) return true;
+            return staff?.gender === applicable;
         });
     }
 
@@ -468,6 +475,10 @@ export class LeaveService {
 
         for (const staff of allStaff) {
             for (const leaveType of leaveTypes) {
+                // Skip if leave type doesn't apply to this staff's gender (e.g., maternity for males)
+                if (leaveType.applicable_gender && staff.gender !== leaveType.applicable_gender) {
+                    continue;
+                }
                 // Check if balance already exists
                 const existing = await this.leaveBalanceRepo.findOne({
                     where: { staff: { id: staff.id }, leaveType: { id: leaveType.id }, year },
