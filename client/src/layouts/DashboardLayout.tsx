@@ -30,7 +30,6 @@ import {
     Lock,
     Bell,
     FileText,
-    UserCheck,
     Building2,
 } from 'lucide-react';
 import LogoHeader from '../assets/LogoHeader.svg';
@@ -52,7 +51,7 @@ const navItems = [
     { path: '/performance', label: 'Performance', icon: Award, roles: ALL_STAFF_ROLES },
     { path: '/hr-admin', label: 'HR Admin', icon: Briefcase, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
     { path: '/recruitment', label: 'Recruitment', icon: UserPlus, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
-    { path: '/onboarding', label: 'Onboarding', icon: UserCheck, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
+    // Onboarding moved into Recruitment page
     { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'RELATIONSHIP_OFFICER', 'BDM'] },
     { path: '/organization', label: 'Organization', icon: Building2, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER'] },
     { path: '/audit', label: 'Audit Logs', icon: FileText, roles: ['CEO', 'HR_MANAGER'] },
