@@ -24,6 +24,8 @@ import {
     Wallet,
     ScrollText,
     ClipboardList,
+    Calendar,
+    UserCheck,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -353,6 +355,42 @@ export const CEODashboard: React.FC = () => {
                     icon={<Briefcase className="text-white" size={24} />}
                     color="bg-gradient-to-br from-[#0066B3] to-[#00AEEF]"
                     link="/recruitment"
+                />
+            </div>
+
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="Leave Requests"
+                    value={leaveStats.pending || 0}
+                    subtitle={`${leaveStats.approved || 0} approved this month`}
+                    icon={<Calendar className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/leave-management"
+                />
+                <StatCard
+                    title="Expense Claims"
+                    value={claimsStats.pendingCount || 0}
+                    subtitle={`KES ${((claimsStats.pendingAmount || 0) / 1000).toFixed(0)}K pending`}
+                    icon={<FileText className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/claims"
+                />
+                <StatCard
+                    title="Onboarding"
+                    value={staffStats.onboarding || 0}
+                    subtitle={`${staffStats.probation || 0} on probation`}
+                    icon={<UserCheck className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-teal-500 to-cyan-600"
+                    link="/onboarding"
+                />
+                <StatCard
+                    title="Expiring Contracts"
+                    value={expiringContracts?.length || 0}
+                    subtitle="Within 30 days"
+                    icon={<AlertTriangle className="text-white" size={24} />}
+                    color={expiringContracts?.length > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-slate-500 to-slate-600"}
+                    link="/staff-management"
                 />
             </div>
 

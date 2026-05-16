@@ -125,6 +125,42 @@ export const RelationshipOfficerDashboard: React.FC = () => {
                 />
             </div>
 
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="Approved Claims"
+                    value={claimsList.filter((c: any) => c.status === 'approved').length}
+                    subtitle={`KES ${claimsList.filter((c: any) => c.status === 'approved').reduce((acc: number, c: any) => acc + (c.amount || 0), 0).toLocaleString()}`}
+                    icon={<CheckCircle className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-emerald-500 to-green-600"
+                    link="/claims"
+                />
+                <StatCard
+                    title="Leave Balance"
+                    value={`${totalLeaveBalance.toFixed(1)} days`}
+                    subtitle="Annual leave remaining"
+                    icon={<Calendar className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/leave-management"
+                />
+                <StatCard
+                    title="Announcements"
+                    value={announcements?.length || 0}
+                    subtitle="Recent updates"
+                    icon={<Megaphone className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/announcements"
+                />
+                <StatCard
+                    title="Total Loans"
+                    value={myLoans?.length || 0}
+                    subtitle={`${activeLoans} active`}
+                    icon={<PiggyBank className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-teal-500 to-cyan-600"
+                    link="/loans"
+                />
+            </div>
+
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column */}

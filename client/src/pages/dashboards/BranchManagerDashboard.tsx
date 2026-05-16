@@ -184,6 +184,42 @@ export const BranchManagerDashboard: React.FC = () => {
                 />
             </div>
 
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="Daily Report"
+                    value={todayReportSubmitted ? "Submitted" : "Pending"}
+                    subtitle={todayReportSubmitted ? "Great job!" : "Submit by EOD"}
+                    icon={<FileText className="text-white" size={24} />}
+                    color={todayReportSubmitted ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-amber-500 to-orange-600"}
+                    link="/reports"
+                />
+                <StatCard
+                    title="Active Loans"
+                    value={myLoans?.filter((l: any) => l.status === 'active').length || 0}
+                    subtitle="Your active loans"
+                    icon={<DollarSign className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/loans"
+                />
+                <StatCard
+                    title="Petty Cash"
+                    value={pettyCashStats?.my_float?.balance ? `KES ${(pettyCashStats.my_float.balance / 1000).toFixed(0)}K` : "N/A"}
+                    subtitle="Your float balance"
+                    icon={<Wallet className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/petty-cash"
+                />
+                <StatCard
+                    title="Announcements"
+                    value={announcements?.length || 0}
+                    subtitle="Unread messages"
+                    icon={<Megaphone className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-teal-500 to-cyan-600"
+                    link="/announcements"
+                />
+            </div>
+
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Team Status */}

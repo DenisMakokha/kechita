@@ -23,6 +23,7 @@ import {
     FileWarning,
     ScrollText,
     Megaphone,
+    Wallet,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -226,6 +227,41 @@ export const HRDashboard: React.FC = () => {
                     subtitle={`${expiredDocs?.length || 0} expired, ${expiringDocs?.length || 0} expiring`}
                     icon={<FileCheck className="text-white" size={24} />}
                     color={(expiringDocs?.length || 0) + (expiredDocs?.length || 0) > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-emerald-500 to-green-600"}
+                />
+            </div>
+
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="New Hires"
+                    value={onboardingStats?.newHiresThisMonth || 0}
+                    subtitle={`${onboardingStats?.activeCount || 0} in onboarding`}
+                    icon={<UserPlus className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/onboarding"
+                />
+                <StatCard
+                    title="Loan Applications"
+                    value={loanStats?.pending || 0}
+                    subtitle={`${loanStats?.active || 0} active loans`}
+                    icon={<Wallet className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/loans"
+                />
+                <StatCard
+                    title="Expense Claims"
+                    value={claimsStats?.pending || 0}
+                    subtitle={`KES ${((claimsStats?.pendingAmount || 0) / 1000).toFixed(0)}K pending`}
+                    icon={<FileText className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-amber-500 to-orange-600"
+                    link="/claims"
+                />
+                <StatCard
+                    title="Upcoming Reviews"
+                    value={(upcomingProbation?.length || 0) + (upcomingInterviews?.length || 0)}
+                    subtitle={`${overdueProbation?.length || 0} overdue`}
+                    icon={<Video className="text-white" size={24} />}
+                    color={(overdueProbation?.length || 0) > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-teal-500 to-cyan-600"}
                 />
             </div>
 

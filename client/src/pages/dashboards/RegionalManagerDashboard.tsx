@@ -169,6 +169,41 @@ export const RegionalManagerDashboard: React.FC = () => {
                 <StatCard title="My Leave Balance" value={`${totalLeaveBalance.toFixed(1)} days`} subtitle="Annual leave available" icon={<Calendar className="text-white" size={24} />} color="bg-gradient-to-br from-emerald-500 to-green-600" link="/leave-management" />
             </div>
 
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="Coverage Rate"
+                    value={`${coveragePercent}%`}
+                    subtitle={`${totalOnLeave} staff on leave`}
+                    icon={<Users className="text-white" size={24} />}
+                    color={coveragePercent > 80 ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-amber-500 to-orange-600"}
+                />
+                <StatCard
+                    title="Petty Cash"
+                    value={`KES ${((pettyCashStats?.total_balance || 0) / 1000000).toFixed(1)}M`}
+                    subtitle={`${pettyCashStats?.total_floats || 0} active floats`}
+                    icon={<Wallet className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/petty-cash"
+                />
+                <StatCard
+                    title="Announcements"
+                    value={announcements?.length || 0}
+                    subtitle="Recent updates"
+                    icon={<Megaphone className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/announcements"
+                />
+                <StatCard
+                    title="Conflicts"
+                    value={upcomingConflicts?.length || 0}
+                    subtitle="Scheduling conflicts"
+                    icon={<AlertTriangle className="text-white" size={24} />}
+                    color={upcomingConflicts?.length > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-teal-500 to-cyan-600"}
+                    link="/leave-management"
+                />
+            </div>
+
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Branch Performance */}

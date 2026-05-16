@@ -6,7 +6,7 @@ import {
     Users, Calendar, FileText, CheckSquare, Clock, ChevronRight,
     UserPlus, ClipboardList, AlertCircle, Briefcase,
     CalendarDays, UserCheck, AlertTriangle, FileWarning, ScrollText,
-    Video, MapPin, FileCheck,
+    Video, MapPin, FileCheck, FileWarning as FileWarningIcon,
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -155,6 +155,42 @@ export const HRAssistantDashboard: React.FC = () => {
                     icon={<ClipboardList className="text-white" size={24} />}
                     color="bg-gradient-to-br from-amber-500 to-orange-600"
                     link="/approvals"
+                />
+            </div>
+
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="Staff on Leave"
+                    value={staffOnLeave?.length || 0}
+                    subtitle="Today"
+                    icon={<Calendar className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/leave"
+                />
+                <StatCard
+                    title="Interviews"
+                    value={upcomingInterviews?.length || 0}
+                    subtitle="Upcoming"
+                    icon={<CalendarDays className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/recruitment"
+                />
+                <StatCard
+                    title="Recent Hires"
+                    value={recentStaff?.length || 0}
+                    subtitle="Last 5 staff added"
+                    icon={<UserCheck className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-teal-500 to-cyan-600"
+                    link="/staff-management"
+                />
+                <StatCard
+                    title="Document Alerts"
+                    value={(expiredDocs?.length || 0) + (expiringDocs?.length || 0) + (expiringContracts?.length || 0)}
+                    subtitle={`${expiredDocs?.length || 0} expired, ${expiringDocs?.length || 0} expiring`}
+                    icon={<FileWarning className="text-white" size={24} />}
+                    color={(expiredDocs?.length || 0) > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-slate-500 to-slate-600"}
+                    link="/staff-management"
                 />
             </div>
 

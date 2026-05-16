@@ -154,6 +154,41 @@ export const StaffDashboard: React.FC = () => {
                 />
             </div>
 
+            {/* Secondary Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard
+                    title="Approved Claims"
+                    value={myClaims?.filter((c: any) => c.status === 'approved').length || 0}
+                    subtitle={`KES ${myClaims?.filter((c: any) => c.status === 'approved').reduce((acc: number, c: any) => acc + (c.amount || 0), 0).toLocaleString()}`}
+                    icon={<CheckCircle className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    link="/claims"
+                />
+                <StatCard
+                    title="Loan Balance"
+                    value={`KES ${myLoans?.filter((l: any) => l.status === 'active').reduce((acc: number, l: any) => acc + (l.outstanding_balance || 0), 0).toLocaleString()}`}
+                    subtitle={`${activeLoans} active loan${activeLoans === 1 ? '' : 's'}`}
+                    icon={<Briefcase className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    link="/loans"
+                />
+                <StatCard
+                    title="Next Holiday"
+                    value={upcomingHoliday ? new Date(upcomingHoliday.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'None'}
+                    subtitle={upcomingHoliday?.name || 'No upcoming holidays'}
+                    icon={<Calendar className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-teal-500 to-cyan-600"
+                />
+                <StatCard
+                    title="Announcements"
+                    value={announcements?.length || 0}
+                    subtitle="Unread updates"
+                    icon={<Megaphone className="text-white" size={24} />}
+                    color="bg-gradient-to-br from-amber-500 to-orange-600"
+                    link="/announcements"
+                />
+            </div>
+
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Quick Actions */}
