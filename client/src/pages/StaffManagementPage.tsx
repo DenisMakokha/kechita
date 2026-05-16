@@ -193,12 +193,12 @@ export const StaffManagementPage: React.FC = () => {
     const hrRequireNok = hrPolicy?.hr_nok_required ?? true;
 
     // Queries
-    const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => { const res = (await api.get('/staff')).data; return Array.isArray(res) ? res : (res?.data ?? []); }, refetchInterval: 60000 });
+    const { data: staff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({ queryKey: ['staff'], queryFn: async () => { const res = (await api.get('/staff?limit=10000')).data; return Array.isArray(res) ? res : (res?.data ?? []); }, refetchInterval: 60000 });
     const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data });
     const { data: staffStats } = useQuery<any>({ queryKey: ['staff-stats'], queryFn: async () => (await api.get('/staff/stats')).data, refetchInterval: 60000 });
     const { data: deletedStaff = [] } = useQuery<any[]>({
         queryKey: ['staff-deleted'],
-        queryFn: async () => { const res = (await api.get('/staff?onlyDeleted=true')).data; return Array.isArray(res) ? res : (res?.data ?? []); },
+        queryFn: async () => { const res = (await api.get('/staff?onlyDeleted=true&limit=10000')).data; return Array.isArray(res) ? res : (res?.data ?? []); },
         enabled: directoryView === 'archived',
     });
     const restoreStaffMutation = useMutation({
@@ -304,7 +304,7 @@ export const StaffManagementPage: React.FC = () => {
     const { data: manageRolePermsData = [], isLoading: manageRolePermsLoading } = useQuery<Permission[]>({ queryKey: ['role-perms-manage', manageRole?.id], queryFn: async () => (await api.get(`/roles/${manageRole!.id}/permissions`)).data, enabled: !!manageRole });
     useEffect(() => { if (manageRolePermsData.length > 0 && !permsDirty) { setPendingPermIds(new Set(manageRolePermsData.map((p: Permission) => p.id))); } }, [manageRolePermsData]);
     const { data: roleUsers = [], isLoading: roleUsersLoading } = useQuery<User[]>({ queryKey: ['users-by-role', manageRole?.code], queryFn: async () => (await api.get(`/users/by-role/${manageRole!.code}`)).data, enabled: !!manageRole && manageRoleTab === 'users' });
-    const { data: unlinkedStaff = [] } = useQuery<any[]>({ queryKey: ['staff-unlinked'], queryFn: async () => { const res = (await api.get('/staff')).data; const all = Array.isArray(res) ? res : (res?.data ?? []); return all.filter((s: any) => !s.user); }, enabled: !!drawerUser && drawerTab === 'stafflink' && !drawerUser.staff });
+    const { data: unlinkedStaff = [] } = useQuery<any[]>({ queryKey: ['staff-unlinked'], queryFn: async () => { const res = (await api.get('/staff?limit=10000')).data; const all = Array.isArray(res) ? res : (res?.data ?? []); return all.filter((s: any) => !s.user); }, enabled: !!drawerUser && drawerTab === 'stafflink' && !drawerUser.staff });
     const { data: drawerUserPermsRole } = useQuery<Permission[]>({ queryKey: ['role-perms-compare-a', compareRoleA?.id], queryFn: async () => (await api.get(`/roles/${compareRoleA!.id}/permissions`)).data, enabled: !!compareRoleA && showCompareModal });
     const { data: drawerRoleBPerms } = useQuery<Permission[]>({ queryKey: ['role-perms-compare-b', compareRoleB?.id], queryFn: async () => (await api.get(`/roles/${compareRoleB!.id}/permissions`)).data, enabled: !!compareRoleB && showCompareModal });
 

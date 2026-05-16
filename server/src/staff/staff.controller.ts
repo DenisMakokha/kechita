@@ -83,7 +83,7 @@ export class StaffController {
     @Get()
     @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
     findAll(@Query() query: any) {
-        const filter: StaffFilterDto & { includeDeleted?: boolean; onlyDeleted?: boolean } = {
+        const filter: StaffFilterDto & { includeDeleted?: boolean; onlyDeleted?: boolean; page?: number; limit?: number } = {
             status: query.status,
             branchId: query.branchId,
             regionId: query.regionId,
@@ -95,6 +95,8 @@ export class StaffController {
             role: query.role,
             includeDeleted: query.includeDeleted === 'true',
             onlyDeleted: query.onlyDeleted === 'true',
+            page: query.page ? parseInt(query.page, 10) : undefined,
+            limit: query.limit ? parseInt(query.limit, 10) : undefined,
         };
         return this.staffService.findAll(filter);
     }
