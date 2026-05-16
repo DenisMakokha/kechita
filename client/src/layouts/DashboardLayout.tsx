@@ -48,7 +48,8 @@ const navItems = [
     { path: '/loans', label: 'Loans', icon: PiggyBank, roles: ALL_STAFF_ROLES },
     { path: '/petty-cash', label: 'Petty Cash', icon: Wallet, roles: ['CEO', 'ACCOUNTANT', 'BRANCH_MANAGER', 'REGIONAL_MANAGER'] },
     { path: '/payroll', label: 'Payroll', icon: Banknote, roles: ['CEO', 'HR_MANAGER', 'ACCOUNTANT'] },
-    { path: '/performance', label: 'Performance', icon: Award, roles: ALL_STAFF_ROLES },
+    // Performance shown only to non-admin staff; admins access it via HR Admin
+    { path: '/performance', label: 'Performance', icon: Award, roles: ['REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'STAFF', 'RELATIONSHIP_OFFICER', 'BDM', 'REGIONAL_ADMIN'] },
     { path: '/hr-admin', label: 'HR Admin', icon: Briefcase, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
     { path: '/recruitment', label: 'Recruitment', icon: UserPlus, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
     // Onboarding moved into Recruitment page

@@ -8,8 +8,9 @@ import {
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { InputDialog } from '../components/ui/InputDialog';
+import PerformancePage from './PerformancePage';
 
-type Tab = 'training' | 'disciplinary' | 'comp-benefits' | 'assets' | 'attendance';
+type Tab = 'training' | 'disciplinary' | 'comp-benefits' | 'assets' | 'attendance' | 'performance';
 type TabProps = { showToast: (t: string, type?: 'success' | 'error') => void; qc: any };
 
 interface Toast { text: string; type: 'success' | 'error' }
@@ -28,12 +29,13 @@ const HRAdminPage: React.FC = () => {
                 <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
                     <Briefcase className="text-[#0066B3]" size={32} />HR Administration
                 </h1>
-                <p className="text-slate-500 mt-1">Training, discipline, compensation, and assets</p>
+                <p className="text-slate-500 mt-1">Training, performance, attendance, discipline, compensation, and assets</p>
             </div>
 
             <div className="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl overflow-x-auto">
                 {[
                     { id: 'training' as Tab, label: 'Training & L&D', icon: GraduationCap },
+                    { id: 'performance' as Tab, label: 'Performance', icon: Award },
                     { id: 'attendance' as Tab, label: 'Attendance', icon: Clock },
                     { id: 'disciplinary' as Tab, label: 'Disciplinary', icon: AlertOctagon },
                     { id: 'comp-benefits' as Tab, label: 'Comp & Benefits', icon: Wallet },
@@ -52,6 +54,7 @@ const HRAdminPage: React.FC = () => {
             </div>
 
             {tab === 'training' && <TrainingTab showToast={showToast} qc={qc} />}
+            {tab === 'performance' && <div className="-mx-6 -mt-2"><PerformancePage /></div>}
             {tab === 'attendance' && <AttendanceTab showToast={showToast} qc={qc} />}
             {tab === 'disciplinary' && <DisciplinaryTab showToast={showToast} qc={qc} />}
             {tab === 'comp-benefits' && <CompBenefitsTab showToast={showToast} qc={qc} />}
