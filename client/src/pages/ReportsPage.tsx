@@ -6,7 +6,8 @@ import { InputDialog } from '../components/ui/InputDialog';
 import {
     BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Target, AlertTriangle,
     Download, FileSpreadsheet, FileText, RefreshCw, ChevronDown, Building2,
-    Calendar, Briefcase, UserCheck, Clock, Wallet, CalendarDays, X
+    Calendar, Briefcase, UserCheck, Clock, Wallet, CalendarDays, X,
+    CheckCircle, XCircle
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -269,7 +270,7 @@ const ReportsPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-8">
             {/* Toast */}
             {toast && (
                 <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
@@ -278,132 +279,205 @@ const ReportsPage: React.FC = () => {
                     </div>
                 </div>
             )}
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>
-                    <p className="text-slate-500">Performance insights and KPIs</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <select
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value)}
-                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"
-                    >
-                        <option value="week">This Week</option>
-                        <option value="month">This Month</option>
-                        <option value="quarter">This Quarter</option>
-                        <option value="year">This Year</option>
-                    </select>
-                    <button
-                        onClick={() => refetch()}
-                        className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-                        title="Refresh"
-                    >
-                        <RefreshCw size={18} />
-                    </button>
-                    <div className="relative group">
-                        <button
-                            disabled={isExporting}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] transition-all shadow-md disabled:opacity-50"
+
+            {/* Enhanced Header */}
+            <div className="bg-gradient-to-r from-[#0066B3] to-[#005299] rounded-2xl p-6 text-white shadow-lg">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-white/20 rounded-xl">
+                                <BarChart3 size={28} className="text-white" />
+                            </div>
+                            <h1 className="text-2xl font-bold">Reports & Analytics</h1>
+                        </div>
+                        <p className="text-blue-100">Performance insights, KPIs, and business intelligence</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {/* Quick Stats Summary */}
+                        {dashboardData && (
+                            <div className="hidden md:flex items-center gap-4 mr-4 px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+                                <div className="text-center">
+                                    <p className="text-lg font-bold">{dashboardData.reportCount || 0}</p>
+                                    <p className="text-xs text-blue-200">Reports</p>
+                                </div>
+                                <div className="w-px h-8 bg-white/20" />
+                                <div className="text-center">
+                                    <p className="text-lg font-bold">KES {((dashboardData.totalDisbursed || 0) / 1000000).toFixed(1)}M</p>
+                                    <p className="text-xs text-blue-200">Disbursed</p>
+                                </div>
+                            </div>
+                        )}
+                        <select
+                            value={period}
+                            onChange={(e) => setPeriod(e.target.value)}
+                            className="px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30 backdrop-blur-sm cursor-pointer"
                         >
-                            <Download size={18} />
-                            Export
-                            <ChevronDown size={14} />
+                            <option value="week" className="text-slate-900">This Week</option>
+                            <option value="month" className="text-slate-900">This Month</option>
+                            <option value="quarter" className="text-slate-900">This Quarter</option>
+                            <option value="year" className="text-slate-900">This Year</option>
+                        </select>
+                        <button
+                            onClick={() => refetch()}
+                            disabled={isLoading}
+                            className="p-2.5 bg-white/10 border border-white/20 rounded-xl text-white hover:bg-white/20 transition-colors disabled:opacity-50"
+                            title="Refresh Data"
+                        >
+                            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
                         </button>
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                        <div className="relative group">
                             <button
-                                onClick={() => handleExport('pdf')}
-                                className="flex items-center gap-2 w-full px-4 py-2 text-left text-slate-700 hover:bg-slate-50 rounded-t-lg"
+                                disabled={isExporting}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white text-[#0066B3] rounded-xl hover:bg-blue-50 transition-all shadow-lg disabled:opacity-50 font-medium"
                             >
-                                <FileText size={16} className="text-red-500" />
-                                Export as PDF
+                                <Download size={18} />
+                                <span className="hidden sm:inline">Export</span>
+                                <ChevronDown size={14} />
                             </button>
-                            <button
-                                onClick={() => handleExport('excel')}
-                                className="flex items-center gap-2 w-full px-4 py-2 text-left text-slate-700 hover:bg-slate-50 rounded-b-lg"
-                            >
-                                <FileSpreadsheet size={16} className="text-green-500" />
-                                Export as Excel
-                            </button>
+                            <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 overflow-hidden">
+                                <button
+                                    onClick={() => handleExport('pdf')}
+                                    className="flex items-center gap-3 w-full px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors border-b border-slate-100"
+                                >
+                                    <div className="p-1.5 bg-red-100 rounded-lg">
+                                        <FileText size={16} className="text-red-600" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-sm">Export as PDF</p>
+                                        <p className="text-xs text-slate-500">Detailed report</p>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => handleExport('excel')}
+                                    className="flex items-center gap-3 w-full px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                    <div className="p-1.5 bg-green-100 rounded-lg">
+                                        <FileSpreadsheet size={16} className="text-green-600" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-sm">Export as Excel</p>
+                                        <p className="text-xs text-slate-500">Spreadsheet format</p>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Report Category Tabs */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
                 {[
-                    { key: 'overview', label: 'Overview', icon: BarChart3 },
-                    { key: 'financial', label: 'Financial', icon: Wallet },
+                    { key: 'overview', label: 'Overview', icon: BarChart3, color: 'blue' },
+                    { key: 'financial', label: 'Financial', icon: Wallet, color: 'green' },
                     ...(isAccountant ? [] : [
-                        { key: 'hr', label: 'HR & Staff', icon: Users },
-                        { key: 'recruitment', label: 'Recruitment', icon: Briefcase },
+                        { key: 'hr', label: 'HR & Staff', icon: Users, color: 'purple' },
+                        { key: 'recruitment', label: 'Recruitment', icon: Briefcase, color: 'amber' },
                     ]),
                 ].map((tab) => {
                     const Icon = tab.icon;
+                    const isActive = reportTab === tab.key;
                     return (
                         <button
                             key={tab.key}
                             onClick={() => setReportTab(tab.key as ReportTab)}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
-                                reportTab === tab.key
-                                    ? 'bg-[#0066B3] text-white shadow-lg'
-                                    : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-[#0066B3]'
+                                isActive
+                                    ? 'bg-[#0066B3] text-white shadow-lg shadow-blue-500/25'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-[#0066B3] hover:shadow-md'
                             }`}
                         >
-                            <Icon size={18} />
+                            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-slate-100'}`}>
+                                <Icon size={16} />
+                            </div>
                             {tab.label}
                         </button>
                     );
                 })}
             </div>
 
-            {/* Policy Banner */}
+            {/* Enhanced Policy Banner */}
             {reportsPolicy && (
-                <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs flex items-center gap-4">
-                    <span>📋 Policy:</span>
-                    <span>Deadline <strong>{reportDeadlineHour}:00</strong></span>
-                    <span>·</span>
-                    <span>{requireDailyReports ? '✅ Daily reports required' : '⚠️ Daily reports optional'}</span>
-                    <span>·</span>
-                    <span>{allowLateSubmission ? '✅ Late submission allowed' : '⛔ Late submission not allowed'}</span>
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl">
+                    <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-blue-700">
+                            <div className="p-1.5 bg-blue-100 rounded-lg">
+                                <Clock size={14} className="text-blue-600" />
+                            </div>
+                            <span className="font-medium">Deadline: {reportDeadlineHour}:00</span>
+                        </div>
+                        <div className="w-px h-5 bg-blue-200" />
+                        <div className={`flex items-center gap-2 ${requireDailyReports ? 'text-green-700' : 'text-amber-700'}`}>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${requireDailyReports ? 'bg-green-100' : 'bg-amber-100'}`}>
+                                {requireDailyReports ? 'Required' : 'Optional'}
+                            </span>
+                            <span className="text-slate-600">Daily reports</span>
+                        </div>
+                        {!allowLateSubmission && (
+                            <>
+                                <div className="w-px h-5 bg-blue-200" />
+                                <span className="text-red-600 font-medium text-xs">No late submissions</span>
+                            </>
+                        )}
+                    </div>
+                    {canSubmitReports && (
+                        <button
+                            onClick={() => setShowSubmitModal(true)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] text-sm font-medium transition-colors"
+                        >
+                            <CalendarDays size={14} />
+                            Submit Report
+                        </button>
+                    )}
                 </div>
             )}
 
-            {/* My Reports Tab for Branch Managers */}
+            {/* View Switcher for Branch Managers & Approvers */}
             {(canSubmitReports || canApproveReports) && (
                 <div className="flex items-center gap-3">
-                    <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+                    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
                         <button
                             onClick={() => setActiveView('dashboard')}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'dashboard' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'dashboard' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}`}
                         >
-                            Analytics
+                            <div className="flex items-center gap-2">
+                                <BarChart3 size={16} />
+                                Analytics
+                            </div>
                         </button>
                         {canSubmitReports && (
                             <button
                                 onClick={() => setActiveView('my-reports')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'my-reports' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'my-reports' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}`}
                             >
-                                My Reports ({myReports?.length || 0})
+                                <div className="flex items-center gap-2">
+                                    <FileText size={16} />
+                                    My Reports
+                                    <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-xs">{myReports?.length || 0}</span>
+                                </div>
                             </button>
                         )}
                         {canApproveReports && (
                             <button
                                 onClick={() => setActiveView('pending')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === 'pending' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'pending' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}`}
                             >
-                                Pending ({pendingReports?.length || 0})
+                                <div className="flex items-center gap-2">
+                                    <Clock size={16} />
+                                    Pending
+                                    {(pendingReports?.length || 0) > 0 && (
+                                        <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-xs">{pendingReports?.length || 0}</span>
+                                    )}
+                                </div>
                             </button>
                         )}
                     </div>
                     {canSubmitReports && (
                         <button
                             onClick={() => setShowSubmitModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] font-medium"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium shadow-md shadow-emerald-500/20 transition-all"
                         >
-                            <CalendarDays size={16} />
+                            <CalendarDays size={18} />
                             Submit Daily Report
                         </button>
                     )}
@@ -413,48 +487,112 @@ const ReportsPage: React.FC = () => {
             {/* My Reports View */}
             {activeView === 'my-reports' && myReports && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-200">
-                        <h3 className="font-semibold text-slate-900">My Submitted Reports</h3>
+                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 className="font-semibold text-slate-900">My Submitted Reports</h3>
+                            <p className="text-sm text-slate-500 mt-1">Track your daily report submissions and their approval status</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                {myReports.length} Total
+                            </span>
+                        </div>
                     </div>
                     <div className="divide-y divide-slate-100">
                         {myReports.length === 0 ? (
-                            <div className="p-8 text-center text-slate-500">No reports submitted yet</div>
-                        ) : myReports.map((report) => (
-                            <div key={report.id} className="p-4 hover:bg-slate-50 flex items-center justify-between">
-                                <div>
-                                    <p className="font-medium text-slate-900">{new Date(report.report_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                    <p className="text-sm text-slate-500">{report.branch?.name}</p>
-                                    <div className="flex gap-4 text-xs text-slate-500 mt-1">
-                                        <span>Disbursed: KES {(report.disbursements || 0).toLocaleString()}</span>
-                                        <span>Collections: KES {(report.collections || 0).toLocaleString()}</span>
-                                        <span>PAR: {(report.par_30 || 0).toFixed(2)}%</span>
-                                    </div>
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FileText className="text-slate-400" size={32} />
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                        report.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                        report.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                        report.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-slate-100 text-slate-700'
-                                    }`}>
-                                        {report.status}
-                                    </span>
-                                    {canApproveReports && report.status === 'pending' && (
-                                        <>
-                                            <button
-                                                onClick={() => approveReportMutation.mutate({ id: report.id })}
-                                                className="px-3 py-1 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600"
-                                            >
-                                                Approve
-                                            </button>
-                                            <button
-                                                onClick={() => setRejectReportId(report.id)}
-                                                className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600"
-                                            >
-                                                Reject
-                                            </button>
-                                        </>
-                                    )}
+                                <h4 className="text-lg font-medium text-slate-900 mb-2">No reports submitted yet</h4>
+                                <p className="text-slate-500 mb-4">Start by submitting your first daily report</p>
+                                <button
+                                    onClick={() => setShowSubmitModal(true)}
+                                    className="px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005299] font-medium"
+                                >
+                                    Submit Your First Report
+                                </button>
+                            </div>
+                        ) : myReports.map((report) => (
+                            <div key={report.id} className="p-4 hover:bg-slate-50 transition-colors">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-start gap-4">
+                                        <div className={`p-2 rounded-lg ${
+                                            report.status === 'approved' ? 'bg-green-100' :
+                                            report.status === 'rejected' ? 'bg-red-100' :
+                                            'bg-amber-100'
+                                        }`}>
+                                            <CalendarDays size={20} className={
+                                                report.status === 'approved' ? 'text-green-600' :
+                                                report.status === 'rejected' ? 'text-red-600' :
+                                                'text-amber-600'
+                                            } />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-900">{new Date(report.report_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                            <p className="text-sm text-slate-500">{report.branch?.name} · by {report.submitted_by?.full_name || 'You'}</p>
+                                            <div className="flex gap-4 text-sm text-slate-600 mt-2">
+                                                <span className="flex items-center gap-1">
+                                                    <TrendingUp size={14} className="text-green-500" />
+                                                    KES {(report.disbursements || 0).toLocaleString()}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Wallet size={14} className="text-blue-500" />
+                                                    KES {(report.collections || 0).toLocaleString()}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Users size={14} className="text-purple-500" />
+                                                    {(report.new_clients || 0)} new
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <AlertTriangle size={14} className={report.par_30 > 5 ? 'text-red-500' : 'text-green-500'} />
+                                                    {(report.par_30 || 0).toFixed(2)}% PAR
+                                                </span>
+                                            </div>
+                                            {report.approval_comment && (
+                                                <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+                                                    <CheckCircle size={14} />
+                                                    {report.approval_comment}
+                                                </p>
+                                            )}
+                                            {report.rejection_reason && (
+                                                <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
+                                                    <XCircle size={14} />
+                                                    {report.rejection_reason}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                                            report.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                            report.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                            report.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                            'bg-slate-100 text-slate-700'
+                                        }`}>
+                                            {report.status === 'approved' && <span className="flex items-center gap-1"><CheckCircle size={12} /> Approved</span>}
+                                            {report.status === 'rejected' && <span className="flex items-center gap-1"><XCircle size={12} /> Rejected</span>}
+                                            {report.status === 'pending' && <span className="flex items-center gap-1"><Clock size={12} /> Pending</span>}
+                                            {!['approved', 'rejected', 'pending'].includes(report.status) && report.status}
+                                        </span>
+                                        {canApproveReports && report.status === 'pending' && (
+                                            <>
+                                                <button
+                                                    onClick={() => approveReportMutation.mutate({ id: report.id })}
+                                                    disabled={approveReportMutation.isPending}
+                                                    className="px-3 py-1.5 bg-emerald-500 text-white text-xs rounded-lg hover:bg-emerald-600 disabled:opacity-50 font-medium"
+                                                >
+                                                    Approve
+                                                </button>
+                                                <button
+                                                    onClick={() => setRejectReportId(report.id)}
+                                                    className="px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 font-medium"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -1138,39 +1276,95 @@ const ReportsPage: React.FC = () => {
             {/* Pending Reports View for RM/CEO */}
             {activeView === 'pending' && canApproveReports && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                        <h3 className="font-semibold text-slate-900">Pending Reports for Approval</h3>
-                        <span className="text-sm text-slate-500">{pendingReports?.length || 0} report(s)</span>
+                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-amber-100 rounded-lg">
+                                <Clock className="text-amber-600" size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-slate-900">Pending Reports for Approval</h3>
+                                <p className="text-sm text-slate-500">Review and approve branch manager reports</p>
+                            </div>
+                        </div>
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                            {pendingReports?.length || 0} pending
+                        </span>
                     </div>
                     <div className="divide-y divide-slate-100">
                         {!pendingReports || pendingReports.length === 0 ? (
-                            <div className="p-8 text-center text-slate-500">No pending reports</div>
-                        ) : pendingReports.map((report) => (
-                            <div key={report.id} className="p-4 hover:bg-slate-50 flex items-center justify-between">
-                                <div>
-                                    <p className="font-medium text-slate-900">{new Date(report.report_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                    <p className="text-sm text-slate-500">{report.branch?.name} · by {report.submitted_by?.full_name}</p>
-                                    <div className="flex gap-4 text-xs text-slate-500 mt-1">
-                                        <span>Disbursed: KES {(report.disbursements || 0).toLocaleString()}</span>
-                                        <span>Collections: KES {(report.collections || 0).toLocaleString()}</span>
-                                        <span>New Clients: {report.new_clients || 0}</span>
-                                        <span>PAR: {(report.par_30 || 0).toFixed(2)}%</span>
-                                    </div>
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <CheckCircle className="text-green-600" size={32} />
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => approveReportMutation.mutate({ id: report.id })}
-                                        disabled={approveReportMutation.isPending}
-                                        className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 disabled:opacity-50"
-                                    >
-                                        Approve
-                                    </button>
-                                    <button
-                                        onClick={() => setRejectReportId(report.id)}
-                                        className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600"
-                                    >
-                                        Reject
-                                    </button>
+                                <h4 className="text-lg font-medium text-slate-900 mb-2">All caught up!</h4>
+                                <p className="text-slate-500">No pending reports to approve at this time</p>
+                            </div>
+                        ) : pendingReports.map((report) => (
+                            <div key={report.id} className="p-5 hover:bg-slate-50 transition-colors">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-4 flex-1">
+                                        <div className="p-2 bg-amber-100 rounded-xl shrink-0">
+                                            <Building2 className="text-amber-600" size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <p className="font-semibold text-slate-900">{new Date(report.report_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+                                                    Pending
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-slate-500 mb-3">{report.branch?.name} · Submitted by {report.submitted_by?.full_name}</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                                                    <TrendingUp size={16} className="text-green-600" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Disbursed</p>
+                                                        <p className="text-sm font-semibold text-slate-900">KES {(report.disbursements || 0).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                                                    <Wallet size={16} className="text-blue-600" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Collections</p>
+                                                        <p className="text-sm font-semibold text-slate-900">KES {(report.collections || 0).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-lg">
+                                                    <Users size={16} className="text-purple-600" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">New Clients</p>
+                                                        <p className="text-sm font-semibold text-slate-900">{report.new_clients || 0}</p>
+                                                    </div>
+                                                </div>
+                                                <div className={`flex items-center gap-2 p-2 rounded-lg ${(report.par_30 || 0) > 5 ? 'bg-red-50' : 'bg-green-50'}`}>
+                                                    <AlertTriangle size={16} className={(report.par_30 || 0) > 5 ? 'text-red-600' : 'text-green-600'} />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">PAR 30</p>
+                                                        <p className={`text-sm font-semibold ${(report.par_30 || 0) > 5 ? 'text-red-700' : 'text-green-700'}`}>
+                                                            {(report.par_30 || 0).toFixed(2)}%
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2 shrink-0">
+                                        <button
+                                            onClick={() => approveReportMutation.mutate({ id: report.id })}
+                                            disabled={approveReportMutation.isPending}
+                                            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 disabled:opacity-50 font-medium transition-colors"
+                                        >
+                                            <CheckCircle size={16} />
+                                            {approveReportMutation.isPending ? 'Approving...' : 'Approve'}
+                                        </button>
+                                        <button
+                                            onClick={() => setRejectReportId(report.id)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 font-medium transition-colors"
+                                        >
+                                            <XCircle size={16} />
+                                            Reject
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
