@@ -163,9 +163,9 @@ export const DashboardPage: React.FC = () => {
 
     // Fetch upcoming holidays
     const { data: holidays } = useQuery({
-        queryKey: ['public-holidays'],
+        queryKey: ['public-holidays', new Date().getFullYear()],
         queryFn: async () => {
-            const response = await api.get('/leave/holidays');
+            const response = await api.get(`/leave/holidays?year=${new Date().getFullYear()}`);
             return response.data;
         },
     });

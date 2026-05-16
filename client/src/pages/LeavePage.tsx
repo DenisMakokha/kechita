@@ -104,9 +104,9 @@ export const LeavePage: React.FC = () => {
     });
 
     const { data: holidays } = useQuery({
-        queryKey: ['public-holidays'],
+        queryKey: ['public-holidays', new Date().getFullYear()],
         queryFn: async () => {
-            const response = await api.get('/leave/holidays');
+            const response = await api.get(`/leave/holidays?year=${new Date().getFullYear()}`);
             return response.data;
         },
     });
@@ -754,7 +754,7 @@ const LeaveCalendarView: React.FC<{
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium text-slate-900 text-sm truncate">{holiday.name}</p>
                                         <p className="text-xs text-slate-500">
-                                            {new Date(holiday.date).toLocaleDateString('en-GB', {
+                                            {new Date(`${holiday.date}T00:00:00`).toLocaleDateString('en-GB', {
                                                 weekday: 'short', day: 'numeric', month: 'short'
                                             })}
                                         </p>

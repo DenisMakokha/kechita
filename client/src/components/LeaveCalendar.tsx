@@ -129,7 +129,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
 
             // Find holiday for this day
             const holiday = holidays.find(h => {
-                const holidayDate = new Date(h.date).toISOString().split('T')[0];
+                const holidayDate = typeof h.date === 'string' ? h.date.slice(0, 10) : new Date(h.date).toISOString().split('T')[0];
                 return holidayDate === dateStr;
             }) || null;
 
@@ -429,8 +429,9 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                 <span className="text-sm text-slate-600">Public Holidays</span>
                                 <span className="font-semibold text-slate-900">
                                     {holidays.filter(h => {
-                                        const d = new Date(h.date);
-                                        return d.getMonth() === month && d.getFullYear() === year;
+                                        const iso = typeof h.date === 'string' ? h.date.slice(0, 10) : new Date(h.date).toISOString().slice(0, 10);
+                                        const [y, m] = iso.split('-').map(Number);
+                                        return m - 1 === month && y === year;
                                     }).length}
                                 </span>
                             </div>
@@ -445,7 +446,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                         </h4>
                         <div className="space-y-2">
                             {holidays
-                                .filter(h => new Date(h.date) >= today)
+                                .filter(h => new Date(`${h.date}T00:00:00`) >= today)
                                 .slice(0, 5)
                                 .map(holiday => (
                                     <div
@@ -460,7 +461,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                                 {holiday.name}
                                             </p>
                                             <p className="text-xs text-slate-500">
-                                                {new Date(holiday.date).toLocaleDateString('en-GB', {
+                                                {new Date(`${holiday.date}T00:00:00`).toLocaleDateString('en-GB', {
                                                     weekday: 'short',
                                                     day: 'numeric',
                                                     month: 'short'
@@ -469,7 +470,7 @@ export const LeaveCalendar: React.FC<LeaveCalendarProps> = ({
                                         </div>
                                     </div>
                                 ))}
-                            {holidays.filter(h => new Date(h.date) >= today).length === 0 && (
+                            {holidays.filter(h => new Date(`${h.date}T00:00:00`) >= today).length === 0 && (
                                 <p className="text-sm text-slate-500 text-center py-2">
                                     No upcoming holidays
                                 </p>

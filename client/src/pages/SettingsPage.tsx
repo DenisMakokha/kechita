@@ -153,9 +153,10 @@ const SettingsPage: React.FC = () => {
     });
 
     // Public holidays query
+    const currentYear = new Date().getFullYear();
     const { data: holidays } = useQuery<PublicHoliday[]>({
-        queryKey: ['holidays'],
-        queryFn: async () => (await api.get('/leave/holidays')).data,
+        queryKey: ['holidays', currentYear],
+        queryFn: async () => (await api.get(`/leave/holidays?year=${currentYear}`)).data,
     });
 
     // Loan settings query
@@ -213,17 +214,17 @@ const SettingsPage: React.FC = () => {
     // Mutations — Holidays
     const createHolidayMutation = useMutation({
         mutationFn: async (data: Partial<PublicHoliday>) => (await api.post('/leave/holidays', data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); setShowModal(false); setFormData({}); showToast('Holiday created'); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays', currentYear] }); setShowModal(false); setFormData({}); showToast('Holiday created'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to create holiday', 'error'),
     });
     const updateHolidayMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string; data: Partial<PublicHoliday> }) => (await api.put(`/leave/holidays/${id}`, data)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Holiday updated'); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays', currentYear] }); setShowModal(false); setFormData({}); setEditItem(null); showToast('Holiday updated'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update holiday', 'error'),
     });
     const deleteHolidayMutation = useMutation({
         mutationFn: async (id: string) => (await api.delete(`/leave/holidays/${id}`)).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); showToast('Holiday deleted'); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays', currentYear] }); showToast('Holiday deleted'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete holiday', 'error'),
     });
 
@@ -811,7 +812,7 @@ const SettingsPage: React.FC = () => {
                                     <div>
                                         <h4 className="font-semibold text-slate-900">{holiday.name}</h4>
                                         <p className="text-sm text-slate-500 mt-1">
-                                            {new Date(holiday.date).toLocaleDateString('en-GB', {
+                                            {new Date(`${holiday.date}T00:00:00`).toLocaleDateString('en-GB', {
                                                 weekday: 'long',
                                                 day: 'numeric',
                                                 month: 'long',

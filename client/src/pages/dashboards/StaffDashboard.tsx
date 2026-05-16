@@ -82,8 +82,8 @@ export const StaffDashboard: React.FC = () => {
 
     // Fetch upcoming holidays
     const { data: holidays } = useQuery({
-        queryKey: ['public-holidays'],
-        queryFn: () => api.get('/leave/holidays').then(r => r.data),
+        queryKey: ['public-holidays', new Date().getFullYear()],
+        queryFn: () => api.get(`/leave/holidays?year=${new Date().getFullYear()}`).then(r => r.data),
     });
 
     // Announcements
@@ -368,7 +368,7 @@ export const StaffDashboard: React.FC = () => {
                                     <div>
                                         <p className="font-medium text-sm">{holiday.name}</p>
                                         <p className="text-blue-200 text-xs">
-                                            {new Date(holiday.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                            {new Date(`${holiday.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
                                         </p>
                                     </div>
                                 </div>
