@@ -237,6 +237,13 @@ export const CEODashboard: React.FC = () => {
                     <span className="text-sm text-slate-500 hidden md:block">
                         {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
+                    <Link
+                        to="/approvals"
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg hover:from-amber-600 hover:to-orange-700 transition-colors"
+                    >
+                        <Clock size={16} />
+                        Approvals {pendingApprovals?.length > 0 && <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded-full text-xs">{pendingApprovals.length}</span>}
+                    </Link>
                     <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
