@@ -13,7 +13,7 @@ import { StatutoryExportService } from './services/statutory-export.service';
 import { PayslipPDFService } from './services/payslip-pdf.service';
 import { KenyaStatutoryService } from './services/kenya-statutory.service';
 import {
-    CreatePeriodDto, CreateRunDto, CancelRunDto,
+    CreatePeriodDto, UpdatePeriodDto, CreateRunDto, CancelRunDto,
     CreateAllowanceDto, UpdateAllowanceDto,
     CreateDeductionDto, UpdateDeductionDto,
 } from './dto/payroll.dto';
@@ -53,6 +53,12 @@ export class PayrollController {
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     createPeriod(@Body() dto: CreatePeriodDto) {
         return this.payroll.createPeriod(dto);
+    }
+
+    @Patch('periods/:id')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    updatePeriod(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePeriodDto) {
+        return this.payroll.updatePeriod(id, dto);
     }
 
     @Patch('periods/:id/lock')

@@ -71,6 +71,14 @@ export class PayrollService {
         return p;
     }
 
+    async updatePeriod(id: string, dto: { pay_date?: string; notes?: string }): Promise<PayrollPeriod> {
+        const p = await this.getPeriod(id);
+        if (p.status === PayrollPeriodStatus.CLOSED) throw new BadRequestException('Cannot edit a closed period');
+        if (dto.pay_date !== undefined) p.pay_date = dto.pay_date;
+        if (dto.notes !== undefined) p.notes = dto.notes;
+        return this.periodRepo.save(p);
+    }
+
     async lockPeriod(id: string, userId?: string): Promise<PayrollPeriod> {
         const p = await this.getPeriod(id);
         if (p.status === PayrollPeriodStatus.CLOSED) throw new BadRequestException('Period is already closed');

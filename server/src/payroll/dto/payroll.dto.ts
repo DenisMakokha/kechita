@@ -18,6 +18,14 @@ export class CreatePeriodDto {
     notes?: string;
 }
 
+export class UpdatePeriodDto {
+    @IsOptional() @IsDateString()
+    pay_date?: string;
+
+    @IsOptional() @IsString()
+    notes?: string;
+}
+
 export class CreateRunDto {
     @IsUUID()
     period_id: string;

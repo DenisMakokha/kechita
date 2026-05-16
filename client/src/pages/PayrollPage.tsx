@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
     Calendar, Plus, Calculator, CheckCircle, DollarSign, Lock, FileText,
     Download, Eye, X, Loader2, AlertTriangle, RefreshCw,
-    TrendingUp, FileSpreadsheet, Banknote, Receipt, Ban,
+    TrendingUp, FileSpreadsheet, Banknote, Receipt, Ban, Edit,
 } from 'lucide-react';
 
 type Tab = 'periods' | 'runs' | 'rates';
@@ -87,6 +87,8 @@ const PayrollPage: React.FC = () => {
     const [markPaidRunId, setMarkPaidRunId] = useState<string | null>(null);
     const [calcRunId, setCalcRunId] = useState<string | null>(null);
     const [viewRunId, setViewRunId] = useState<string | null>(null);
+    const [editPeriod, setEditPeriod] = useState<Period | null>(null);
+    const [editPeriodForm, setEditPeriodForm] = useState({ pay_date: '', notes: '' });
 
     // Queries
     const { data: periods = [] } = useQuery<Period[]>({
@@ -139,6 +141,17 @@ const PayrollPage: React.FC = () => {
         mutationFn: async (id: string) => (await api.patch(`/payroll/periods/${id}/close`)).data,
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-periods'] }); showToast('Period closed'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to close', 'error'),
+    });
+
+    const updatePeriodMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: { pay_date?: string; notes?: string } }) =>
+            (await api.patch(`/payroll/periods/${id}`, data)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['payroll-periods'] });
+            setEditPeriod(null);
+            showToast('Period updated');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update period', 'error'),
     });
 
     const createRunMutation = useMutation({
@@ -426,6 +439,15 @@ const PayrollPage: React.FC = () => {
                                             </td>
                                             <td className="px-5 py-3 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    {p.status !== 'closed' && (
+                                                        <button
+                                                            onClick={() => { setEditPeriod(p); setEditPeriodForm({ pay_date: p.pay_date || '', notes: p.notes || '' }); }}
+                                                            className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-[#0066B3]"
+                                                            title="Edit period"
+                                                        >
+                                                            <Edit size={15} />
+                                                        </button>
+                                                    )}
                                                     {p.status === 'open' && (
                                                         <button onClick={() => lockPeriodMutation.mutate(p.id)} className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded hover:bg-orange-200 flex items-center gap-1">
                                                             <Lock size={12} />Lock
@@ -493,6 +515,52 @@ const PayrollPage: React.FC = () => {
                                 <p className="font-semibold text-slate-700 mb-1">NITA Industrial Levy</p>
                                 <p className="text-slate-500">{fmtKES(rates.nita.amount)}/employee/month (employer-funded)</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Edit Period Modal ─── */}
+            {editPeriod && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="font-semibold text-slate-900">
+                                Edit Period — {MONTH_NAMES[editPeriod.month - 1]} {editPeriod.year}
+                            </h2>
+                            <button onClick={() => setEditPeriod(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Pay Date</label>
+                                <input
+                                    type="date"
+                                    value={editPeriodForm.pay_date}
+                                    onChange={(e) => setEditPeriodForm({ ...editPeriodForm, pay_date: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                                <textarea
+                                    value={editPeriodForm.notes}
+                                    onChange={(e) => setEditPeriodForm({ ...editPeriodForm, notes: e.target.value })}
+                                    rows={3}
+                                    placeholder="Optional notes..."
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setEditPeriod(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => updatePeriodMutation.mutate({ id: editPeriod.id, data: editPeriodForm })}
+                                disabled={updatePeriodMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
+                            >
+                                {updatePeriodMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                                Save Changes
+                            </button>
                         </div>
                     </div>
                 </div>
