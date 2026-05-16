@@ -136,6 +136,7 @@ const RecruitmentPage: React.FC = () => {
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showJobModal, setShowJobModal] = useState(false);
+    const [previewJob, setPreviewJob] = useState<any>(null);
     const [showApplicationModal, setShowApplicationModal] = useState(false);
     const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
     const [jobFormData, setJobFormData] = useState<any>({});
@@ -605,6 +606,12 @@ const RecruitmentPage: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="flex gap-2 flex-wrap">
+                                    <button
+                                        onClick={() => setPreviewJob(job)}
+                                        className="px-3 py-1 bg-blue-50 text-[#0066B3] text-sm rounded-lg hover:bg-blue-100 border border-blue-200 flex items-center gap-1"
+                                    >
+                                        <Eye size={14} /> Preview
+                                    </button>
                                     <a
                                         href={`${api.defaults.baseURL}/recruitment/jobs/${job.id}/jd/preview`}
                                         target="_blank"
@@ -1328,6 +1335,119 @@ const RecruitmentPage: React.FC = () => {
                 </div>
             )}
             {activeTab === 'onboarding' && renderOnboarding()}
+
+            {/* Job Preview Modal — shows posting as a candidate would see it */}
+            {previewJob && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+                    onClick={(e) => { if (e.target === e.currentTarget) setPreviewJob(null); }}
+                >
+                    <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-900">Job posting preview</h2>
+                                <p className="text-xs text-slate-500">How candidates will see this job on the careers page</p>
+                            </div>
+                            <button onClick={() => setPreviewJob(null)} className="p-2 rounded-lg hover:bg-slate-200" aria-label="Close preview"><X size={18} /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
+                            <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm space-y-6">
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                                        {previewJob.is_urgent && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Urgent</span>}
+                                        {previewJob.is_remote && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">Remote</span>}
+                                        <span className="px-2 py-0.5 bg-blue-100 text-[#0066B3] text-xs font-medium rounded-full">{previewJob.employment_type || 'Full-time'}</span>
+                                        {previewJob.experience_level && <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-full">{previewJob.experience_level}</span>}
+                                    </div>
+                                    <h1 className="text-3xl font-bold text-slate-900">{previewJob.title}</h1>
+                                    <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                                        {previewJob.department?.name && <span className="flex items-center gap-1"><Briefcase size={14} />{previewJob.department.name}</span>}
+                                        {previewJob.location && <span className="flex items-center gap-1"><MapPin size={14} />{previewJob.location}</span>}
+                                        {previewJob.deadline && <span className="flex items-center gap-1"><Calendar size={14} />Apply by {new Date(previewJob.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                                    </div>
+                                    {(previewJob.salary_min || previewJob.salary_max) && (
+                                        <p className="text-sm text-emerald-700 mt-2 font-medium">
+                                            KES {Number(previewJob.salary_min || 0).toLocaleString()} – {Number(previewJob.salary_max || 0).toLocaleString()} per month
+                                        </p>
+                                    )}
+                                </div>
+
+                                {previewJob.description && (
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900 mb-2">About the role</h3>
+                                        <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{previewJob.description}</p>
+                                    </div>
+                                )}
+
+                                {previewJob.responsibilities && (
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900 mb-2">Responsibilities</h3>
+                                        <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{previewJob.responsibilities}</div>
+                                    </div>
+                                )}
+
+                                {previewJob.requirements && (
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900 mb-2">Requirements</h3>
+                                        <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{previewJob.requirements}</div>
+                                    </div>
+                                )}
+
+                                {Array.isArray(previewJob.required_skills) && previewJob.required_skills.length > 0 && (
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900 mb-2">Required skills</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {previewJob.required_skills.map((s: string, i: number) => (
+                                                <span key={i} className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md">{s}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {Array.isArray(previewJob.preferred_skills) && previewJob.preferred_skills.length > 0 && (
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900 mb-2">Nice to have</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {previewJob.preferred_skills.map((s: string, i: number) => (
+                                                <span key={i} className="px-2.5 py-1 bg-slate-50 text-slate-600 text-xs font-medium rounded-md border border-slate-200">{s}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {previewJob.benefits && (
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900 mb-2">Benefits</h3>
+                                        <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{previewJob.benefits}</div>
+                                    </div>
+                                )}
+
+                                <div className="pt-4 border-t border-slate-200">
+                                    <button disabled className="px-6 py-3 bg-[#0066B3] text-white rounded-lg font-medium opacity-90 cursor-not-allowed">
+                                        Apply now (preview)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-3 border-t border-slate-200 bg-white flex items-center justify-between">
+                            <p className="text-xs text-slate-500">Status: <strong>{previewJob.status}</strong></p>
+                            <div className="flex items-center gap-2">
+                                {previewJob.status === 'published' && (
+                                    <a
+                                        href={`/careers/${previewJob.id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="px-3 py-1.5 text-sm font-medium text-[#0066B3] hover:bg-blue-50 rounded-lg flex items-center gap-1"
+                                    >
+                                        <ExternalLink size={14} /> Open live page
+                                    </a>
+                                )}
+                                <button onClick={() => setPreviewJob(null)} className="px-4 py-1.5 text-sm font-medium bg-slate-100 hover:bg-slate-200 rounded-lg">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Create Job Modal */}
             {showJobModal && (

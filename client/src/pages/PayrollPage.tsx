@@ -87,6 +87,7 @@ const PayrollPage: React.FC = () => {
     const [markPaidRunId, setMarkPaidRunId] = useState<string | null>(null);
     const [calcRunId, setCalcRunId] = useState<string | null>(null);
     const [viewRunId, setViewRunId] = useState<string | null>(null);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
     const [editPeriod, setEditPeriod] = useState<Period | null>(null);
     const [editPeriodForm, setEditPeriodForm] = useState({ pay_date: '', notes: '' });
 
@@ -239,6 +240,16 @@ const PayrollPage: React.FC = () => {
             URL.revokeObjectURL(url);
         } catch (e: any) {
             showToast(e?.response?.data?.message || 'Failed to download payslip', 'error');
+        }
+    };
+
+    const previewPayslipPdf = async (payslipId: string) => {
+        try {
+            const response = await api.get(`/payroll/payslips/${payslipId}/pdf`, { responseType: 'blob' });
+            const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            setPdfPreviewUrl(url);
+        } catch (e: any) {
+            showToast(e?.response?.data?.message || 'Failed to preview payslip', 'error');
         }
     };
 
@@ -721,7 +732,10 @@ const PayrollPage: React.FC = () => {
                                                 <td className="px-3 py-2 text-right text-red-600">{fmtKES(p.total_deductions)}</td>
                                                 <td className="px-3 py-2 text-right font-semibold">{fmtKES(p.net_pay)}</td>
                                                 <td className="px-3 py-2 text-right">
-                                                    <button onClick={() => downloadPayslipPdf(p.id)} className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-[#0066B3]" title="Download PDF"><Download size={14} /></button>
+                                                    <div className="inline-flex items-center gap-1">
+                                                        <button onClick={() => previewPayslipPdf(p.id)} className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-[#0066B3]" title="Preview PDF" aria-label="Preview payslip PDF"><Eye size={14} /></button>
+                                                        <button onClick={() => downloadPayslipPdf(p.id)} className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-[#0066B3]" title="Download PDF" aria-label="Download payslip PDF"><Download size={14} /></button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -729,6 +743,25 @@ const PayrollPage: React.FC = () => {
                                 </table>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PDF preview modal */}
+            {pdfPreviewUrl && (
+                <div
+                    className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+                    onClick={(e) => { if (e.target === e.currentTarget) { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); } }}
+                >
+                    <div className="bg-white rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+                            <h3 className="font-semibold text-slate-900">Payslip preview</h3>
+                            <div className="flex items-center gap-2">
+                                <a href={pdfPreviewUrl} download="payslip.pdf" className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"><Download size={14} /> Download</a>
+                                <button onClick={() => { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="Close preview"><X size={18} /></button>
+                            </div>
+                        </div>
+                        <iframe src={pdfPreviewUrl} title="Payslip PDF" className="flex-1 w-full" />
                     </div>
                 </div>
             )}
