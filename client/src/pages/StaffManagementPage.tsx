@@ -5,6 +5,7 @@ import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import { useFormValidation, validators } from '../hooks/useFormValidation';
 import type { ValidationRules } from '../hooks/useFormValidation';
+import { useDebounce } from '../hooks/useDebounce';
 import { InputDialog } from '../components/ui/InputDialog';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
@@ -76,6 +77,7 @@ export const StaffManagementPage: React.FC = () => {
 
     // Staff state
     const [staffSearch, setStaffSearch] = useState('');
+    const debouncedStaffSearch = useDebounce(staffSearch, 250);
     const [statusFilter, setStatusFilter] = useState('all');
     const [directoryView, setDirectoryView] = useState<'active' | 'inactive' | 'archived'>('active');
     const [branchFilter, setBranchFilter] = useState('all');
@@ -394,12 +396,15 @@ export const StaffManagementPage: React.FC = () => {
         );
         return base;
     }, [staff, deletedStaff, directoryView]);
-    const filteredStaff = useMemo(() => directoryRows.filter((m: any) => {
-        const search = staffSearch === '' || `${m.first_name} ${m.last_name}`.toLowerCase().includes(staffSearch.toLowerCase()) || m.user?.email?.toLowerCase().includes(staffSearch.toLowerCase()) || m.employee_number?.toLowerCase().includes(staffSearch.toLowerCase());
-        const status = statusFilter === 'all' || m.status === statusFilter;
-        const branch = branchFilter === 'all' || m.branch?.id === branchFilter;
-        return search && status && branch;
-    }), [directoryRows, staffSearch, statusFilter, branchFilter]);
+    const filteredStaff = useMemo(() => {
+        const q = debouncedStaffSearch.toLowerCase();
+        return directoryRows.filter((m: any) => {
+            const search = q === '' || `${m.first_name} ${m.last_name}`.toLowerCase().includes(q) || m.user?.email?.toLowerCase().includes(q) || m.employee_number?.toLowerCase().includes(q);
+            const status = statusFilter === 'all' || m.status === statusFilter;
+            const branch = branchFilter === 'all' || m.branch?.id === branchFilter;
+            return search && status && branch;
+        });
+    }, [directoryRows, debouncedStaffSearch, statusFilter, branchFilter]);
     const activeCount = useMemo(() => (staff as Staff[]).filter((m) => ACTIVE_STATUSES.has(m.status)).length, [staff]);
     const inactiveCount = useMemo(() => (staff as Staff[]).filter((m) => INACTIVE_STATUSES.has(m.status)).length, [staff]);
     const archivedCount = staffStats?.deleted ?? 0;

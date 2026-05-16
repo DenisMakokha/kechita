@@ -20,7 +20,7 @@ const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const ApprovalsPage = React.lazy(() => import('./pages/ApprovalsPage'));
 const ApprovalHistoryPage = React.lazy(() => import('./pages/ApprovalHistoryPage'));
-const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage'));
+// OnboardingPage removed: features moved into RecruitmentPage
 const PettyCashPage = React.lazy(() => import('./pages/PettyCashPage'));
 const PayrollPage = React.lazy(() => import('./pages/PayrollPage'));
 const AttendancePage = React.lazy(() => import('./pages/AttendancePage'));
@@ -222,15 +222,8 @@ function App() {
             <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="approvals/history" element={<ApprovalHistoryPage />} />
 
-            {/* Onboarding - HR only */}
-            <Route
-              path="onboarding"
-              element={
-                <ProtectedRoute allowedRoles={ROLE_GROUPS.HR}>
-                  <OnboardingPage />
-                </ProtectedRoute>
-              }
-            />
+            {/* Onboarding moved into Recruitment page */}
+            <Route path="onboarding" element={<Navigate to="/recruitment" replace />} />
 
             {/* Petty Cash - Finance and Management */}
             <Route

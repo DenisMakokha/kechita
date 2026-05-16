@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth.store';
 import { InputDialog } from '../components/ui/InputDialog';
 import { useFormValidation, validators, fieldErrorClass } from '../hooks/useFormValidation';
 import type { ValidationRules } from '../hooks/useFormValidation';
+import { useDebounce } from '../hooks/useDebounce';
 import { FieldError } from '../components/ui/FieldError';
 import {
     Plus, Calendar as CalendarIcon, Clock, CheckCircle, Umbrella, Users, AlertTriangle,
@@ -149,6 +150,7 @@ export const LeaveManagementPage: React.FC = () => {
     const [rejectDialogLeaveId, setRejectDialogLeaveId] = useState<string | null>(null);
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [searchStaff, setSearchStaff] = useState('');
+    const debouncedSearchStaff = useDebounce(searchStaff, 250);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [adjustTarget, setAdjustTarget] = useState<{ staffId: string; leaveTypeId: string; leaveTypeName: string } | null>(null);
     const [adjustForm, setAdjustForm] = useState({ adjustmentDays: 0, reason: '' });
@@ -394,10 +396,10 @@ export const LeaveManagementPage: React.FC = () => {
             {activeTab === 'balances' && isAdmin && (() => {
                 const allStaff = Array.isArray(staffList) ? staffList : (staffList?.data || []);
                 const filtered = allStaff.filter((s: any) => {
-                    if (!searchStaff) return true;
+                    if (!debouncedSearchStaff) return true;
                     const name = (s.full_name || `${s.first_name} ${s.last_name}` || '').toLowerCase();
                     const empNo = (s.employee_number || '').toLowerCase();
-                    const q = searchStaff.toLowerCase();
+                    const q = debouncedSearchStaff.toLowerCase();
                     return name.includes(q) || empNo.includes(q);
                 });
                 const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
