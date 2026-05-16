@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import {
@@ -569,6 +569,305 @@ const CompBenefitsTab: React.FC<TabProps> = ({ showToast, qc }) => {
     );
 };
 
+// ─────────── ROSTER PLANNER ───────────
+interface RosterShift {
+    id: string;
+    code: string;
+    name: string;
+    start_time: string;
+    end_time: string;
+    is_night_shift: boolean;
+}
+interface RosterStaff {
+    id: string;
+    first_name: string;
+    last_name: string;
+    employee_number: string;
+    branch?: { id: string; name: string };
+}
+interface RosterEntry {
+    id: string;
+    staff_id: string;
+    shift_id: string | null;
+    date: string;
+    is_day_off: boolean;
+    shift?: RosterShift;
+    staff?: RosterStaff;
+}
+
+const RosterPlanner: React.FC<{
+    shifts: RosterShift[];
+    qc: any;
+    showToast: (text: string, type?: 'success' | 'error') => void;
+    onOpenManualEntry: () => void;
+}> = ({ shifts, qc, showToast, onOpenManualEntry }) => {
+    // Start week on Monday
+    const startOfWeek = (d: Date) => {
+        const day = d.getDay();
+        const diff = day === 0 ? -6 : 1 - day; // shift Sunday back to previous Monday
+        const r = new Date(d);
+        r.setDate(d.getDate() + diff);
+        r.setHours(0, 0, 0, 0);
+        return r;
+    };
+    const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+    const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
+    const [branchId, setBranchId] = useState<string>('');
+
+    const weekDays: Date[] = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
+    }), [weekStart]);
+    const from = fmtDate(weekDays[0]);
+    const to = fmtDate(weekDays[6]);
+
+    // Branches
+    const { data: branches = [] } = useQuery<any[]>({
+        queryKey: ['branches-for-roster'],
+        queryFn: async () => (await api.get('/organization/branches')).data,
+    });
+
+    useEffect(() => {
+        if (!branchId && branches.length > 0) setBranchId(branches[0].id);
+    }, [branches, branchId]);
+
+    // Staff for branch
+    const { data: staffData = [] } = useQuery<any[]>({
+        queryKey: ['staff-by-branch', branchId],
+        queryFn: async () => {
+            if (!branchId) return [];
+            const res = await api.get(`/staff?branchId=${branchId}&limit=200`);
+            return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        },
+        enabled: !!branchId,
+    });
+
+    // Existing roster entries for branch + week
+    const { data: roster = [], isLoading: rosterLoading } = useQuery<RosterEntry[]>({
+        queryKey: ['roster', branchId, from, to],
+        queryFn: async () => (await api.get(`/attendance/roster/branch/${branchId}?from=${from}&to=${to}`)).data,
+        enabled: !!branchId,
+    });
+
+    // Local pending edits keyed by `${staff_id}|${date}`
+    const [pending, setPending] = useState<Record<string, { shift_id: string | null; is_day_off: boolean }>>({});
+    const cellKey = (sid: string, date: string) => `${sid}|${date}`;
+    const getCell = (sid: string, date: string): { shift_id: string | null; is_day_off: boolean } | null => {
+        const key = cellKey(sid, date);
+        if (pending[key] !== undefined) return pending[key];
+        const r = roster.find(r => r.staff_id === sid && r.date === date);
+        if (!r) return null;
+        return { shift_id: r.shift_id, is_day_off: r.is_day_off };
+    };
+    const setCell = (sid: string, date: string, value: { shift_id: string | null; is_day_off: boolean } | null) => {
+        const key = cellKey(sid, date);
+        setPending(prev => {
+            const next = { ...prev };
+            if (value === null) {
+                // mark as removed: server has no delete; we'll use day-off true with shift null as "cleared" approximation
+                next[key] = { shift_id: null, is_day_off: false };
+            } else {
+                next[key] = value;
+            }
+            return next;
+        });
+    };
+
+    const saveMutation = useMutation({
+        mutationFn: async () => {
+            const assignments = Object.entries(pending)
+                .filter(([, v]) => v.shift_id || v.is_day_off)
+                .map(([key, v]) => {
+                    const [staff_id, date] = key.split('|');
+                    return { staff_id, shift_id: v.shift_id || (shifts[0]?.id ?? ''), date, is_day_off: v.is_day_off };
+                });
+            if (assignments.length === 0) return { created: 0, updated: 0 };
+            return (await api.post('/attendance/roster/assign', { assignments })).data;
+        },
+        onSuccess: (res: any) => {
+            qc.invalidateQueries({ queryKey: ['roster', branchId, from, to] });
+            setPending({});
+            showToast(`Roster saved (${res.created || 0} new, ${res.updated || 0} updated)`);
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to save roster', 'error'),
+    });
+
+    const shiftColor = (code?: string) => {
+        if (!code) return 'bg-slate-100 text-slate-600';
+        const colors = ['bg-blue-100 text-blue-700', 'bg-emerald-100 text-emerald-700', 'bg-purple-100 text-purple-700', 'bg-amber-100 text-amber-700', 'bg-cyan-100 text-cyan-700'];
+        let h = 0; for (const c of code) h = (h * 31 + c.charCodeAt(0)) % colors.length;
+        return colors[h];
+    };
+
+    const goPrevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); };
+    const goNextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); };
+    const goThisWeek = () => setWeekStart(startOfWeek(new Date()));
+
+    const pendingCount = Object.keys(pending).length;
+
+    if (shifts.length === 0) {
+        return (
+            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+                <Clock className="mx-auto text-slate-300 mb-3" size={48} />
+                <p className="text-slate-500 font-medium">No shifts defined yet</p>
+                <p className="text-sm text-slate-400 mt-1">Create at least one shift first in the Shifts tab to start planning the roster.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1 mr-2">
+                    <button onClick={goPrevWeek} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="Previous week" title="Previous week">‹</button>
+                    <button onClick={goThisWeek} className="px-3 py-1.5 text-sm font-medium hover:bg-slate-100 rounded-lg">This week</button>
+                    <button onClick={goNextWeek} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="Next week" title="Next week">›</button>
+                </div>
+                <p className="text-sm font-medium text-slate-900">
+                    {weekDays[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – {weekDays[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+                <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium ml-auto">
+                    <option value="">Select branch…</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <button onClick={onOpenManualEntry} className="flex items-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-sm font-medium">
+                    <Plus size={14} />Manual entry
+                </button>
+                <button
+                    onClick={() => saveMutation.mutate()}
+                    disabled={pendingCount === 0 || saveMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] disabled:opacity-50"
+                >
+                    {saveMutation.isPending ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
+                    Save {pendingCount > 0 && `(${pendingCount})`}
+                </button>
+            </div>
+
+            {/* Shift legend */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium mr-1">Shifts:</span>
+                {shifts.map(s => (
+                    <span key={s.id} className={`px-2 py-1 rounded-md font-medium ${shiftColor(s.code)}`}>
+                        {s.code} <span className="opacity-60 ml-1 font-normal">{s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}</span>
+                    </span>
+                ))}
+                <span className="px-2 py-1 rounded-md font-medium bg-slate-200 text-slate-600">OFF · day off</span>
+            </div>
+
+            {/* Grid */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                {!branchId ? (
+                    <div className="p-10 text-center text-slate-500"><Calendar className="mx-auto text-slate-300 mb-2" size={36} />Select a branch to start planning</div>
+                ) : rosterLoading ? (
+                    <div className="p-10 text-center text-slate-400 flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={16} />Loading roster…</div>
+                ) : staffData.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">No staff in this branch.</div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Staff</th>
+                                    {weekDays.map((d) => {
+                                        const isToday = fmtDate(d) === fmtDate(new Date());
+                                        return (
+                                            <th key={d.toISOString()} className={`px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider ${isToday ? 'bg-blue-50 text-[#0066B3]' : 'text-slate-500'}`}>
+                                                <div>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+                                                <div className="text-[11px] font-normal mt-0.5">{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                                            </th>
+                                        );
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {staffData.map((s: any) => (
+                                    <tr key={s.id} className="hover:bg-slate-50/50">
+                                        <td className="px-4 py-2 sticky left-0 bg-white">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-[11px] font-medium shrink-0">{s.first_name?.[0]}{s.last_name?.[0]}</div>
+                                                <div className="min-w-0">
+                                                    <p className="font-medium text-slate-900 truncate text-sm">{s.first_name} {s.last_name}</p>
+                                                    <p className="text-[11px] text-slate-400 truncate font-mono">{s.employee_number}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {weekDays.map(d => {
+                                            const date = fmtDate(d);
+                                            const cell = getCell(s.id, date);
+                                            const isPending = pending[cellKey(s.id, date)] !== undefined;
+                                            const shift = cell?.shift_id ? shifts.find(sh => sh.id === cell.shift_id) : undefined;
+                                            return (
+                                                <td key={date} className="px-1 py-1 text-center">
+                                                    <RosterCellSelect
+                                                        shifts={shifts}
+                                                        value={cell}
+                                                        shift={shift}
+                                                        shiftColor={shiftColor}
+                                                        isPending={isPending}
+                                                        onChange={(v) => setCell(s.id, date, v)}
+                                                    />
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {pendingCount > 0 && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <AlertTriangle size={14} /> {pendingCount} unsaved change{pendingCount === 1 ? '' : 's'}. Click <strong>Save</strong> to apply.
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Cell-level shift picker (small dropdown via native select for keyboard support)
+const RosterCellSelect: React.FC<{
+    shifts: RosterShift[];
+    value: { shift_id: string | null; is_day_off: boolean } | null;
+    shift: RosterShift | undefined;
+    shiftColor: (code?: string) => string;
+    isPending: boolean;
+    onChange: (v: { shift_id: string | null; is_day_off: boolean } | null) => void;
+}> = ({ shifts, value, shift, shiftColor, isPending, onChange }) => {
+    const display = value?.is_day_off
+        ? <span className="text-xs font-semibold">OFF</span>
+        : shift
+            ? <span className="text-xs font-bold">{shift.code}</span>
+            : <span className="text-slate-300 text-xs">—</span>;
+    const colorClass = value?.is_day_off
+        ? 'bg-slate-200 text-slate-700'
+        : shift
+            ? shiftColor(shift.code)
+            : 'bg-slate-50 text-slate-300 hover:bg-slate-100';
+
+    return (
+        <div className="relative">
+            <select
+                value={value?.is_day_off ? '__off__' : (value?.shift_id || '')}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '') onChange(null);
+                    else if (v === '__off__') onChange({ shift_id: null, is_day_off: true });
+                    else onChange({ shift_id: v, is_day_off: false });
+                }}
+                className={`appearance-none cursor-pointer w-14 h-10 rounded-md text-center font-medium text-xs transition-colors ${colorClass} ${isPending ? 'ring-2 ring-amber-400' : ''}`}
+                aria-label="Assign shift"
+            >
+                <option value="">—</option>
+                {shifts.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+                <option value="__off__">OFF</option>
+            </select>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">{display}</div>
+        </div>
+    );
+};
+
 // ─────────── ATTENDANCE TAB ───────────
 const AttendanceTab: React.FC<TabProps> = ({ showToast, qc }) => {
     type SubTab = 'entries' | 'shifts' | 'roster';
@@ -797,17 +1096,12 @@ const AttendanceTab: React.FC<TabProps> = ({ showToast, qc }) => {
 
             {/* ROSTER TAB */}
             {subTab === 'roster' && (
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-slate-500">Assign shifts to staff for specific dates</p>
-                        <button onClick={() => setShowManualModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299]"><Plus size={16} />Manual Entry</button>
-                    </div>
-                    <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
-                        <Calendar className="mx-auto text-slate-300 mb-3" size={48} />
-                        <p className="text-slate-500 font-medium">Visual roster planner coming soon</p>
-                        <p className="text-sm text-slate-400 mt-1">Use the Manual Entry button above to add time records for staff.</p>
-                    </div>
-                </div>
+                <RosterPlanner
+                    shifts={shifts}
+                    qc={qc}
+                    showToast={showToast}
+                    onOpenManualEntry={() => setShowManualModal(true)}
+                />
             )}
 
             {/* Manual Entry Modal */}
