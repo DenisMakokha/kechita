@@ -10,4 +10,4 @@ WHERE lb.leave_type_id = lt.id
   AND lb.staff_id = s.id
   AND lt.applicable_gender IS NOT NULL
   AND lt.applicable_gender <> ''
-  AND s.gender IS DISTINCT FROM lt.applicable_gender;
+  AND s.gender::text IS DISTINCT FROM lt.applicable_gender;

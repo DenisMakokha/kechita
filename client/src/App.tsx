@@ -31,7 +31,7 @@ const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPa
 const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
 const StaffProfilePage = React.lazy(() => import('./pages/StaffProfilePage'));
 const MyProfilePage = React.lazy(() => import('./pages/MyProfilePage'));
-const LeaveAdminPage = React.lazy(() => import('./pages/LeaveAdminPage'));
+// LeaveAdminPage removed: admin features are inside LeaveManagementPage
 const NotificationsPage = React.lazy(() => import('./pages/NotificationsPage'));
 const AuditPage = React.lazy(() => import('./pages/AuditPage'));
 const PublicLayout = React.lazy(() => import('./layouts/PublicLayout'));
@@ -167,14 +167,7 @@ function App() {
             {/* Leave Management - accessible to all staff */}
             <Route path="leave-management" element={<LeaveManagementPage />} />
             <Route path="leave" element={<Navigate to="/leave-management" replace />} />
-            <Route
-              path="leave-admin"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER]}>
-                  <LeaveAdminPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="leave-admin" element={<Navigate to="/leave-management" replace />} />
 
             {/* Claims - accessible to all staff */}
             <Route path="claims" element={<ClaimsPage />} />
