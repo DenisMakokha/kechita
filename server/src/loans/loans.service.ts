@@ -755,6 +755,28 @@ export class LoansService {
         }));
     }
 
+    // ==================== APPROVE LOAN ====================
+
+    async approveLoan(loanId: string, approverStaffId: string, comment?: string): Promise<StaffLoan> {
+        const loan = await this.loanRepo.findOne({
+            where: { id: loanId },
+            relations: ['staff'],
+        });
+
+        if (!loan) throw new NotFoundException('Loan not found');
+        if (loan.status !== LoanStatus.PENDING) {
+            throw new BadRequestException('Only pending loans can be approved');
+        }
+
+        const approver = await this.staffRepo.findOne({ where: { id: approverStaffId } });
+
+        loan.status = LoanStatus.APPROVED;
+        if (comment) loan.remarks = loan.remarks ? `${loan.remarks}\nApproved: ${comment}` : `Approved: ${comment}`;
+        if (approver) loan.approvedBy = approver;
+
+        return this.loanRepo.save(loan);
+    }
+
     // ==================== REJECT LOAN ====================
 
     async rejectLoan(loanId: string, rejectorStaffId: string, reason: string): Promise<StaffLoan> {

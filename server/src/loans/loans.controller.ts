@@ -188,6 +188,20 @@ export class LoansController {
         );
     }
 
+    // ==================== APPROVE LOAN ====================
+
+    @Patch(':id/approve')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    approveLoan(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body('comment') comment?: string,
+    ) {
+        const staffId = req.user?.staff_id;
+        if (!staffId) throw new BadRequestException('Staff ID not found in token');
+        return this.loansService.approveLoan(id, staffId, comment);
+    }
+
     // ==================== REJECT LOAN ====================
 
     @Patch(':id/reject')
