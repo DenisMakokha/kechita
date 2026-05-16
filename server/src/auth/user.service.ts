@@ -337,6 +337,8 @@ export class UserService {
         await this.dataSource.transaction(async (manager) => {
             await manager.query('UPDATE staff SET user_id = NULL WHERE user_id = $1', [id]);
             await manager.query('UPDATE audit_logs SET user_id = NULL WHERE user_id = $1', [id]);
+            await manager.query('DELETE FROM notifications WHERE user_id = $1', [id]);
+            await manager.query('DELETE FROM notification_preferences WHERE user_id = $1', [id]);
             await manager.query('DELETE FROM user_roles WHERE user_id = $1', [id]);
             await manager.delete(User, id);
         });
