@@ -19,6 +19,7 @@ export interface CreateAnnouncementDto {
     target_branch_ids?: string[];
     target_region_ids?: string[];
     target_department_ids?: string[];
+    target_position_ids?: string[];
     target_user_ids?: string[];
     publish_at?: string;
     expires_at?: string;
@@ -67,6 +68,7 @@ export class CommunicationsService {
             target_branch_ids: data.target_branch_ids,
             target_region_ids: data.target_region_ids,
             target_department_ids: data.target_department_ids,
+            target_position_ids: data.target_position_ids,
             target_user_ids: data.target_user_ids,
             publish_at: data.publish_at ? new Date(data.publish_at) : undefined,
             expires_at: data.expires_at ? new Date(data.expires_at) : undefined,
@@ -230,7 +232,7 @@ export class CommunicationsService {
     async getAnnouncementsForUser(userId: string): Promise<(Announcement & { is_read: boolean; is_acknowledged: boolean })[]> {
         const user = await this.userRepo.findOne({
             where: { id: userId },
-            relations: ['staff', 'staff.branch', 'staff.region', 'staff.department', 'roles'],
+            relations: ['staff', 'staff.branch', 'staff.region', 'staff.department', 'staff.position', 'roles'],
         });
 
         if (!user) throw new NotFoundException('User not found');
@@ -260,6 +262,8 @@ export class CommunicationsService {
                     return !!(user.staff?.region?.id && a.target_region_ids?.includes(user.staff.region.id));
                 case TargetAudience.DEPARTMENTS:
                     return !!(user.staff?.department?.id && a.target_department_ids?.includes(user.staff.department.id));
+                case TargetAudience.POSITIONS:
+                    return !!(user.staff?.position?.id && a.target_position_ids?.includes(user.staff.position.id));
                 case TargetAudience.SPECIFIC_USERS:
                     return a.target_user_ids?.includes(userId);
                 default:

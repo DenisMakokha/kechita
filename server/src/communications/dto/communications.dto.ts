@@ -50,6 +50,11 @@ export class CreateAnnouncementDto {
     @IsArray()
     @IsUUID('4', { each: true })
     @IsOptional()
+    target_position_ids?: string[];
+
+    @IsArray()
+    @IsUUID('4', { each: true })
+    @IsOptional()
     target_user_ids?: string[];
 
     @IsDateString()
@@ -119,17 +124,8 @@ export class UpdateAnnouncementDto {
     @IsArray()
     @IsUUID('4', { each: true })
     @IsOptional()
-    target_user_ids?: string[];
+    target_position_ids?: string[];
 
-    @IsDateString()
-    @IsOptional()
-    publish_at?: string;
-
-    @IsDateString()
-    @IsOptional()
-    expires_at?: string;
-
-    @IsBoolean()
     @IsOptional()
     requires_acknowledgment?: boolean;
 

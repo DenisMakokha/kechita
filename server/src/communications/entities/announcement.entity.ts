@@ -29,6 +29,7 @@ export enum TargetAudience {
     BRANCHES = 'branches',
     REGIONS = 'regions',
     DEPARTMENTS = 'departments',
+    POSITIONS = 'positions',
     SPECIFIC_USERS = 'specific_users',
 }
 
@@ -72,6 +73,9 @@ export class Announcement {
 
     @Column('simple-array', { nullable: true })
     target_department_ids: string[]; // When target_type = DEPARTMENTS
+
+    @Column('simple-array', { nullable: true })
+    target_position_ids: string[]; // When target_type = POSITIONS
 
     @Column('simple-array', { nullable: true })
     target_user_ids: string[]; // When target_type = SPECIFIC_USERS

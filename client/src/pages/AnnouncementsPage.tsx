@@ -8,6 +8,8 @@ import {
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 
+type TargetType = 'all' | 'roles' | 'branches' | 'regions' | 'departments' | 'positions' | 'specific_users';
+
 interface Announcement {
     id: string;
     title: string;
@@ -15,13 +17,15 @@ interface Announcement {
     priority: 'low' | 'normal' | 'high' | 'urgent';
     status: 'draft' | 'scheduled' | 'published' | 'archived';
     channels: string[];
-    target_audience: {
-        all_staff?: boolean;
-        roles?: string[];
-        branch_ids?: string[];
-        department_ids?: string[];
-    };
+    target_type?: TargetType;
+    target_role_codes?: string[];
+    target_branch_ids?: string[];
+    target_region_ids?: string[];
+    target_department_ids?: string[];
+    target_position_ids?: string[];
+    target_user_ids?: string[];
     scheduled_for?: string;
+    publish_at?: string;
     published_at?: string;
     requires_acknowledgment: boolean;
     view_count: number;
@@ -30,6 +34,26 @@ interface Announcement {
     author?: { first_name: string; last_name: string };
 }
 
+
+const describeAudience = (a: Announcement): string => {
+    switch (a.target_type) {
+        case 'roles':
+            return `${a.target_role_codes?.length || 0} role${(a.target_role_codes?.length || 0) === 1 ? '' : 's'}`;
+        case 'branches':
+            return `${a.target_branch_ids?.length || 0} branch${(a.target_branch_ids?.length || 0) === 1 ? '' : 'es'}`;
+        case 'regions':
+            return `${a.target_region_ids?.length || 0} region${(a.target_region_ids?.length || 0) === 1 ? '' : 's'}`;
+        case 'departments':
+            return `${a.target_department_ids?.length || 0} department${(a.target_department_ids?.length || 0) === 1 ? '' : 's'}`;
+        case 'positions':
+            return `${a.target_position_ids?.length || 0} position${(a.target_position_ids?.length || 0) === 1 ? '' : 's'}`;
+        case 'specific_users':
+            return `${a.target_user_ids?.length || 0} user${(a.target_user_ids?.length || 0) === 1 ? '' : 's'}`;
+        case 'all':
+        default:
+            return 'Everyone';
+    }
+};
 
 export const AnnouncementsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'feed' | 'manage'>('feed');
@@ -381,7 +405,12 @@ export const AnnouncementsPage: React.FC = () => {
                                                     <span className={`w-2 h-2 rounded-full ${styles.dot}`}></span>
                                                     <div>
                                                         <p className="font-medium text-slate-900">{ann.title}</p>
-                                                        <p className="text-xs text-slate-500 mt-0.5">{formatTimeAgo(ann.created_at)}</p>
+                                                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                                            <span>{formatTimeAgo(ann.created_at)}</span>
+                                                            <span className="text-slate-300">·</span>
+                                                            <Users size={11} className="text-slate-400" />
+                                                            <span>{describeAudience(ann)}</span>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -555,20 +584,137 @@ export const AnnouncementsPage: React.FC = () => {
     );
 };
 
+// Reusable multi-select chip list for audience targeting
+const ChipMultiSelect: React.FC<{
+    items: { id: string; label: string }[];
+    selected: string[];
+    onToggle: (id: string) => void;
+    emptyText?: string;
+    searchable?: boolean;
+}> = ({ items, selected, onToggle, emptyText = 'No items', searchable }) => {
+    const [search, setSearch] = useState('');
+    const filtered = searchable && search
+        ? items.filter(it => it.label.toLowerCase().includes(search.toLowerCase()))
+        : items;
+    const allIds = items.map(i => i.id);
+    const allSelected = allIds.length > 0 && allIds.every(id => selected.includes(id));
+
+    return (
+        <div className="space-y-2">
+            {searchable && (
+                <input
+                    type="text"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                />
+            )}
+            <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>{selected.length} selected</span>
+                {items.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (allSelected) allIds.forEach(id => onToggle(id));
+                            else allIds.filter(id => !selected.includes(id)).forEach(id => onToggle(id));
+                        }}
+                        className="text-[#0066B3] hover:underline font-medium"
+                    >
+                        {allSelected ? 'Clear all' : 'Select all'}
+                    </button>
+                )}
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1 bg-white border border-slate-200 rounded-lg">
+                {filtered.length === 0 && (
+                    <p className="text-xs text-slate-400 italic px-2 py-1.5">{emptyText}</p>
+                )}
+                {filtered.map(it => {
+                    const isSel = selected.includes(it.id);
+                    return (
+                        <button
+                            key={it.id}
+                            type="button"
+                            onClick={() => onToggle(it.id)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                                isSel
+                                    ? 'bg-[#0066B3] text-white border-[#0066B3]'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-[#0066B3] hover:text-[#0066B3]'
+                            }`}
+                        >
+                            {it.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 // Create / Edit Announcement Modal
 const CreateAnnouncementModal: React.FC<{
     onClose: () => void;
     onSuccess: () => void;
     editing?: Announcement | null;
 }> = ({ onClose, onSuccess, editing }) => {
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        title: string;
+        content: string;
+        priority: Announcement['priority'];
+        channels: string[];
+        target_type: TargetType;
+        target_role_codes: string[];
+        target_branch_ids: string[];
+        target_region_ids: string[];
+        target_department_ids: string[];
+        target_position_ids: string[];
+        target_user_ids: string[];
+        requires_acknowledgment: boolean;
+        publish_at: string;
+    }>({
         title: editing?.title || '',
         content: editing?.content || '',
         priority: editing?.priority || 'normal',
         channels: editing?.channels?.length ? editing.channels : ['portal'],
-        target_type: 'all',
+        target_type: (editing?.target_type as TargetType) || 'all',
+        target_role_codes: editing?.target_role_codes || [],
+        target_branch_ids: editing?.target_branch_ids || [],
+        target_region_ids: editing?.target_region_ids || [],
+        target_department_ids: editing?.target_department_ids || [],
+        target_position_ids: editing?.target_position_ids || [],
+        target_user_ids: editing?.target_user_ids || [],
         requires_acknowledgment: editing?.requires_acknowledgment || false,
-        publish_at: editing?.scheduled_for ? new Date(editing.scheduled_for).toISOString().slice(0, 16) : '',
+        publish_at: editing?.publish_at
+            ? new Date(editing.publish_at).toISOString().slice(0, 16)
+            : (editing?.scheduled_for ? new Date(editing.scheduled_for).toISOString().slice(0, 16) : ''),
+    });
+
+    // Org / role / staff data for audience targeting
+    const { data: roles = [] } = useQuery<any[]>({
+        queryKey: ['roles'],
+        queryFn: async () => { const r = (await api.get('/roles')).data; return Array.isArray(r) ? r : (r?.data ?? []); },
+    });
+    const { data: branches = [] } = useQuery<any[]>({
+        queryKey: ['branches'], queryFn: async () => (await api.get('/org/branches')).data,
+    });
+    const { data: regions = [] } = useQuery<any[]>({
+        queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data,
+    });
+    const { data: departments = [] } = useQuery<any[]>({
+        queryKey: ['departments'], queryFn: async () => (await api.get('/org/departments')).data,
+    });
+    const { data: positions = [] } = useQuery<any[]>({
+        queryKey: ['positions'], queryFn: async () => (await api.get('/org/positions')).data,
+    });
+    const { data: staffList = [] } = useQuery<any[]>({
+        queryKey: ['staff-min'],
+        queryFn: async () => {
+            const res = (await api.get('/staff?limit=10000')).data;
+            const arr = Array.isArray(res) ? res : (res?.data ?? []);
+            // We need user IDs, not staff IDs, since target_user_ids targets users. Filter to those with a linked user.
+            return arr.filter((s: any) => s?.user?.id);
+        },
+        enabled: formData.target_type === 'specific_users',
     });
 
     const createMutation = useMutation({
@@ -595,11 +741,39 @@ const CreateAnnouncementModal: React.FC<{
             target_type: formData.target_type,
             requires_acknowledgment: formData.requires_acknowledgment,
         };
+        // Only attach the array that matches the chosen target_type
+        switch (formData.target_type) {
+            case 'roles':
+                payload.target_role_codes = formData.target_role_codes;
+                break;
+            case 'branches':
+                payload.target_branch_ids = formData.target_branch_ids;
+                break;
+            case 'regions':
+                payload.target_region_ids = formData.target_region_ids;
+                break;
+            case 'departments':
+                payload.target_department_ids = formData.target_department_ids;
+                break;
+            case 'positions':
+                payload.target_position_ids = formData.target_position_ids;
+                break;
+            case 'specific_users':
+                payload.target_user_ids = formData.target_user_ids;
+                break;
+        }
         if (formData.publish_at) {
             // datetime-local has no timezone; convert to ISO
             payload.publish_at = new Date(formData.publish_at).toISOString();
         }
         return payload;
+    };
+
+    const toggleId = (field: 'target_role_codes' | 'target_branch_ids' | 'target_region_ids' | 'target_department_ids' | 'target_position_ids' | 'target_user_ids', id: string) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: prev[field].includes(id) ? prev[field].filter(x => x !== id) : [...prev[field], id],
+        }));
     };
 
     const handleSubmit = async (publish: boolean) => {
@@ -714,6 +888,95 @@ const CreateAnnouncementModal: React.FC<{
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* ───── Audience Targeting ───── */}
+                    <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Users size={16} className="text-[#0066B3]" />
+                            <label className="text-sm font-semibold text-slate-700">Audience</label>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {([
+                                { key: 'all', label: 'Everyone' },
+                                { key: 'roles', label: 'By Role' },
+                                { key: 'branches', label: 'By Branch' },
+                                { key: 'regions', label: 'By Region' },
+                                { key: 'departments', label: 'By Department' },
+                                { key: 'positions', label: 'By Position' },
+                                { key: 'specific_users', label: 'Specific Users' },
+                            ] as { key: TargetType; label: string }[]).map(opt => (
+                                <button
+                                    key={opt.key}
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, target_type: opt.key })}
+                                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+                                        formData.target_type === opt.key
+                                            ? 'border-[#0066B3] bg-[#0066B3] text-white'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {formData.target_type === 'all' && (
+                            <p className="text-xs text-slate-500">This announcement will be delivered to all active staff.</p>
+                        )}
+
+                        {formData.target_type === 'roles' && (
+                            <ChipMultiSelect
+                                items={roles.map((r: any) => ({ id: r.code, label: r.name || r.code }))}
+                                selected={formData.target_role_codes}
+                                onToggle={(id) => toggleId('target_role_codes', id)}
+                                emptyText="No roles found"
+                            />
+                        )}
+                        {formData.target_type === 'branches' && (
+                            <ChipMultiSelect
+                                items={branches.map((b: any) => ({ id: b.id, label: b.name + (b.code ? ` (${b.code})` : '') }))}
+                                selected={formData.target_branch_ids}
+                                onToggle={(id) => toggleId('target_branch_ids', id)}
+                                emptyText="No branches found"
+                            />
+                        )}
+                        {formData.target_type === 'regions' && (
+                            <ChipMultiSelect
+                                items={regions.map((r: any) => ({ id: r.id, label: r.name }))}
+                                selected={formData.target_region_ids}
+                                onToggle={(id) => toggleId('target_region_ids', id)}
+                                emptyText="No regions found"
+                            />
+                        )}
+                        {formData.target_type === 'departments' && (
+                            <ChipMultiSelect
+                                items={departments.map((d: any) => ({ id: d.id, label: d.name }))}
+                                selected={formData.target_department_ids}
+                                onToggle={(id) => toggleId('target_department_ids', id)}
+                                emptyText="No departments found"
+                            />
+                        )}
+                        {formData.target_type === 'positions' && (
+                            <ChipMultiSelect
+                                items={positions.map((p: any) => ({ id: p.id, label: p.name }))}
+                                selected={formData.target_position_ids}
+                                onToggle={(id) => toggleId('target_position_ids', id)}
+                                emptyText="No positions found"
+                            />
+                        )}
+                        {formData.target_type === 'specific_users' && (
+                            <ChipMultiSelect
+                                items={staffList.map((s: any) => ({
+                                    id: s.user.id,
+                                    label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.user.email,
+                                }))}
+                                selected={formData.target_user_ids}
+                                onToggle={(id) => toggleId('target_user_ids', id)}
+                                emptyText="No staff with linked user accounts"
+                                searchable
+                            />
+                        )}
                     </div>
 
                     <label className="flex items-center gap-3 cursor-pointer">
