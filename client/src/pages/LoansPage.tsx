@@ -76,7 +76,7 @@ const LoansPage: React.FC = () => {
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedLoan, setSelectedLoan] = useState<StaffLoan | null>(null);
-    const [loanDialogType, setLoanDialogType] = useState<'reject' | 'disburse' | 'payment' | null>(null);
+    const [loanDialogType, setLoanDialogType] = useState<'approve' | 'reject' | 'disburse' | 'payment' | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -216,6 +216,22 @@ const LoansPage: React.FC = () => {
         },
         onError: (error: any) => {
             showToast(error?.response?.data?.message || 'Failed to reject loan', 'error');
+        },
+    });
+
+    const approveLoanMutation = useMutation({
+        mutationFn: async ({ loanId, comment }: { loanId: string; comment?: string }) => {
+            const response = await api.patch(`/loans/${loanId}/approve`, { comment });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-loans'] });
+            queryClient.invalidateQueries({ queryKey: ['all-loans'] });
+            setShowDetailModal(false);
+            showToast('Loan application approved successfully!');
+        },
+        onError: (error: any) => {
+            showToast(error?.response?.data?.message || 'Failed to approve loan', 'error');
         },
     });
 
@@ -1142,14 +1158,24 @@ const LoansPage: React.FC = () => {
                                         Cancel
                                     </button>
                                     {isManager && (
-                                    <button
-                                        onClick={() => setLoanDialogType('reject')}
-                                        disabled={rejectLoanMutation.isPending}
-                                        className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg font-medium flex items-center gap-2"
-                                    >
-                                        <XCircle size={18} />
-                                        Reject
-                                    </button>
+                                        <>
+                                            <button
+                                                onClick={() => setLoanDialogType('approve')}
+                                                disabled={approveLoanMutation.isPending}
+                                                className="px-4 py-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-lg font-medium flex items-center gap-2"
+                                            >
+                                                <CheckCircle size={18} />
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => setLoanDialogType('reject')}
+                                                disabled={rejectLoanMutation.isPending}
+                                                className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg font-medium flex items-center gap-2"
+                                            >
+                                                <XCircle size={18} />
+                                                Reject
+                                            </button>
+                                        </>
                                     )}
                                 </>
                             )}
@@ -1184,6 +1210,25 @@ const LoansPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Approve Loan Dialog */}
+            <InputDialog
+                isOpen={loanDialogType === 'approve'}
+                title="Approve Loan"
+                message="Are you sure you want to approve this loan application?"
+                inputLabel="Approval Comment (Optional)"
+                inputType="textarea"
+                placeholder="Enter optional comment..."
+                confirmLabel="Approve"
+                onConfirm={(comment) => {
+                    if (selectedLoan) {
+                        approveLoanMutation.mutate({ loanId: selectedLoan.id, comment });
+                    }
+                    setLoanDialogType(null);
+                }}
+                onCancel={() => setLoanDialogType(null)}
+                isLoading={approveLoanMutation.isPending}
+            />
 
             {/* Reject Loan Dialog */}
             <InputDialog
