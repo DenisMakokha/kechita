@@ -61,6 +61,9 @@ const ApprovalsPage: React.FC = () => {
     const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
     const [actionModal, setActionModal] = useState<{ approval: PendingApproval; action: 'approve' | 'reject' | 'delegate' | 'return' } | null>(null);
     const [typeFilter, setTypeFilter] = useState<string>('all');
+    const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+    const [bulkRejectReason, setBulkRejectReason] = useState<string | null>(null);
+    const [bulkRejectText, setBulkRejectText] = useState('');
 
     // Queries
     const { data: pendingApprovalsRaw, isLoading } = useQuery<PendingApproval[]>({
@@ -170,6 +173,31 @@ const ApprovalsPage: React.FC = () => {
         },
         onError: (error: any) => {
             showToast(error?.response?.data?.message || 'Failed to delegate approval', 'error');
+        },
+    });
+
+    const bulkApproveMutation = useMutation({
+        mutationFn: async ({ instanceIds, comment }: { instanceIds: string[]; comment?: string }) =>
+            (await api.post('/approvals/bulk/approve', { instanceIds, comment })).data,
+        onSuccess: (data: any) => {
+            queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['approval-stats'] });
+            setBulkSelected(new Set());
+            const ok = data?.successful ?? data?.successCount ?? bulkSelected.size;
+            const fail = data?.failed ?? data?.failureCount ?? 0;
+            console.info(`Bulk approve: ${ok} approved${fail ? `, ${fail} failed` : ''}`);
+        },
+    });
+
+    const bulkRejectMutation = useMutation({
+        mutationFn: async ({ instanceIds, comment }: { instanceIds: string[]; comment: string }) =>
+            (await api.post('/approvals/bulk/reject', { instanceIds, comment })).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['approval-stats'] });
+            setBulkSelected(new Set());
+            setBulkRejectReason(null);
+            setBulkRejectText('');
         },
     });
 
@@ -442,7 +470,50 @@ const ApprovalsPage: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                <div className="divide-y divide-slate-100">
+                                <div>
+                                    {/* Bulk action bar */}
+                                    {bulkSelected.size > 0 && (
+                                        <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between gap-3 sticky top-0 z-10">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-medium text-slate-900">{bulkSelected.size} selected</span>
+                                                <button
+                                                    onClick={() => setBulkSelected(new Set())}
+                                                    className="text-xs text-slate-500 hover:text-slate-700 underline"
+                                                >Clear</button>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => bulkApproveMutation.mutate({ instanceIds: Array.from(bulkSelected) })}
+                                                    disabled={bulkApproveMutation.isPending}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 text-sm font-medium shadow-sm disabled:opacity-50"
+                                                >
+                                                    <CheckCircle size={14} /> Approve {bulkSelected.size}
+                                                </button>
+                                                <button
+                                                    onClick={() => setBulkRejectReason('open')}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium shadow-sm"
+                                                >
+                                                    <XCircle size={14} /> Reject {bulkSelected.size}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Select-all header */}
+                                    <div className="px-5 py-2 bg-slate-50/60 border-b border-slate-100 flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredApprovals.length > 0 && bulkSelected.size === filteredApprovals.length}
+                                            ref={(el) => { if (el) el.indeterminate = bulkSelected.size > 0 && bulkSelected.size < filteredApprovals.length; }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setBulkSelected(new Set(filteredApprovals.map((a: PendingApproval) => a.instance.id)));
+                                                else setBulkSelected(new Set());
+                                            }}
+                                            aria-label="Select all approvals"
+                                            className="w-4 h-4 rounded border-slate-300 text-[#0066B3] focus:ring-[#0066B3]"
+                                        />
+                                        <span className="text-xs text-slate-500">Select all {filteredApprovals.length}</span>
+                                    </div>
+                                    <div className="divide-y divide-slate-100">
                                     {filteredApprovals.map((approval: PendingApproval) => (
                                         <div
                                             key={approval.instance.id}
@@ -451,6 +522,19 @@ const ApprovalsPage: React.FC = () => {
                                             onClick={() => setSelectedApproval(approval.instance.id)}
                                         >
                                             <div className="flex items-start justify-between gap-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={bulkSelected.has(approval.instance.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onChange={(e) => {
+                                                        const next = new Set(bulkSelected);
+                                                        if (e.target.checked) next.add(approval.instance.id);
+                                                        else next.delete(approval.instance.id);
+                                                        setBulkSelected(next);
+                                                    }}
+                                                    aria-label="Select approval"
+                                                    className="mt-2 w-4 h-4 rounded border-slate-300 text-[#0066B3] focus:ring-[#0066B3] shrink-0"
+                                                />
                                                 <div className="flex items-start gap-4 flex-1">
                                                     <div className={`p-3 bg-gradient-to-br ${getTypeColor(approval.targetType)} rounded-xl shadow-sm`}>
                                                         {React.cloneElement(getTypeIcon(approval.targetType), { className: 'text-white', size: 22 })}
@@ -519,6 +603,7 @@ const ApprovalsPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -636,6 +721,38 @@ const ApprovalsPage: React.FC = () => {
                     />
                 </div>
             </div>
+
+            {/* Bulk Reject Modal */}
+            {bulkRejectReason && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+                        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-slate-900">Reject {bulkSelected.size} approval{bulkSelected.size === 1 ? '' : 's'}</h3>
+                            <button onClick={() => { setBulkRejectReason(null); setBulkRejectText(''); }} className="text-slate-400 hover:text-slate-700" aria-label="Close"><XCircle size={18} /></button>
+                        </div>
+                        <div className="p-6 space-y-3">
+                            <label className="block text-sm font-medium text-slate-700">Reason (required)</label>
+                            <textarea
+                                value={bulkRejectText}
+                                onChange={(e) => setBulkRejectText(e.target.value)}
+                                rows={4}
+                                placeholder="Explain why these are being rejected…"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                            />
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-end gap-2">
+                            <button onClick={() => { setBulkRejectReason(null); setBulkRejectText(''); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                            <button
+                                onClick={() => bulkRejectMutation.mutate({ instanceIds: Array.from(bulkSelected), comment: bulkRejectText.trim() })}
+                                disabled={!bulkRejectText.trim() || bulkRejectMutation.isPending}
+                                className="px-4 py-2 text-sm font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                            >
+                                {bulkRejectMutation.isPending ? 'Rejecting…' : `Reject ${bulkSelected.size}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Action Modal */}
             {actionModal && (
