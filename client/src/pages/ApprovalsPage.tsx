@@ -100,7 +100,7 @@ const ApprovalsPage: React.FC = () => {
     });
 
     // Approval detail query
-    const { data: approvalDetail } = useQuery({
+    const { data: approvalDetail, isLoading: isDetailLoading, error: detailError } = useQuery({
         queryKey: ['approval-detail', selectedApproval],
         queryFn: async () => {
             if (!selectedApproval) return null;
@@ -622,7 +622,8 @@ const ApprovalsPage: React.FC = () => {
                 <div className="lg:col-span-1">
                     <ApprovalDetailSidebar
                         approval={approvalDetail}
-                        isLoading={!!selectedApproval && !approvalDetail}
+                        isLoading={isDetailLoading}
+                        error={detailError}
                         onClose={() => setSelectedApproval(null)}
                     />
                 </div>
@@ -658,9 +659,10 @@ const ApprovalsPage: React.FC = () => {
 const ApprovalDetailSidebar: React.FC<{
     approval: any;
     isLoading: boolean;
+    error: Error | null;
     onClose: () => void;
-}> = ({ approval, isLoading, onClose }) => {
-    if (!approval && !isLoading) {
+}> = ({ approval, isLoading, error, onClose }) => {
+    if (!approval && !isLoading && !error) {
         return (
             <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -677,6 +679,24 @@ const ApprovalDetailSidebar: React.FC<{
             <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
                 <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full mx-auto mb-4" />
                 <p className="text-slate-500">Loading details...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="text-red-500" size={24} />
+                </div>
+                <h4 className="font-medium text-slate-900 mb-1">Failed to load</h4>
+                <p className="text-sm text-slate-500 mb-4">{(error as any)?.response?.data?.message || error.message || 'Could not load approval details'}</p>
+                <button
+                    onClick={onClose}
+                    className="px-4 py-2 bg-[#0066B3] text-white rounded-lg text-sm hover:bg-[#005299]"
+                >
+                    Try again
+                </button>
             </div>
         );
     }
