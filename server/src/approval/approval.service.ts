@@ -497,8 +497,31 @@ export class ApprovalService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const pendingQuery = this.instanceRepo.createQueryBuilder('instance')
-            .where('instance.status = :status', { status: ApprovalInstanceStatus.PENDING });
+        let pending = 0;
+
+        // If staffId provided, count only pending approvals for this staff's roles
+        if (staffId) {
+            const staff = await this.staffRepo.findOne({
+                where: { id: staffId },
+                relations: ['user', 'user.roles'],
+            });
+            const roleCodes = staff?.user?.roles?.map(r => r.code) || [];
+
+            // Same logic as getPendingApprovalsForStaff - filter by current step matching staff roles
+            const pendingInstances = await this.instanceRepo
+                .createQueryBuilder('instance')
+                .leftJoinAndSelect('instance.flow', 'flow')
+                .leftJoinAndSelect('flow.steps', 'step')
+                .where('instance.status = :status', { status: ApprovalInstanceStatus.PENDING })
+                .andWhere('step.step_order = instance.current_step_order')
+                .andWhere('step.approver_role_code IN (:...roles)', { roles: roleCodes.length > 0 ? roleCodes : ['NONE'] })
+                .getMany();
+
+            pending = pendingInstances.length;
+        } else {
+            // No staffId - count all pending (for global stats)
+            pending = await this.instanceRepo.count({ where: { status: ApprovalInstanceStatus.PENDING } });
+        }
 
         const approvedTodayQuery = this.actionRepo.createQueryBuilder('action')
             .where('action.action = :action', { action: ApprovalActionType.APPROVED })
@@ -513,8 +536,7 @@ export class ApprovalService {
             rejectedTodayQuery.andWhere('action.approver_staff_id = :staffId', { staffId });
         }
 
-        const [pending, approvedToday, rejectedToday] = await Promise.all([
-            pendingQuery.getCount(),
+        const [approvedToday, rejectedToday] = await Promise.all([
             approvedTodayQuery.getCount(),
             rejectedTodayQuery.getCount(),
         ]);
