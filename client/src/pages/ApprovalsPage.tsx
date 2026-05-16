@@ -63,14 +63,22 @@ const ApprovalsPage: React.FC = () => {
     const [typeFilter, setTypeFilter] = useState<string>('all');
 
     // Queries
-    const { data: pendingApprovals, isLoading } = useQuery<PendingApproval[]>({
+    const { data: pendingApprovalsRaw, isLoading } = useQuery<PendingApproval[]>({
         queryKey: ['pending-approvals'],
         queryFn: async () => {
             const response = await api.get('/approvals/pending');
+            console.log('[DEBUG] Pending approvals raw response:', response.data);
             return response.data;
         },
         refetchInterval: 20000,
     });
+
+    // Handle both array and nested data structures
+    const pendingApprovals = Array.isArray(pendingApprovalsRaw)
+        ? pendingApprovalsRaw
+        : (pendingApprovalsRaw as any)?.data || [];
+
+    console.log('[DEBUG] Processed pendingApprovals:', pendingApprovals, 'Count:', pendingApprovals?.length || 0);
 
     const { data: mySubmissions } = useQuery({
         queryKey: ['my-submissions'],
@@ -220,7 +228,7 @@ const ApprovalsPage: React.FC = () => {
         }
     };
 
-    const filteredApprovals = pendingApprovals?.filter(a =>
+    const filteredApprovals = pendingApprovals?.filter((a: PendingApproval) =>
         typeFilter === 'all' || a.targetType === typeFilter
     ) || [];
 
@@ -332,8 +340,8 @@ const ApprovalsPage: React.FC = () => {
                     { type: 'staff_loan', label: 'Loan Applications', icon: Briefcase, bg: 'bg-orange-100', text: 'text-orange-600' },
                     { type: 'petty_cash_replenishment', label: 'Petty Cash', icon: DollarSign, bg: 'bg-purple-100', text: 'text-purple-600' },
                 ].map(({ type, label, icon: Icon, bg, text }) => {
-                    const count = pendingApprovals?.filter(a => a.targetType === type).length || 0;
-                    const urgent = pendingApprovals?.filter(a => a.targetType === type && a.isUrgent).length || 0;
+                    const count = pendingApprovals?.filter((a: PendingApproval) => a.targetType === type).length || 0;
+                    const urgent = pendingApprovals?.filter((a: PendingApproval) => a.targetType === type && a.isUrgent).length || 0;
                     return (
                         <button
                             key={type}
@@ -435,7 +443,7 @@ const ApprovalsPage: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="divide-y divide-slate-100">
-                                    {filteredApprovals.map((approval) => (
+                                    {filteredApprovals.map((approval: PendingApproval) => (
                                         <div
                                             key={approval.instance.id}
                                             className={`p-5 hover:bg-slate-50 transition-colors cursor-pointer ${selectedApproval === approval.instance.id ? 'bg-blue-50 border-l-4 border-l-[#0066B3]' : ''
