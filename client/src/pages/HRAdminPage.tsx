@@ -4,7 +4,7 @@ import api from '../lib/api';
 import {
     GraduationCap, AlertOctagon, Wallet, Package, Plus, X, Loader2,
     CheckCircle, AlertTriangle, Award, Briefcase, Edit, Trash2, Clock,
-    LogIn, LogOut, Calendar, MapPin, Users, Ban,
+    Calendar, Users, Ban,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { InputDialog } from '../components/ui/InputDialog';
