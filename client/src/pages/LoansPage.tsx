@@ -163,6 +163,10 @@ const LoansPage: React.FC = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedLoan, setSelectedLoan] = useState<StaffLoan | null>(null);
     const [loanDialogType, setLoanDialogType] = useState<'approve' | 'reject' | 'disburse' | 'payment' | null>(null);
+    const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
+    const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | null>(null);
+    const [bulkComment, setBulkComment] = useState('');
+    const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; failed: string[] } | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -623,11 +627,60 @@ const LoansPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Bulk action bar (Pending tab, managers only) */}
+            {isManager && activeTab === 'pending' && selectedLoanIds.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                    <span className="text-sm font-medium text-[#0066B3]">
+                        {selectedLoanIds.length} loan{selectedLoanIds.length === 1 ? '' : 's'} selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => { setBulkAction('approve'); setBulkComment(''); }}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+                        >
+                            <CheckCircle size={16} /> Bulk Approve
+                        </button>
+                        <button
+                            onClick={() => { setBulkAction('reject'); setBulkComment(''); }}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+                        >
+                            <XCircle size={16} /> Bulk Reject
+                        </button>
+                        <button
+                            onClick={() => setSelectedLoanIds([])}
+                            className="px-3 py-1.5 text-sm text-slate-600 hover:bg-white rounded-lg"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Loans Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
+                            {isManager && activeTab === 'pending' && (
+                                <th className="px-4 py-4 w-10">
+                                    <input
+                                        type="checkbox"
+                                        aria-label="Select all pending loans"
+                                        checked={
+                                            (filteredLoans?.length || 0) > 0 &&
+                                            filteredLoans!.every(l => selectedLoanIds.includes(l.id))
+                                        }
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedLoanIds(filteredLoans?.map(l => l.id) || []);
+                                            } else {
+                                                setSelectedLoanIds([]);
+                                            }
+                                        }}
+                                        className="w-4 h-4 text-[#0066B3] rounded border-slate-300"
+                                    />
+                                </th>
+                            )}
                             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Loan #</th>
                             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Staff</th>
                             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Type</th>
@@ -641,7 +694,7 @@ const LoansPage: React.FC = () => {
                     <tbody>
                         {isLoading ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={isManager && activeTab === 'pending' ? 9 : 8} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="animate-spin w-8 h-8 border-2 border-[#0066B3] border-t-transparent rounded-full" />
                                         <span>Loading loans...</span>
@@ -650,7 +703,7 @@ const LoansPage: React.FC = () => {
                             </tr>
                         ) : filteredLoans?.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center">
+                                <td colSpan={isManager && activeTab === 'pending' ? 9 : 8} className="px-6 py-12 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <Wallet className="text-slate-300" size={48} />
                                         <p className="text-slate-500">No loans found</p>
@@ -664,7 +717,24 @@ const LoansPage: React.FC = () => {
                                     className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
                                     onClick={() => { setSelectedLoan(loan); setShowDetailModal(true); }}
                                 >
-                                    <td className="px-6 py-4">
+                                    {isManager && activeTab === 'pending' && (
+                                        <td className="px-4 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                aria-label={`Select loan ${loan.loan_number}`}
+                                                checked={selectedLoanIds.includes(loan.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedLoanIds(prev => [...prev, loan.id]);
+                                                    } else {
+                                                        setSelectedLoanIds(prev => prev.filter(id => id !== loan.id));
+                                                    }
+                                                }}
+                                                className="w-4 h-4 text-[#0066B3] rounded border-slate-300"
+                                            />
+                                        </td>
+                                    )}
+                                    <td className="px-6 py-4" data-label="Loan #">
                                         <div className="flex items-center gap-2">
                                             {loan.is_urgent && (
                                                 <AlertTriangle className="text-red-500" size={16} />
@@ -674,7 +744,7 @@ const LoansPage: React.FC = () => {
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4" data-label="Staff">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold">
                                                 {loan.staff?.first_name?.charAt(0)}
@@ -685,21 +755,21 @@ const LoansPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4" data-label="Type">
                                         <span className={`px-2 py-1 rounded text-xs font-medium ${getLoanTypeColor(loan.loan_type)}`}>
                                             {getLoanTypeLabel(loan.loan_type)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4" data-label="Principal">
                                         <p className="font-semibold text-slate-900">
                                             {loan.currency} {Number(loan.principal).toLocaleString()}
                                         </p>
                                         <p className="text-xs text-slate-500">{loan.interest_rate}% p.a.</p>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600">
+                                    <td className="px-6 py-4 text-slate-600" data-label="Term">
                                         {loan.term_months} months
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4" data-label="Balance">
                                         <p className="font-semibold text-slate-900">
                                             {loan.currency} {Number(loan.outstanding_balance || 0).toLocaleString()}
                                         </p>
@@ -712,13 +782,13 @@ const LoansPage: React.FC = () => {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4" data-label="Status">
                                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(loan.status)}`}>
                                             {getStatusIcon(loan.status)}
                                             <span className="capitalize">{loan.status}</span>
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4" data-label="">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setSelectedLoan(loan); setShowDetailModal(true); }}
                                             className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
@@ -1384,6 +1454,99 @@ const LoansPage: React.FC = () => {
                 onCancel={() => setLoanDialogType(null)}
                 isLoading={recordPaymentMutation.isPending}
             />
+
+            {/* Bulk Approve / Reject Modal */}
+            {bulkAction && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !bulkProgress && setBulkAction(null)}>
+                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className={`px-6 py-4 border-b ${bulkAction === 'approve' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                {bulkAction === 'approve'
+                                    ? <><CheckCircle size={20} className="text-emerald-600" /> Bulk Approve Loans</>
+                                    : <><XCircle size={20} className="text-red-600" /> Bulk Reject Loans</>}
+                            </h3>
+                            <p className="text-sm text-slate-600 mt-1">
+                                {bulkAction === 'approve' ? 'Approve' : 'Reject'} <strong>{selectedLoanIds.length}</strong> selected pending loan{selectedLoanIds.length === 1 ? '' : 's'}.
+                            </p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    {bulkAction === 'approve' ? 'Comment (optional)' : 'Rejection reason'}
+                                    {bulkAction === 'reject' && <span className="text-red-500"> *</span>}
+                                </label>
+                                <textarea
+                                    value={bulkComment}
+                                    onChange={e => setBulkComment(e.target.value)}
+                                    rows={3}
+                                    disabled={!!bulkProgress}
+                                    placeholder={bulkAction === 'approve' ? 'Optional comment applied to all…' : 'Reason applied to all rejected loans…'}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                            {bulkProgress && (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs text-slate-600">
+                                        <span>Processing…</span>
+                                        <span>{bulkProgress.done} / {bulkProgress.total}</span>
+                                    </div>
+                                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full transition-all ${bulkAction === 'approve' ? 'bg-emerald-500' : 'bg-red-500'}`}
+                                            style={{ width: `${(bulkProgress.done / Math.max(bulkProgress.total, 1)) * 100}%` }}
+                                        />
+                                    </div>
+                                    {bulkProgress.failed.length > 0 && (
+                                        <p className="text-xs text-red-600">{bulkProgress.failed.length} failed</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setBulkAction(null)}
+                                disabled={!!bulkProgress}
+                                className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-white disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={!!bulkProgress || (bulkAction === 'reject' && !bulkComment.trim())}
+                                onClick={async () => {
+                                    const ids = [...selectedLoanIds];
+                                    setBulkProgress({ done: 0, total: ids.length, failed: [] });
+                                    const failed: string[] = [];
+                                    for (let i = 0; i < ids.length; i++) {
+                                        const id = ids[i];
+                                        try {
+                                            if (bulkAction === 'approve') {
+                                                await approveLoanMutation.mutateAsync({ loanId: id, comment: bulkComment.trim() || undefined });
+                                            } else {
+                                                await rejectLoanMutation.mutateAsync({ loanId: id, reason: bulkComment.trim() });
+                                            }
+                                        } catch {
+                                            failed.push(id);
+                                        }
+                                        setBulkProgress({ done: i + 1, total: ids.length, failed: [...failed] });
+                                    }
+                                    const succeeded = ids.length - failed.length;
+                                    showToast(
+                                        `${succeeded} loan${succeeded === 1 ? '' : 's'} ${bulkAction === 'approve' ? 'approved' : 'rejected'}${failed.length ? `, ${failed.length} failed` : ''}`,
+                                        failed.length ? 'error' : 'success'
+                                    );
+                                    setSelectedLoanIds(failed);
+                                    setBulkAction(null);
+                                    setBulkProgress(null);
+                                    setBulkComment('');
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50 ${bulkAction === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+                            >
+                                {bulkAction === 'approve' ? <><CheckCircle size={16} /> Approve all</> : <><XCircle size={16} /> Reject all</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -586,7 +586,7 @@ export const PettyCashPage: React.FC = () => {
             {showAddFloatModal && (
                 <AddFloatModal
                     onClose={() => setShowAddFloatModal(false)}
-                    onError={() => showToast('Failed to create float', 'error')}
+                    onError={(msg) => showToast(msg || 'Failed to create float', 'error')}
                     onSuccess={() => {
                         setShowAddFloatModal(false);
                         queryClient.invalidateQueries({ queryKey: ['petty-cash-floats'] });
@@ -856,7 +856,7 @@ const ReplenishmentModal: React.FC<{
 // Add Float Modal
 const AddFloatModal: React.FC<{
     onClose: () => void;
-    onError: () => void;
+    onError: (message?: string) => void;
     onSuccess: () => void;
 }> = ({ onClose, onError, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -899,17 +899,28 @@ const AddFloatModal: React.FC<{
     const mutation = useMutation({
         mutationFn: (data: any) => api.post('/petty-cash/floats', data),
         onSuccess,
-        onError,
+        onError: (err: any) => {
+            const msg = err?.response?.data?.message;
+            const text = Array.isArray(msg) ? msg.join('; ') : msg;
+            onError(text);
+        },
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!fv.validateAll(formData)) return;
-        mutation.mutate({
-            ...formData,
-            maximum_limit: parseFloat(formData.maximum_limit),
+        // Backend CreateFloatDto requires UUID-shaped fields. Empty strings fail
+        // @IsUUID validation, so strip them out before sending. The backend
+        // derives maximum_limit from the tier policy, not from the form.
+        const payload: Record<string, any> = {
+            branch_id: formData.branch_id,
+            tier: formData.tier,
             minimum_threshold: parseFloat(formData.minimum_threshold),
-        });
+        };
+        if (formData.custodian_id) {
+            payload.custodian_id = formData.custodian_id;
+        }
+        mutation.mutate(payload);
     };
 
     return (

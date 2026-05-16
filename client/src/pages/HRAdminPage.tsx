@@ -149,8 +149,8 @@ const TrainingTab: React.FC<TabProps> = ({ showToast, qc }) => {
                                     <td className="px-4 py-2 text-center">{p.is_mandatory ? <CheckCircle size={14} className="inline text-red-500" /> : '—'}</td>
                                     <td className="px-4 py-2 text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => openProgModal(p)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Edit"><Edit size={13} /></button>
-                                            <button onClick={() => setDeleteProg(p)} className="p-1 hover:bg-red-50 rounded text-red-400" title="Delete"><Trash2 size={13} /></button>
+                                            <button onClick={() => openProgModal(p)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Edit" aria-label="Edit"><Edit size={13} /></button>
+                                            <button onClick={() => setDeleteProg(p)} className="p-1 hover:bg-red-50 rounded text-red-400" title="Delete" aria-label="Delete"><Trash2 size={13} /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -354,7 +354,7 @@ const DisciplinaryTab: React.FC<TabProps> = ({ showToast, qc }) => {
                                     <td className="px-4 py-2 text-xs capitalize">{c.outcome?.replace('_', ' ') || '—'}</td>
                                     <td className="px-4 py-2 text-right">
                                         {c.status !== 'closed' && (
-                                            <button onClick={() => setSelectedCase(c)} className="p-1 hover:bg-slate-100 rounded text-slate-400 text-xs" title="Actions"><Edit size={13} /></button>
+                                            <button onClick={() => setSelectedCase(c)} className="p-1 hover:bg-slate-100 rounded text-slate-400 text-xs" title="Actions" aria-label="Actions"><Edit size={13} /></button>
                                         )}
                                     </td>
                                 </tr>
@@ -1045,8 +1045,8 @@ const AttendanceTab: React.FC<TabProps> = ({ showToast, qc }) => {
                                         <td className="px-4 py-3 text-right">
                                             {(e.status === 'complete' || e.status === 'auto_closed') && (
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={() => setApproveEntryId(e.id)} className="p-1.5 hover:bg-emerald-100 rounded text-emerald-600" title="Approve"><CheckCircle size={16} /></button>
-                                                    <button onClick={() => setRejectEntryId(e.id)} className="p-1.5 hover:bg-red-100 rounded text-red-600" title="Reject"><Ban size={16} /></button>
+                                                    <button onClick={() => setApproveEntryId(e.id)} className="p-1.5 hover:bg-emerald-100 rounded text-emerald-600" title="Approve" aria-label="Approve"><CheckCircle size={16} /></button>
+                                                    <button onClick={() => setRejectEntryId(e.id)} className="p-1.5 hover:bg-red-100 rounded text-red-600" title="Reject" aria-label="Reject"><Ban size={16} /></button>
                                                 </div>
                                             )}
                                         </td>
@@ -1081,8 +1081,8 @@ const AttendanceTab: React.FC<TabProps> = ({ showToast, qc }) => {
                                         <td className="px-5 py-3 text-center">{s.is_active ? <CheckCircle size={16} className="inline text-emerald-500" /> : <X size={16} className="inline text-slate-300" />}</td>
                                         <td className="px-5 py-3 text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button onClick={() => openShiftModal(s)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Edit"><Edit size={14} /></button>
-                                                <button onClick={() => setDeleteShiftTarget(s)} className="p-1.5 hover:bg-red-50 rounded text-red-400" title="Delete"><X size={14} /></button>
+                                                <button onClick={() => openShiftModal(s)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Edit" aria-label="Edit"><Edit size={14} /></button>
+                                                <button onClick={() => setDeleteShiftTarget(s)} className="p-1.5 hover:bg-red-50 rounded text-red-400" title="Delete" aria-label="Delete"><X size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -1282,8 +1282,8 @@ const AssetsTab: React.FC<TabProps> = ({ showToast, qc }) => {
                                     <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 text-xs rounded-full capitalize ${statusStyle(a.status)}`}>{a.status?.replace('_', ' ')}</span></td>
                                     <td className="px-4 py-2 text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => openModal(a)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Edit"><Edit size={13} /></button>
-                                            {a.status !== 'retired' && <button onClick={() => retireAsset.mutate(a.id)} disabled={retireAsset.isPending} className="p-1 hover:bg-red-50 rounded text-red-400 text-xs font-medium" title="Retire">Retire</button>}
+                                            <button onClick={() => openModal(a)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Edit" aria-label="Edit"><Edit size={13} /></button>
+                                            {a.status !== 'retired' && <button onClick={() => retireAsset.mutate(a.id)} disabled={retireAsset.isPending} className="p-1 hover:bg-red-50 rounded text-red-400 text-xs font-medium" title="Retire" aria-label="Retire">Retire</button>}
                                         </div>
                                     </td>
                                 </tr>

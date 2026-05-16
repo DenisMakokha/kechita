@@ -1841,21 +1841,72 @@ const RecruitmentPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Notes List */}
-                            <div className="space-y-3">
-                                {candidateNotes.length === 0 && (
-                                    <div className="text-center py-8 text-slate-400"><FileText className="mx-auto mb-2" size={32} /><p>No notes yet</p></div>
-                                )}
-                                {candidateNotes.map((note) => (
-                                    <div key={note.id} className="bg-white border border-slate-200 rounded-lg p-4">
-                                        <p className="text-sm text-slate-800 whitespace-pre-wrap">{note.content}</p>
-                                        <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-                                            {note.author && <span className="font-medium text-slate-600">{note.author.first_name} {note.author.last_name}</span>}
-                                            <span>{new Date(note.created_at).toLocaleString()}</span>
+                            {/* Notes Timeline */}
+                            {candidateNotes.length === 0 ? (
+                                <div className="text-center py-8 text-slate-400">
+                                    <FileText className="mx-auto mb-2" size={32} />
+                                    <p>No notes yet</p>
+                                </div>
+                            ) : (() => {
+                                const sorted = [...candidateNotes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                                const groups: Record<string, typeof sorted> = {};
+                                const today = new Date(); today.setHours(0,0,0,0);
+                                const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+                                const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+                                sorted.forEach(n => {
+                                    const d = new Date(n.created_at);
+                                    const dDay = new Date(d); dDay.setHours(0,0,0,0);
+                                    let bucket: string;
+                                    if (dDay.getTime() === today.getTime()) bucket = 'Today';
+                                    else if (dDay.getTime() === yesterday.getTime()) bucket = 'Yesterday';
+                                    else if (dDay >= weekAgo) bucket = 'This week';
+                                    else bucket = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+                                    (groups[bucket] ||= []).push(n);
+                                });
+                                return (
+                                    <div className="relative">
+                                        {/* Vertical connector line */}
+                                        <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-slate-200" aria-hidden="true" />
+                                        <div className="space-y-6">
+                                            {Object.entries(groups).map(([label, notes]) => (
+                                                <div key={label}>
+                                                    <div className="flex items-center gap-2 mb-3 pl-12">
+                                                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+                                                        <span className="text-xs text-slate-300">·</span>
+                                                        <span className="text-xs text-slate-400">{notes.length} note{notes.length === 1 ? '' : 's'}</span>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        {notes.map(note => {
+                                                            const initials = note.author
+                                                                ? `${note.author.first_name?.charAt(0) || ''}${note.author.last_name?.charAt(0) || ''}`
+                                                                : '?';
+                                                            return (
+                                                                <div key={note.id} className="relative pl-12">
+                                                                    {/* Avatar dot */}
+                                                                    <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-[#0066B3] text-white flex items-center justify-center text-xs font-semibold ring-4 ring-white">
+                                                                        {initials}
+                                                                    </div>
+                                                                    <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                                                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                                                            <span className="text-sm font-medium text-slate-800">
+                                                                                {note.author ? `${note.author.first_name} ${note.author.last_name}` : 'Unknown'}
+                                                                            </span>
+                                                                            <span className="text-xs text-slate-400" title={new Date(note.created_at).toLocaleString()}>
+                                                                                {new Date(note.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.content}</p>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                );
+                            })()}
                             </>)}
 
                             {candidateModalTab === 'applications' && (<>

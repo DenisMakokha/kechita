@@ -65,6 +65,9 @@ export const OrganizationPage: React.FC = () => {
     const [editItem, setEditItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({});
     const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set());
+    const [chartView, setChartView] = useState<'geographic' | 'reporting'>('geographic');
+    const [expandedTree, setExpandedTree] = useState<Set<string>>(new Set());
+    const [chartSearch, setChartSearch] = useState('');
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
 
@@ -508,7 +511,7 @@ export const OrganizationPage: React.FC = () => {
                                                 <button
                                                     onClick={() => openModal('regions', region)}
                                                     className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600"
-                                                    title="Edit"
+                                                    title="Edit" aria-label="Edit"
                                                 >
                                                     <Edit size={18} />
                                                 </button>
@@ -522,7 +525,7 @@ export const OrganizationPage: React.FC = () => {
                                                 <button
                                                     onClick={() => handleDelete('regions', region.id, region.name)}
                                                     className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600"
-                                                    title="Delete"
+                                                    title="Delete" aria-label="Delete"
                                                 >
                                                     <Trash2 size={18} />
                                                 </button>
@@ -718,53 +721,221 @@ export const OrganizationPage: React.FC = () => {
                 )}
 
                 {/* Org Chart Tab */}
-                {activeTab === 'chart' && (
-                    <div className="p-6">
-                        <div className="text-center mb-8">
-                            <h3 className="text-lg font-semibold text-slate-900 mb-2">Organization Hierarchy</h3>
-                            <p className="text-sm text-slate-500">Visual representation of regions and branches</p>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            {/* Company */}
-                            <div className="px-6 py-4 bg-gradient-to-br from-[#0066B3] to-[#00AEEF] text-white rounded-xl shadow-lg mb-8">
-                                <div className="flex items-center gap-3">
-                                    <Building2 size={24} />
-                                    <div>
-                                        <p className="font-bold text-lg">Kechita Capital</p>
-                                        <p className="text-sm opacity-80">{regions?.length || 0} Regions • {branches?.length || 0} Branches</p>
+                {activeTab === 'chart' && (() => {
+                    const activeRegions = regions?.filter(r => r.is_active) || [];
+                    const activeBranches = branches?.filter(b => b.is_active) || [];
+                    const activeDepartments = departments?.filter(d => d.is_active) || [];
+
+                    // Build department parent→children map for reporting view
+                    const childDepsByParent: Record<string, Department[]> = {};
+                    const rootDeps: Department[] = [];
+                    activeDepartments.forEach(d => {
+                        if (d.parent?.id) {
+                            (childDepsByParent[d.parent.id] ||= []).push(d);
+                        } else {
+                            rootDeps.push(d);
+                        }
+                    });
+
+                    const matches = (label: string) => !chartSearch || label.toLowerCase().includes(chartSearch.toLowerCase());
+
+                    const TreeNode: React.FC<{
+                        id: string;
+                        label: string;
+                        sublabel?: string;
+                        icon: React.ReactNode;
+                        accent: string;
+                        children?: React.ReactNode;
+                        hasChildren?: boolean;
+                        depth: number;
+                    }> = ({ id, label, sublabel, icon, accent, children, hasChildren, depth }) => {
+                        const isExpanded = expandedTree.has(id);
+                        const toggle = () => {
+                            setExpandedTree(prev => {
+                                const next = new Set(prev);
+                                if (next.has(id)) next.delete(id); else next.add(id);
+                                return next;
+                            });
+                        };
+                        const isHit = chartSearch && matches(label);
+                        return (
+                            <div className="relative" style={{ marginLeft: depth > 0 ? 12 : 0 }}>
+                                {depth > 0 && (
+                                    <span aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-px bg-slate-200" />
+                                )}
+                                <div className={`flex items-center gap-2 py-1.5 ${depth > 0 ? 'pl-4' : ''}`}>
+                                    {depth > 0 && (
+                                        <span aria-hidden="true" className="absolute left-0 top-5 w-4 h-px bg-slate-200" />
+                                    )}
+                                    {hasChildren ? (
+                                        <button
+                                            onClick={toggle}
+                                            aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
+                                            className="p-0.5 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                                        >
+                                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                        </button>
+                                    ) : (
+                                        <span className="inline-block w-5" aria-hidden="true" />
+                                    )}
+                                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${accent} ${isHit ? 'ring-2 ring-amber-300' : ''} flex-1`}>
+                                        <span className="flex-shrink-0">{icon}</span>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-slate-900 truncate">{label}</p>
+                                            {sublabel && <p className="text-xs text-slate-500 truncate">{sublabel}</p>}
+                                        </div>
                                     </div>
                                 </div>
+                                {isExpanded && hasChildren && (
+                                    <div className="ml-3">{children}</div>
+                                )}
                             </div>
-                            {/* Regions */}
-                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 w-full max-w-5xl">
-                                {regions?.filter(r => r.is_active).map((region) => (
-                                    <div key={region.id} className="border border-slate-200 rounded-xl overflow-hidden">
-                                        <div className="bg-blue-50 px-4 py-3 border-b border-blue-100">
-                                            <div className="flex items-center gap-2">
-                                                <MapPin size={18} className="text-blue-600" />
-                                                <h4 className="font-semibold text-slate-900">{region.name}</h4>
-                                            </div>
-                                            {region.manager && (
-                                                <p className="text-xs text-slate-500 mt-1">RM: {region.manager.first_name} {region.manager.last_name}</p>
-                                            )}
-                                        </div>
-                                        <div className="p-3 space-y-2">
-                                            {region.branches?.filter(b => b.is_active).map((branch) => (
-                                                <div key={branch.id} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                                                    <Building size={14} className="text-slate-400" />
-                                                    <span className="text-sm text-slate-700">{branch.name}</span>
-                                                </div>
-                                            ))}
-                                            {(!region.branches || region.branches.filter(b => b.is_active).length === 0) && (
-                                                <p className="text-sm text-slate-400 text-center py-2">No branches</p>
-                                            )}
-                                        </div>
+                        );
+                    };
+
+                    const renderDepartmentTree = (dep: Department, depth: number): React.ReactNode => {
+                        const children = childDepsByParent[dep.id] || [];
+                        return (
+                            <TreeNode
+                                key={dep.id}
+                                id={`dep-${dep.id}`}
+                                label={dep.name}
+                                sublabel={dep.code}
+                                icon={<Briefcase size={14} className="text-purple-600" />}
+                                accent="bg-purple-50 border-purple-100"
+                                hasChildren={children.length > 0}
+                                depth={depth}
+                            >
+                                {children.map(c => renderDepartmentTree(c, depth + 1))}
+                            </TreeNode>
+                        );
+                    };
+
+                    return (
+                        <div className="p-6">
+                            {/* Toolbar */}
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-900">Organization Hierarchy</h3>
+                                    <p className="text-sm text-slate-500">Interactive tree view of the company structure</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={chartSearch}
+                                            onChange={(e) => setChartSearch(e.target.value)}
+                                            placeholder="Search in tree…"
+                                            className="pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                            aria-label="Search org chart"
+                                        />
                                     </div>
-                                ))}
+                                    <div className="flex bg-slate-100 rounded-lg p-1">
+                                        <button
+                                            onClick={() => setChartView('geographic')}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${chartView === 'geographic' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600'}`}
+                                        >
+                                            Geographic
+                                        </button>
+                                        <button
+                                            onClick={() => setChartView('reporting')}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${chartView === 'reporting' ? 'bg-white text-[#0066B3] shadow-sm' : 'text-slate-600'}`}
+                                        >
+                                            Departments
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            if (chartView === 'geographic') {
+                                                setExpandedTree(new Set([
+                                                    'root',
+                                                    ...activeRegions.map(r => `reg-${r.id}`),
+                                                ]));
+                                            } else {
+                                                setExpandedTree(new Set([
+                                                    'root',
+                                                    ...activeDepartments.map(d => `dep-${d.id}`),
+                                                ]));
+                                            }
+                                        }}
+                                        className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                    >
+                                        Expand all
+                                    </button>
+                                    <button
+                                        onClick={() => setExpandedTree(new Set())}
+                                        className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                    >
+                                        Collapse
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Tree */}
+                            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4 max-h-[640px] overflow-auto">
+                                <TreeNode
+                                    id="root"
+                                    label="Kechita Capital"
+                                    sublabel={chartView === 'geographic'
+                                        ? `${activeRegions.length} regions • ${activeBranches.length} branches`
+                                        : `${activeDepartments.length} departments • ${positions?.filter(p => p.is_active).length || 0} positions`}
+                                    icon={<Building2 size={16} className="text-white" />}
+                                    accent="bg-gradient-to-br from-[#0066B3] to-[#00AEEF] text-white border-[#0066B3] [&_p]:!text-white [&_p.text-xs]:!text-blue-100"
+                                    hasChildren
+                                    depth={0}
+                                >
+                                    {chartView === 'geographic' ? (
+                                        activeRegions.length === 0 ? (
+                                            <p className="text-sm text-slate-400 italic px-4 py-2">No active regions</p>
+                                        ) : activeRegions.map(region => {
+                                            const regionBranches = region.branches?.filter(b => b.is_active) || [];
+                                            return (
+                                                <TreeNode
+                                                    key={region.id}
+                                                    id={`reg-${region.id}`}
+                                                    label={region.name}
+                                                    sublabel={region.manager ? `RM: ${region.manager.first_name} ${region.manager.last_name}` : 'No regional manager'}
+                                                    icon={<MapPin size={14} className="text-blue-600" />}
+                                                    accent="bg-blue-50 border-blue-100"
+                                                    hasChildren={regionBranches.length > 0}
+                                                    depth={1}
+                                                >
+                                                    {regionBranches.map(branch => (
+                                                        <TreeNode
+                                                            key={branch.id}
+                                                            id={`br-${branch.id}`}
+                                                            label={branch.name}
+                                                            sublabel={branch.code}
+                                                            icon={<Building size={14} className="text-emerald-600" />}
+                                                            accent="bg-emerald-50 border-emerald-100"
+                                                            depth={2}
+                                                        />
+                                                    ))}
+                                                </TreeNode>
+                                            );
+                                        })
+                                    ) : (
+                                        rootDeps.length === 0 ? (
+                                            <p className="text-sm text-slate-400 italic px-4 py-2">No active departments</p>
+                                        ) : rootDeps.map(d => renderDepartmentTree(d, 1))
+                                    )}
+                                </TreeNode>
+                            </div>
+
+                            {/* Legend */}
+                            <div className="flex items-center gap-4 mt-4 text-xs text-slate-500 flex-wrap">
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#0066B3]" /> Company</span>
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-blue-300" /> Region</span>
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-emerald-300" /> Branch</span>
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-purple-300" /> Department</span>
+                                {chartSearch && (
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded ring-2 ring-amber-300 bg-white" /> Search match</span>
+                                )}
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             {/* Modal */}

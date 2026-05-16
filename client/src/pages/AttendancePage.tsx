@@ -393,8 +393,8 @@ const AttendancePage: React.FC = () => {
                                         <td className="px-5 py-3 text-center">{s.is_active ? <CheckCircle size={16} className="inline text-emerald-500" /> : <X size={16} className="inline text-slate-300" />}</td>
                                         <td className="px-5 py-3 text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button onClick={() => openShiftModal(s)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Edit"><Edit size={13} /></button>
-                                                <button onClick={() => setDeleteShiftTarget(s)} className="p-1.5 hover:bg-red-50 rounded text-red-400" title="Delete"><X size={13} /></button>
+                                                <button onClick={() => openShiftModal(s)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Edit" aria-label="Edit"><Edit size={13} /></button>
+                                                <button onClick={() => setDeleteShiftTarget(s)} className="p-1.5 hover:bg-red-50 rounded text-red-400" title="Delete" aria-label="Delete"><X size={13} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -440,8 +440,8 @@ const AttendancePage: React.FC = () => {
                                             <div className="flex items-center justify-end gap-1">
                                                 {(e.status === 'complete' || e.status === 'auto_closed') && (
                                                     <>
-                                                        <button onClick={() => setApproveEntryId(e.id)} className="p-1 hover:bg-emerald-100 rounded text-emerald-600" title="Approve"><CheckCircle size={14} /></button>
-                                                        <button onClick={() => setRejectEntryId(e.id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="Reject"><Ban size={14} /></button>
+                                                        <button onClick={() => setApproveEntryId(e.id)} className="p-1 hover:bg-emerald-100 rounded text-emerald-600" title="Approve" aria-label="Approve"><CheckCircle size={14} /></button>
+                                                        <button onClick={() => setRejectEntryId(e.id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="Reject" aria-label="Reject"><Ban size={14} /></button>
                                                     </>
                                                 )}
                                             </div>

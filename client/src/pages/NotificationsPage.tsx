@@ -397,7 +397,7 @@ export const NotificationsPage: React.FC = () => {
                                                             <button
                                                                 onClick={() => markAsReadMutation.mutate(notification.id)}
                                                                 className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
-                                                                title="Mark as read"
+                                                                title="Mark as read" aria-label="Mark as read"
                                                             >
                                                                 <Check size={16} />
                                                             </button>
@@ -405,7 +405,7 @@ export const NotificationsPage: React.FC = () => {
                                                         <button
                                                             onClick={() => deleteNotificationMutation.mutate(notification.id)}
                                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                                                            title="Delete"
+                                                            title="Delete" aria-label="Delete"
                                                         >
                                                             <Trash2 size={16} />
                                                         </button>

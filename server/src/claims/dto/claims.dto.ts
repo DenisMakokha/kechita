@@ -14,9 +14,18 @@ export class CreateClaimTypeDto {
     @IsOptional()
     code?: string;
 
+    // Money limits (match ClaimType entity columns)
     @IsNumber()
     @IsOptional()
-    max_amount?: number;
+    max_amount_per_claim?: number;
+
+    @IsNumber()
+    @IsOptional()
+    max_amount_per_month?: number;
+
+    @IsNumber()
+    @IsOptional()
+    max_amount_per_year?: number;
 
     @IsBoolean()
     @IsOptional()
@@ -24,7 +33,37 @@ export class CreateClaimTypeDto {
 
     @IsBoolean()
     @IsOptional()
+    requires_approval?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    is_taxable?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    once_per_month?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
     is_active?: boolean;
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    eligible_position_codes?: string[];
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    eligible_role_codes?: string[];
+
+    @IsString()
+    @IsOptional()
+    icon?: string;
+
+    @IsString()
+    @IsOptional()
+    color?: string;
 
     @IsNumber()
     @IsOptional()
@@ -46,7 +85,15 @@ export class UpdateClaimTypeDto {
 
     @IsNumber()
     @IsOptional()
-    max_amount?: number;
+    max_amount_per_claim?: number;
+
+    @IsNumber()
+    @IsOptional()
+    max_amount_per_month?: number;
+
+    @IsNumber()
+    @IsOptional()
+    max_amount_per_year?: number;
 
     @IsBoolean()
     @IsOptional()
@@ -54,7 +101,37 @@ export class UpdateClaimTypeDto {
 
     @IsBoolean()
     @IsOptional()
+    requires_approval?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    is_taxable?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    once_per_month?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
     is_active?: boolean;
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    eligible_position_codes?: string[];
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    eligible_role_codes?: string[];
+
+    @IsString()
+    @IsOptional()
+    icon?: string;
+
+    @IsString()
+    @IsOptional()
+    color?: string;
 
     @IsNumber()
     @IsOptional()

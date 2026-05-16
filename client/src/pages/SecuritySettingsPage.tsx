@@ -358,7 +358,7 @@ export const SecuritySettingsPage: React.FC = () => {
                                             <button
                                                 onClick={() => copyToClipboard(secret)}
                                                 className="p-2 hover:bg-slate-200 rounded-lg text-slate-600"
-                                                title="Copy to clipboard"
+                                                title="Copy to clipboard" aria-label="Copy to clipboard"
                                             >
                                                 <Copy size={18} />
                                             </button>
@@ -503,7 +503,7 @@ export const SecuritySettingsPage: React.FC = () => {
                                                     onClick={() => revokeSessionMutation.mutate(session.id)}
                                                     disabled={revokeSessionMutation.isPending}
                                                     className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
-                                                    title="Revoke session"
+                                                    title="Revoke session" aria-label="Revoke session"
                                                 >
                                                     <Trash2 size={18} />
                                                 </button>

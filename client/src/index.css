@@ -71,3 +71,69 @@ body {
 .dark .shadow-sm {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
 }
+
+/* ============================================================
+ * Mobile card fallback for data tables (Phase 4 UX audit).
+ *
+ * Tailwind's `overflow-x-auto` lets tables scroll horizontally on small
+ * screens but rows become hard to read. On phone-sized viewports we
+ * stack each row as a card and use the column header as a label for
+ * each cell (via the data-label attribute when present, or hidden when
+ * not). This applies automatically to every table in the app.
+ *
+ * Opt-out: add the `no-mobile-cards` class to the wrapping container.
+ * ============================================================ */
+@media (max-width: 767px) {
+  .overflow-x-auto:not(.no-mobile-cards) > table {
+    display: block;
+    width: 100%;
+  }
+  .overflow-x-auto:not(.no-mobile-cards) > table > thead {
+    display: none;
+  }
+  .overflow-x-auto:not(.no-mobile-cards) > table > tbody {
+    display: block;
+    width: 100%;
+  }
+  .overflow-x-auto:not(.no-mobile-cards) > table > tbody > tr {
+    display: block;
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: var(--card-background, #ffffff);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .dark .overflow-x-auto:not(.no-mobile-cards) > table > tbody > tr {
+    border-color: var(--card-border);
+  }
+  .overflow-x-auto:not(.no-mobile-cards) > table > tbody > tr > td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0;
+    border: none;
+    text-align: right;
+  }
+  .overflow-x-auto:not(.no-mobile-cards) > table > tbody > tr > td:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+  /* Use data-label when authored, otherwise hide the pseudo-label */
+  .overflow-x-auto:not(.no-mobile-cards) > table > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #64748b;
+    text-align: left;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .dark .overflow-x-auto:not(.no-mobile-cards) > table > tbody > tr > td[data-label]::before {
+    color: var(--muted-foreground);
+  }
+}

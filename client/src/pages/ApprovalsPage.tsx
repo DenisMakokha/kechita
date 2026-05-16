@@ -588,14 +588,14 @@ const ApprovalsPage: React.FC = () => {
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setActionModal({ approval, action: 'return' }); }}
                                                         className="flex items-center gap-1.5 px-2.5 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm"
-                                                        title="Return for more info"
+                                                        title="Return for more info" aria-label="Return for more info"
                                                     >
                                                         <RotateCcw size={16} />
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setActionModal({ approval, action: 'delegate' }); }}
                                                         className="flex items-center gap-1.5 px-2.5 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm"
-                                                        title="Delegate to another staff"
+                                                        title="Delegate to another staff" aria-label="Delegate to another staff"
                                                     >
                                                         <User size={16} />
                                                     </button>

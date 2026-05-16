@@ -144,6 +144,43 @@ export class StaffController {
         return this.staffService.getOverdueProbationReviews();
     }
 
+    // ==================== CSV EXPORT ====================
+    // IMPORTANT: must be defined BEFORE :id routes so the literal path is matched
+    // first, otherwise ParseUUIDPipe on :id rejects 'export.csv' with 400.
+    @Get('export.csv')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    async exportCsv(@Query() query: any, @Res() res: any) {
+        const csv = await this.staffService.exportCsv(query as StaffFilterDto);
+        const filename = `staff-export-${new Date().toISOString().split('T')[0]}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    }
+
+    // ==================== BULK OPS ====================
+    // IMPORTANT: must be defined BEFORE :id/* routes (e.g. :id/activate) so the
+    // literal 'bulk' path is matched first.
+    @Post('bulk/update')
+    @Roles('CEO', 'HR_MANAGER')
+    bulkUpdate(
+        @Body() data: { staff_ids: string[]; updates: any },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.staffService.bulkUpdate(data.staff_ids, data.updates, req.user.id);
+    }
+
+    @Post('bulk/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    bulkActivate(@Body('staff_ids') ids: string[]) {
+        return this.staffService.bulkActivate(ids);
+    }
+
+    @Post('bulk/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    bulkDeactivate(@Body() data: { staff_ids: string[]; reason?: string }) {
+        return this.staffService.bulkDeactivate(data.staff_ids, data.reason);
+    }
+
     @Get(':id')
     findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.findOne(id);
@@ -656,43 +693,6 @@ export class StaffController {
             last_working_date: new Date(data.last_working_date),
             notice_period_days: data.notice_period_days,
         }, req.user.id);
-    }
-
-    // ==================== CONTRACTS ====================
-
-    // ==================== BULK OPS ====================
-
-    @Post('bulk/update')
-    @Roles('CEO', 'HR_MANAGER')
-    bulkUpdate(
-        @Body() data: { staff_ids: string[]; updates: any },
-        @Req() req: AuthenticatedRequest,
-    ) {
-        return this.staffService.bulkUpdate(data.staff_ids, data.updates, req.user.id);
-    }
-
-    @Post('bulk/activate')
-    @Roles('CEO', 'HR_MANAGER')
-    bulkActivate(@Body('staff_ids') ids: string[]) {
-        return this.staffService.bulkActivate(ids);
-    }
-
-    @Post('bulk/deactivate')
-    @Roles('CEO', 'HR_MANAGER')
-    bulkDeactivate(@Body() data: { staff_ids: string[]; reason?: string }) {
-        return this.staffService.bulkDeactivate(data.staff_ids, data.reason);
-    }
-
-    // ==================== CSV EXPORT ====================
-
-    @Get('export.csv')
-    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
-    async exportCsv(@Query() query: any, @Res() res: any) {
-        const csv = await this.staffService.exportCsv(query as StaffFilterDto);
-        const filename = `staff-export-${new Date().toISOString().split('T')[0]}.csv`;
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(csv);
     }
 
     // ==================== TERMINATION BLOCKERS + SOFT DELETE ====================

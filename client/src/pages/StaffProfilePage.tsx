@@ -295,15 +295,46 @@ export const StaffProfilePage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to upload photo', 'error'),
     });
 
+    // Sanitize edit form payload before sending. The UpdateStaffDto applies
+    // @IsEmail/@IsDateString/@IsNumber on optional fields, and `whitelist: true`
+    // strips unknown keys. Empty strings still hit validators (e.g. ''
+    // is not a valid email/date), so we must omit them entirely.
+    const sanitizeStaffPayload = (data: any) => {
+        const out: any = {};
+        Object.entries(data || {}).forEach(([k, v]) => {
+            if (v === '' || v === null || v === undefined) return;
+            // basic_salary may come as a string from the API (decimal column)
+            if (k === 'basic_salary') {
+                const n = typeof v === 'number' ? v : parseFloat(String(v));
+                if (Number.isFinite(n)) out[k] = n;
+                return;
+            }
+            // date_of_birth: backend accepts ISO strings (@IsDateString). If
+            // the original value was an ISO datetime, the date input may have
+            // returned an empty string above; if it returned 'YYYY-MM-DD' use
+            // it. If it's the unchanged ISO string from the API, send it.
+            if (k === 'date_of_birth') {
+                if (typeof v === 'string' && v.length >= 10) out[k] = v;
+                return;
+            }
+            out[k] = v;
+        });
+        return out;
+    };
+
     // Update staff mutation
     const updateMutation = useMutation({
-        mutationFn: async (data: any) => (await api.put(`/staff/${id}`, data)).data,
+        mutationFn: async (data: any) => (await api.put(`/staff/${id}`, sanitizeStaffPayload(data))).data,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['staff', id] });
             setShowEditModal(false);
             showToast('Staff updated');
         },
-        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to update staff', 'error'),
+        onError: (e: any) => {
+            const msg = e?.response?.data?.message;
+            const text = Array.isArray(msg) ? msg.join('; ') : msg;
+            showToast(text || 'Failed to update staff', 'error');
+        },
     });
 
     // Upload document mutation
@@ -505,7 +536,11 @@ export const StaffProfilePage: React.FC = () => {
             middle_name: staff?.middle_name,
             last_name: staff?.last_name,
             gender: staff?.gender,
-            date_of_birth: staff?.date_of_birth,
+            // <input type="date"> requires 'YYYY-MM-DD'. The API may return a
+            // full ISO datetime; slice to date portion so the field renders.
+            date_of_birth: staff?.date_of_birth
+                ? String(staff.date_of_birth).slice(0, 10)
+                : '',
             national_id: staff?.national_id,
             tax_pin: staff?.tax_pin,
             nssf_number: staff?.nssf_number,
@@ -586,7 +621,7 @@ export const StaffProfilePage: React.FC = () => {
                     <span className="text-slate-800 font-medium">{staff.first_name} {staff.last_name}</span>
                 </nav>
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/staff-management')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="Back to directory">
+                    <button onClick={() => navigate('/staff-management')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="Back to directory" aria-label="Back to directory">
                         <ArrowLeft size={20} />
                     </button>
                     <div className="flex-1">
@@ -648,7 +683,7 @@ export const StaffProfilePage: React.FC = () => {
                                 `${staff.first_name?.[0]}${staff.last_name?.[0]}`
                             )}
                         </div>
-                        <button onClick={() => setShowPhotoInput(true)} className="absolute -bottom-2 -right-2 p-2 bg-white border border-slate-200 rounded-full shadow-sm hover:bg-slate-50" title="Change photo">
+                        <button onClick={() => setShowPhotoInput(true)} className="absolute -bottom-2 -right-2 p-2 bg-white border border-slate-200 rounded-full shadow-sm hover:bg-slate-50" title="Change photo" aria-label="Change photo">
                             <Camera size={14} className="text-slate-500" />
                         </button>
                     </div>
@@ -959,22 +994,22 @@ export const StaffProfilePage: React.FC = () => {
                                                         type="button"
                                                         onClick={() => downloadAuthedFile(`/staff/documents/file/${doc.document!.id}`, doc.document!.original_name || 'document')}
                                                         className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"
-                                                        title="Download"
+                                                        title="Download" aria-label="Download"
                                                     >
                                                         <Download size={18} />
                                                     </button>
                                                 )}
                                                 {(doc.status === 'uploaded' || doc.status === 'pending') && (
                                                     <>
-                                                        <button onClick={() => verifyDocMutation.mutate(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-600" title="Verify">
+                                                        <button onClick={() => verifyDocMutation.mutate(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-600" title="Verify" aria-label="Verify">
                                                             <CheckCircle size={18} />
                                                         </button>
-                                                        <button onClick={() => setRejectDocId(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-orange-600" title="Reject">
+                                                        <button onClick={() => setRejectDocId(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-orange-600" title="Reject" aria-label="Reject">
                                                             <XCircle size={18} />
                                                         </button>
                                                     </>
                                                 )}
-                                                <button onClick={() => setDeleteDocId(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-600" title="Delete">
+                                                <button onClick={() => setDeleteDocId(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-600" title="Delete" aria-label="Delete">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>

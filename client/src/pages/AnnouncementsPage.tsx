@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
+import { RichTextEditor, sanitizeAnnouncementHtml } from '../components/ui/RichTextEditor';
 
 type TargetType = 'all' | 'roles' | 'branches' | 'regions' | 'departments' | 'positions' | 'specific_users';
 
@@ -34,6 +35,16 @@ interface Announcement {
     author?: { first_name: string; last_name: string };
 }
 
+
+// Strip HTML tags for plain-text previews in lists. We keep the sanitizer
+// available for safe HTML rendering in the detail/feed modal.
+const stripHtml = (html?: string): string => {
+    if (!html) return '';
+    if (typeof document === 'undefined') return html.replace(/<[^>]*>/g, '');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || tmp.innerText || '').trim();
+};
 
 const describeAudience = (a: Announcement): string => {
     switch (a.target_type) {
@@ -63,6 +74,7 @@ export const AnnouncementsPage: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const [deleteAnnId, setDeleteAnnId] = useState<string | null>(null);
+    const [statsAnnouncement, setStatsAnnouncement] = useState<Announcement | null>(null);
     const queryClient = useQueryClient();
     const user = useAuthStore(state => state.user);
     const isAdmin = user?.roles?.some(r => ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'].includes(r.code)) || false;
@@ -323,7 +335,7 @@ export const AnnouncementsPage: React.FC = () => {
                                                 </div>
                                                 <h3 className="text-lg font-semibold text-slate-900 mb-2">{ann.title}</h3>
                                                 <p className="text-slate-600 text-sm line-clamp-2">
-                                                    {ann.content}
+                                                    {stripHtml(ann.content)}
                                                 </p>
                                             </div>
                                             {ann.requires_acknowledgment && (
@@ -447,11 +459,21 @@ export const AnnouncementsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
+                                                    {(ann.status === 'published' || ann.status === 'archived') && (
+                                                        <button
+                                                            onClick={() => setStatsAnnouncement(ann)}
+                                                            className="p-2 text-[#0066B3] hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="View read receipts"
+                                                            aria-label="View read receipts"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </button>
+                                                    )}
                                                     {ann.status === 'draft' && (
                                                         <button
                                                             onClick={() => publishMutation.mutate(ann.id)}
                                                             className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                                            title="Publish"
+                                                            title="Publish" aria-label="Publish"
                                                         >
                                                             <Send size={16} />
                                                         </button>
@@ -460,7 +482,7 @@ export const AnnouncementsPage: React.FC = () => {
                                                         <button
                                                             onClick={() => { setEditingAnnouncement(ann); setShowCreateModal(true); }}
                                                             className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                                            title="Edit"
+                                                            title="Edit" aria-label="Edit"
                                                         >
                                                             <Edit size={16} />
                                                         </button>
@@ -469,7 +491,7 @@ export const AnnouncementsPage: React.FC = () => {
                                                         <button
                                                             onClick={() => archiveMutation.mutate(ann.id)}
                                                             className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
-                                                            title="Archive"
+                                                            title="Archive" aria-label="Archive"
                                                         >
                                                             <Archive size={16} />
                                                         </button>
@@ -477,7 +499,7 @@ export const AnnouncementsPage: React.FC = () => {
                                                         <button
                                                             onClick={() => unarchiveMutation.mutate(ann.id)}
                                                             className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                                                            title="Restore"
+                                                            title="Restore" aria-label="Restore"
                                                         >
                                                             <CheckCircle size={16} />
                                                         </button>
@@ -485,7 +507,7 @@ export const AnnouncementsPage: React.FC = () => {
                                                     <button
                                                         onClick={() => setDeleteAnnId(ann.id)}
                                                         className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                                                        title="Delete"
+                                                        title="Delete" aria-label="Delete"
                                                     >
                                                         <X size={16} />
                                                     </button>
@@ -528,9 +550,10 @@ export const AnnouncementsPage: React.FC = () => {
                                     </span>
                                 )}
                             </div>
-                            <div className="prose prose-slate max-w-none">
-                                <p className="text-slate-700 whitespace-pre-wrap">{selectedAnnouncement.content}</p>
-                            </div>
+                            <div
+                                className="prose prose-slate max-w-none text-slate-700 announcement-content"
+                                dangerouslySetInnerHTML={{ __html: sanitizeAnnouncementHtml(selectedAnnouncement.content) }}
+                            />
                         </div>
                         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
                             {selectedAnnouncement.requires_acknowledgment && (
@@ -561,11 +584,20 @@ export const AnnouncementsPage: React.FC = () => {
                 <CreateAnnouncementModal
                     editing={editingAnnouncement}
                     onClose={() => { setShowCreateModal(false); setEditingAnnouncement(null); }}
-                    onSuccess={() => {
+                    onSuccess={(action) => {
                         setShowCreateModal(false);
                         setEditingAnnouncement(null);
                         queryClient.invalidateQueries({ queryKey: ['all-announcements'] });
+                        queryClient.invalidateQueries({ queryKey: ['my-announcements'] });
+                        showToast(
+                            action === 'published'
+                                ? 'Announcement published'
+                                : action === 'scheduled'
+                                    ? 'Announcement scheduled'
+                                    : 'Draft saved'
+                        );
                     }}
+                    onError={(message) => showToast(message || 'Failed to save announcement', 'error')}
                 />
             )}
 
@@ -580,6 +612,155 @@ export const AnnouncementsPage: React.FC = () => {
                 onCancel={() => setDeleteAnnId(null)}
                 isLoading={deleteMutation.isPending}
             />
+
+            {/* Read Receipts / Engagement Stats Modal */}
+            {statsAnnouncement && (
+                <AnnouncementStatsModal
+                    announcement={statsAnnouncement}
+                    onClose={() => setStatsAnnouncement(null)}
+                />
+            )}
+        </div>
+    );
+};
+
+// Announcement Read Receipts / Engagement Stats Modal
+const AnnouncementStatsModal: React.FC<{
+    announcement: Announcement;
+    onClose: () => void;
+}> = ({ announcement, onClose }) => {
+    const [filter, setFilter] = useState<'all' | 'acknowledged' | 'unacknowledged'>('all');
+
+    React.useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    const { data, isLoading } = useQuery<{
+        total_views: number;
+        total_acknowledgments: number;
+        read_by: Array<{ staff_name: string; read_at: string; acknowledged: boolean }>;
+    }>({
+        queryKey: ['announcement-stats', announcement.id],
+        queryFn: () => api.get(`/communications/announcements/${announcement.id}/stats`).then(r => r.data),
+    });
+
+    const readers = data?.read_by || [];
+    const filtered = readers.filter(r =>
+        filter === 'all' ? true : filter === 'acknowledged' ? r.acknowledged : !r.acknowledged
+    );
+    const ackRate = data && data.total_views > 0
+        ? Math.round((data.total_acknowledgments / data.total_views) * 100)
+        : 0;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <Eye size={18} className="text-[#0066B3]" />
+                            Engagement & Read Receipts
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-0.5 truncate">{announcement.title}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors">
+                        <X size={20} className="text-slate-500" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                    {/* Stat tiles */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide">
+                                <Eye size={14} /> Views
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900 mt-1">{data?.total_views ?? 0}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide">
+                                <CheckCircle size={14} /> Acknowledged
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900 mt-1">{data?.total_acknowledgments ?? 0}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide">
+                                <Users size={14} /> Ack Rate
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900 mt-1">{ackRate}%</p>
+                        </div>
+                    </div>
+
+                    {/* Filter pills */}
+                    <div className="flex items-center gap-2">
+                        {([
+                            { key: 'all', label: `All (${readers.length})` },
+                            { key: 'acknowledged', label: `Acknowledged (${readers.filter(r => r.acknowledged).length})` },
+                            { key: 'unacknowledged', label: `Viewed only (${readers.filter(r => !r.acknowledged).length})` },
+                        ] as { key: typeof filter; label: string }[]).map(opt => (
+                            <button
+                                key={opt.key}
+                                onClick={() => setFilter(opt.key)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                                    filter === opt.key
+                                        ? 'border-[#0066B3] bg-[#0066B3] text-white'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Readers list */}
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        {isLoading ? (
+                            <div className="p-8 text-center text-sm text-slate-500">Loading…</div>
+                        ) : filtered.length === 0 ? (
+                            <div className="p-8 text-center text-sm text-slate-500">No recipients match this filter.</div>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold uppercase tracking-wider">Staff</th>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold uppercase tracking-wider">Read at</th>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filtered.map((r, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50">
+                                            <td className="px-4 py-2 text-slate-800">{r.staff_name}</td>
+                                            <td className="px-4 py-2 text-slate-600">
+                                                {r.read_at ? new Date(r.read_at).toLocaleString() : '—'}
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                {r.acknowledged ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700">
+                                                        <CheckCircle size={12} /> Acknowledged
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
+                                                        <Eye size={12} /> Viewed
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+
+                <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
+                    <button onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300">
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -652,11 +833,13 @@ const ChipMultiSelect: React.FC<{
 };
 
 // Create / Edit Announcement Modal
+type AnnouncementSaveAction = 'draft' | 'scheduled' | 'published';
 const CreateAnnouncementModal: React.FC<{
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (action: AnnouncementSaveAction) => void;
+    onError: (message?: string) => void;
     editing?: Announcement | null;
-}> = ({ onClose, onSuccess, editing }) => {
+}> = ({ onClose, onSuccess, onError, editing }) => {
     const [formData, setFormData] = useState<{
         title: string;
         content: string;
@@ -717,19 +900,22 @@ const CreateAnnouncementModal: React.FC<{
         enabled: formData.target_type === 'specific_users',
     });
 
+    const extractErrorMessage = (err: any): string | undefined => {
+        const msg = err?.response?.data?.message;
+        if (Array.isArray(msg)) return msg.join('; ');
+        return typeof msg === 'string' ? msg : err?.message;
+    };
+
     const createMutation = useMutation({
         mutationFn: (data: any) => api.post('/communications/announcements', data),
-        onSuccess,
     });
 
     const updateMutation = useMutation({
         mutationFn: (data: any) => api.put(`/communications/announcements/${editing!.id}`, data),
-        onSuccess,
     });
 
     const publishMutation = useMutation({
         mutationFn: (id: string) => api.patch(`/communications/announcements/${id}/publish`),
-        onSuccess,
     });
 
     const buildPayload = () => {
@@ -779,13 +965,29 @@ const CreateAnnouncementModal: React.FC<{
     const handleSubmit = async (publish: boolean) => {
         const payload = buildPayload();
         const isScheduled = Boolean(formData.publish_at);
-        const result = editing
-            ? await updateMutation.mutateAsync(payload)
-            : await createMutation.mutateAsync(payload);
-        // Only call publish for non-scheduled announcements. Scheduled ones
-        // wait until publish_at and are published by the scheduler.
-        if (publish && !isScheduled && result.data?.id) {
-            await publishMutation.mutateAsync(result.data.id);
+        try {
+            const result = editing
+                ? await updateMutation.mutateAsync(payload)
+                : await createMutation.mutateAsync(payload);
+
+            // For "Publish Now": call publish endpoint for non-scheduled
+            // announcements. Scheduled ones are auto-published by the cron job
+            // at publish_at, so we only mark the save as 'scheduled' here.
+            if (publish && !isScheduled && result.data?.id) {
+                try {
+                    await publishMutation.mutateAsync(result.data.id);
+                    onSuccess('published');
+                } catch (err: any) {
+                    // The announcement was created/updated, but publishing failed.
+                    // Surface the error and refresh the list so the draft is visible.
+                    onError(extractErrorMessage(err) || 'Announcement saved but could not publish');
+                    onSuccess('draft');
+                }
+                return;
+            }
+            onSuccess(publish && isScheduled ? 'scheduled' : 'draft');
+        } catch (err: any) {
+            onError(extractErrorMessage(err));
         }
     };
 
@@ -830,14 +1032,13 @@ const CreateAnnouncementModal: React.FC<{
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Content</label>
-                        <textarea
+                        <RichTextEditor
                             value={formData.content}
-                            onChange={e => setFormData({ ...formData, content: e.target.value })}
-                            placeholder="Write your announcement..."
-                            rows={5}
-                            required
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent resize-y"
+                            onChange={(html) => setFormData({ ...formData, content: html })}
+                            placeholder="Write your announcement…"
+                            minHeight={200}
                         />
+                        <p className="text-xs text-slate-400 mt-1">Supports bold, lists, links and inline images.</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

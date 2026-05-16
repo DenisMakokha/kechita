@@ -369,7 +369,7 @@ const PayrollPage: React.FC = () => {
                                             </td>
                                             <td className="px-5 py-3 text-right">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={() => setViewRunId(run.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-[#0066B3]" title="View payslips">
+                                                    <button onClick={() => setViewRunId(run.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-[#0066B3]" title="View payslips" aria-label="View payslips">
                                                         <Eye size={15} />
                                                     </button>
                                                     {run.status === 'draft' && (
@@ -379,7 +379,7 @@ const PayrollPage: React.FC = () => {
                                                     )}
                                                     {run.status === 'calculated' && (
                                                         <>
-                                                            <button onClick={() => setCalcRunId(run.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-blue-600" title="Recalculate">
+                                                            <button onClick={() => setCalcRunId(run.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-blue-600" title="Recalculate" aria-label="Recalculate">
                                                                 <RefreshCw size={15} />
                                                             </button>
                                                             <button onClick={() => setApproveRunId(run.id)} className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded hover:bg-purple-200 flex items-center gap-1">
@@ -393,7 +393,7 @@ const PayrollPage: React.FC = () => {
                                                         </button>
                                                     )}
                                                     {run.status !== 'paid' && run.status !== 'cancelled' && (
-                                                        <button onClick={() => setCancelRunId(run.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600" title="Cancel">
+                                                        <button onClick={() => setCancelRunId(run.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600" title="Cancel" aria-label="Cancel">
                                                             <Ban size={15} />
                                                         </button>
                                                     )}
@@ -454,7 +454,7 @@ const PayrollPage: React.FC = () => {
                                                         <button
                                                             onClick={() => { setEditPeriod(p); setEditPeriodForm({ pay_date: p.pay_date || '', notes: p.notes || '' }); }}
                                                             className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-[#0066B3]"
-                                                            title="Edit period"
+                                                            title="Edit period" aria-label="Edit period"
                                                         >
                                                             <Edit size={15} />
                                                         </button>

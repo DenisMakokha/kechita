@@ -13,7 +13,7 @@ export function ThemeToggle() {
             ? 'bg-white dark:bg-slate-700 shadow-sm text-amber-500'
             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
         }`}
-        title="Light mode"
+        title="Light mode" aria-label="Light mode"
       >
         <Sun size={18} />
       </button>
@@ -24,7 +24,7 @@ export function ThemeToggle() {
             ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-500'
             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
         }`}
-        title="System preference"
+        title="System preference" aria-label="System preference"
       >
         <Monitor size={18} />
       </button>
@@ -35,7 +35,7 @@ export function ThemeToggle() {
             ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-500'
             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
         }`}
-        title="Dark mode"
+        title="Dark mode" aria-label="Dark mode"
       >
         <Moon size={18} />
       </button>

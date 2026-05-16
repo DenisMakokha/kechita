@@ -321,7 +321,7 @@ const ReportsPage: React.FC = () => {
                             onClick={() => refetch()}
                             disabled={isLoading}
                             className="p-2.5 bg-white/10 border border-white/20 rounded-xl text-white hover:bg-white/20 transition-colors disabled:opacity-50"
-                            title="Refresh Data"
+                            title="Refresh Data" aria-label="Refresh Data"
                         >
                             <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
                         </button>

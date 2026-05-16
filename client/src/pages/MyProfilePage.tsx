@@ -544,7 +544,7 @@ export const MyProfilePage: React.FC = () => {
                                             type="button"
                                             onClick={() => downloadAuthedFile(`/staff/documents/file/${doc.id}`, (doc as any).original_name || (doc as any).doc_type || 'document')}
                                             className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"
-                                            title="Download"
+                                            title="Download" aria-label="Download"
                                         >
                                             <Download size={18} />
                                         </button>

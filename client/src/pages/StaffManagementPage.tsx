@@ -599,7 +599,7 @@ export const StaffManagementPage: React.FC = () => {
                                             <td className="px-6 py-4 hidden lg:table-cell"><LoginBadge user={m.user as any} /></td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="View profile"><Eye size={18} /></button>
+                                                    <button onClick={() => navigate(`/staff/${m.id}`)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="View profile" aria-label="View profile"><Eye size={18} /></button>
                                                     <StaffRowActions
                                                         m={m}
                                                         isOpen={actionMenuId === m.id}
@@ -770,7 +770,7 @@ export const StaffManagementPage: React.FC = () => {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-end gap-1">
-                                                        <button onClick={() => openUserDrawer(u)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-[#0066B3]" title="Open details"><Eye size={15} /></button>
+                                                        <button onClick={() => openUserDrawer(u)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-[#0066B3]" title="Open details" aria-label="Open details"><Eye size={15} /></button>
                                                         {!canModify && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Protected</span>}
                                                         <div className="relative">
                                                             <button onClick={() => setUserActionMenu(userActionMenu === u.id ? null : u.id)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><MoreVertical size={15} /></button>
@@ -895,12 +895,12 @@ export const StaffManagementPage: React.FC = () => {
                                                 <SlidersHorizontal size={14} />Manage
                                             </button>
                                             <div className="flex items-center gap-0.5">
-                                                <button onClick={() => { setCompareRoleA(role); setCompareRoleB(null); setShowCompareModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-indigo-600" title="Compare"><GitCompare size={15} /></button>
-                                                <button onClick={() => { setDuplicateRoleSource(role); setDuplicateForm({ code: 'COPY_OF_' + role.code, name: 'Copy of ' + role.name }); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-teal-600" title="Duplicate"><Copy size={15} /></button>
-                                                <button onClick={() => { setSelectedRole(role); setRoleFormData({ code: role.code, name: role.name, description: role.description, is_active: role.is_active }); setShowRoleModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600" title="Edit"><Edit size={15} /></button>
+                                                <button onClick={() => { setCompareRoleA(role); setCompareRoleB(null); setShowCompareModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-indigo-600" title="Compare" aria-label="Compare"><GitCompare size={15} /></button>
+                                                <button onClick={() => { setDuplicateRoleSource(role); setDuplicateForm({ code: 'COPY_OF_' + role.code, name: 'Copy of ' + role.name }); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-teal-600" title="Duplicate" aria-label="Duplicate"><Copy size={15} /></button>
+                                                <button onClick={() => { setSelectedRole(role); setRoleFormData({ code: role.code, name: role.name, description: role.description, is_active: role.is_active }); setShowRoleModal(true); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600" title="Edit" aria-label="Edit"><Edit size={15} /></button>
                                                 {role.is_active
-                                                    ? <button onClick={() => deactivateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600" title="Deactivate"><ShieldOff size={15} /></button>
-                                                    : <button onClick={() => activateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-600" title="Activate"><ShieldCheck size={15} /></button>}
+                                                    ? <button onClick={() => deactivateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600" title="Deactivate" aria-label="Deactivate"><ShieldOff size={15} /></button>
+                                                    : <button onClick={() => activateRoleMutation.mutate(role.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-600" title="Activate" aria-label="Activate"><ShieldCheck size={15} /></button>}
                                                 <button onClick={() => handleDeleteRole(role)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600" disabled={(roleStat?.userCount ?? 0) > 0}><Trash2 size={15} /></button>
                                             </div>
                                         </div>
@@ -967,9 +967,9 @@ export const StaffManagementPage: React.FC = () => {
                                             </td>
                                             <td className="px-5 py-3">
                                                 <div className="flex items-center justify-end gap-0.5">
-                                                    <button onClick={() => { setManageRole(role); setManageRoleTab('permissions'); setPendingPermIds(new Set()); setPermsDirty(false); setPermSearch(''); setCollapsedModules(new Set()); setEditDetailsData({ name: role.name, description: role.description }); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-[#0066B3]" title="Manage"><SlidersHorizontal size={14} /></button>
-                                                    <button onClick={() => { setCompareRoleA(role); setCompareRoleB(null); setShowCompareModal(true); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600" title="Compare"><GitCompare size={14} /></button>
-                                                    <button onClick={() => { setDuplicateRoleSource(role); setDuplicateForm({ code: 'COPY_OF_' + role.code, name: 'Copy of ' + role.name }); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-teal-600" title="Duplicate"><Copy size={14} /></button>
+                                                    <button onClick={() => { setManageRole(role); setManageRoleTab('permissions'); setPendingPermIds(new Set()); setPermsDirty(false); setPermSearch(''); setCollapsedModules(new Set()); setEditDetailsData({ name: role.name, description: role.description }); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-[#0066B3]" title="Manage" aria-label="Manage"><SlidersHorizontal size={14} /></button>
+                                                    <button onClick={() => { setCompareRoleA(role); setCompareRoleB(null); setShowCompareModal(true); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600" title="Compare" aria-label="Compare"><GitCompare size={14} /></button>
+                                                    <button onClick={() => { setDuplicateRoleSource(role); setDuplicateForm({ code: 'COPY_OF_' + role.code, name: 'Copy of ' + role.name }); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-teal-600" title="Duplicate" aria-label="Duplicate"><Copy size={14} /></button>
                                                     <button onClick={() => handleDeleteRole(role)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600" disabled={(roleStat?.userCount ?? 0) > 0}><Trash2 size={14} /></button>
                                                 </div>
                                             </td>
@@ -1896,7 +1896,7 @@ export const StaffManagementPage: React.FC = () => {
                                                             ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">Active</span>
                                                             : <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full font-medium">Inactive</span>}
                                                         {u.staff && (
-                                                            <button onClick={() => { setManageRole(null); navigate(`/staff/${u.staff!.id}`); }} className="p-1.5 hover:bg-blue-100 rounded-lg text-slate-400 hover:text-[#0066B3]" title="View profile">
+                                                            <button onClick={() => { setManageRole(null); navigate(`/staff/${u.staff!.id}`); }} className="p-1.5 hover:bg-blue-100 rounded-lg text-slate-400 hover:text-[#0066B3]" title="View profile" aria-label="View profile">
                                                                 <Eye size={14} />
                                                             </button>
                                                         )}

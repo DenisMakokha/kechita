@@ -97,6 +97,9 @@ interface PublicHoliday {
 const SettingsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('claim-types');
     const [tabSearch, setTabSearch] = useState('');
+    const [showPalette, setShowPalette] = useState(false);
+    const [paletteQuery, setPaletteQuery] = useState('');
+    const [paletteIdx, setPaletteIdx] = useState(0);
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({});
@@ -471,6 +474,32 @@ const SettingsPage: React.FC = () => {
         { key: 'sms-settings' as Tab, label: 'Bulk SMS', icon: MessageSquare },
     ];
 
+    // ⌘K / Ctrl-K command palette
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setShowPalette(prev => !prev);
+                setPaletteQuery('');
+                setPaletteIdx(0);
+            } else if (e.key === 'Escape' && showPalette) {
+                setShowPalette(false);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [showPalette]);
+
+    const paletteMatches = mainTabs.filter(t =>
+        !paletteQuery || t.label.toLowerCase().includes(paletteQuery.toLowerCase())
+    );
+
+    const choosePaletteItem = (key: Tab) => {
+        setActiveTab(key);
+        setShowPalette(false);
+        setPaletteQuery('');
+    };
+
     const openModal = (_type: string, item?: any) => {
         setEditItem(item);
         setFormData(item || {});
@@ -688,7 +717,7 @@ const SettingsPage: React.FC = () => {
                                     <button
                                         onClick={() => askConfirm('Deactivate Leave Type', `Deactivate leave type "${type.name}"? Staff will no longer be able to request this type.`, () => deactivateLeaveTypeMutation.mutate(type.id))}
                                         className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
-                                        title="Deactivate"
+                                        title="Deactivate" aria-label="Deactivate"
                                     >
                                         <Trash2 size={18} />
                                     </button>
@@ -1903,16 +1932,27 @@ const SettingsPage: React.FC = () => {
             </div>
 
             {/* Settings tab search */}
-            <div className="relative max-w-md">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                    type="text"
-                    value={tabSearch}
-                    onChange={(e) => setTabSearch(e.target.value)}
-                    placeholder="Filter settings…"
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                    aria-label="Filter settings tabs"
-                />
+            <div className="flex items-center gap-3">
+                <div className="relative max-w-md flex-1">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="text"
+                        value={tabSearch}
+                        onChange={(e) => setTabSearch(e.target.value)}
+                        placeholder="Filter settings…"
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                        aria-label="Filter settings tabs"
+                    />
+                </div>
+                <button
+                    onClick={() => { setShowPalette(true); setPaletteQuery(''); setPaletteIdx(0); }}
+                    className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-[#0066B3] hover:text-[#0066B3] transition-colors"
+                    title="Open command palette" aria-label="Open command palette"
+                >
+                    <Search size={14} />
+                    Quick jump
+                    <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono text-slate-500">⌘K</kbd>
+                </button>
             </div>
 
             {/* Main Tabs */}
@@ -2624,6 +2664,72 @@ const SettingsPage: React.FC = () => {
                     <button onClick={() => setToast(null)} className="ml-2 p-0.5 hover:bg-white/50 rounded">
                         <X size={14} />
                     </button>
+                </div>
+            )}
+
+            {/* Command Palette (⌘K) */}
+            {showPalette && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-[70] flex items-start justify-center pt-24 px-4"
+                    onClick={() => setShowPalette(false)}
+                >
+                    <div
+                        className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+                            <Search size={18} className="text-slate-400" />
+                            <input
+                                autoFocus
+                                type="text"
+                                value={paletteQuery}
+                                onChange={(e) => { setPaletteQuery(e.target.value); setPaletteIdx(0); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        setPaletteIdx(i => Math.min(i + 1, paletteMatches.length - 1));
+                                    } else if (e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        setPaletteIdx(i => Math.max(i - 1, 0));
+                                    } else if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const m = paletteMatches[paletteIdx];
+                                        if (m) choosePaletteItem(m.key);
+                                    }
+                                }}
+                                placeholder="Jump to setting…"
+                                className="flex-1 text-sm bg-transparent outline-none placeholder-slate-400"
+                            />
+                            <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono text-slate-500">ESC</kbd>
+                        </div>
+                        <div className="max-h-80 overflow-y-auto py-1">
+                            {paletteMatches.length === 0 ? (
+                                <div className="px-4 py-8 text-center text-sm text-slate-400">No matching settings</div>
+                            ) : paletteMatches.map((m, idx) => {
+                                const Icon = m.icon;
+                                const isActive = idx === paletteIdx;
+                                return (
+                                    <button
+                                        key={m.key}
+                                        onMouseEnter={() => setPaletteIdx(idx)}
+                                        onClick={() => choosePaletteItem(m.key)}
+                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${
+                                            isActive ? 'bg-blue-50 text-[#0066B3]' : 'text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <Icon size={16} className={isActive ? 'text-[#0066B3]' : 'text-slate-400'} />
+                                        <span className="flex-1">{m.label}</span>
+                                        {isActive && <span className="text-[10px] text-slate-400">↵ Open</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 flex items-center gap-3">
+                            <span><kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded font-mono">↑</kbd> <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded font-mono">↓</kbd> navigate</span>
+                            <span><kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded font-mono">↵</kbd> select</span>
+                            <span><kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded font-mono">esc</kbd> close</span>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
