@@ -81,13 +81,21 @@ export const CEODashboard: React.FC = () => {
     });
 
     // Fetch pending approvals
-    const { data: pendingApprovals } = useQuery({
+    const { data: pendingApprovalsRaw } = useQuery({
         queryKey: ['pending-approvals'],
         queryFn: async () => {
             const response = await api.get('/approvals/pending');
+            console.log('[DEBUG CEO] Pending approvals raw:', response.data);
             return response.data;
         },
     });
+
+    // Handle both array and { data: [...] } response formats
+    const pendingApprovals = Array.isArray(pendingApprovalsRaw)
+        ? pendingApprovalsRaw
+        : (pendingApprovalsRaw as any)?.data || [];
+
+    console.log('[DEBUG CEO] Processed pendingApprovals:', pendingApprovals?.length || 0);
 
     // Fetch recruitment stats
     const { data: recruitmentStats } = useQuery({
