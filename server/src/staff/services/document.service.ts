@@ -401,11 +401,19 @@ export class DocumentService {
 
     async deleteStaffDocument(id: string): Promise<void> {
         const staffDoc = await this.getStaffDocument(id);
+        const linkedDocumentId = staffDoc.document?.id;
 
-        if (staffDoc.document) {
-            await this.deleteDocument(staffDoc.document.id);
-        }
-
+        // Delete the staff-document row first so the FK constraint on
+        // staff_documents.document_id doesn't block the document deletion.
         await this.staffDocumentRepo.delete(id);
+
+        if (linkedDocumentId) {
+            try {
+                await this.deleteDocument(linkedDocumentId);
+            } catch {
+                // Ignore: the document row may be referenced by other entities
+                // (e.g. contracts) or have already been cleaned up.
+            }
+        }
     }
 }

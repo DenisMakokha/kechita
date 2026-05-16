@@ -15,6 +15,7 @@ import { winstonConfig } from './common/logger/winston.config';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { EmptyStringToUndefinedInterceptor } from './common/interceptors/empty-string-to-undefined.interceptor';
 
 async function bootstrap() {
   // abortOnError:false → surface init errors as normal exceptions instead of
@@ -44,8 +45,11 @@ async function bootstrap() {
   // Global Exception Filter
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Global Logging Interceptor
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  // Global Interceptors (order matters: empty-string sanitization runs before logging)
+  app.useGlobalInterceptors(
+    new EmptyStringToUndefinedInterceptor(),
+    new LoggingInterceptor(),
+  );
 
   // Global Validation Pipe
   app.useGlobalPipes(

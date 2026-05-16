@@ -1055,20 +1055,20 @@ export const StaffProfilePage: React.FC = () => {
                                             )}
                                             <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
                                                 {/* PDF Actions */}
-                                                <a
-                                                    href={`${api.defaults.baseURL}/staff/contracts/${c.id}/pdf/preview`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => downloadAuthedFile(`/staff/contracts/${c.id}/pdf/preview`)}
                                                     className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 flex items-center gap-1"
                                                 >
                                                     <FileText size={12} /> Preview PDF
-                                                </a>
-                                                <a
-                                                    href={`${api.defaults.baseURL}/staff/contracts/${c.id}/pdf`}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => downloadAuthedFile(`/staff/contracts/${c.id}/pdf`, `contract-${c.contract_number || c.id}.pdf`)}
                                                     className="px-3 py-1.5 text-xs font-medium bg-[#0066B3]/10 text-[#0066B3] rounded-lg hover:bg-[#0066B3]/20 flex items-center gap-1"
                                                 >
                                                     <Download size={12} /> Download PDF
-                                                </a>
+                                                </button>
                                                 {(c.status === 'draft' || c.status === 'pending_signature') && (
                                                     <button onClick={() => activateContractMutation.mutate(c.id)} className="px-3 py-1.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 flex items-center gap-1">
                                                         <Play size={12} /> Activate

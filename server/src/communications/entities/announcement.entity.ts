@@ -2,7 +2,9 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { Staff } from '../../staff/entities/staff.entity';
 
 export enum AnnouncementPriority {
+    LOW = 'low',
     NORMAL = 'normal',
+    HIGH = 'high',
     URGENT = 'urgent',
     CRITICAL = 'critical',
 }

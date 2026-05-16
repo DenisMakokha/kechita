@@ -34,6 +34,7 @@ interface Announcement {
 export const AnnouncementsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'feed' | 'manage'>('feed');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -426,9 +427,15 @@ export const AnnouncementsPage: React.FC = () => {
                                                             <Send size={16} />
                                                         </button>
                                                     )}
-                                                    <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
-                                                        <Edit size={16} />
-                                                    </button>
+                                                    {(ann.status === 'draft' || ann.status === 'scheduled') && (
+                                                        <button
+                                                            onClick={() => { setEditingAnnouncement(ann); setShowCreateModal(true); }}
+                                                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            title="Edit"
+                                                        >
+                                                            <Edit size={16} />
+                                                        </button>
+                                                    )}
                                                     {ann.status !== 'archived' ? (
                                                         <button
                                                             onClick={() => archiveMutation.mutate(ann.id)}
@@ -520,12 +527,14 @@ export const AnnouncementsPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Create Modal */}
+            {/* Create / Edit Modal */}
             {showCreateModal && (
                 <CreateAnnouncementModal
-                    onClose={() => setShowCreateModal(false)}
+                    editing={editingAnnouncement}
+                    onClose={() => { setShowCreateModal(false); setEditingAnnouncement(null); }}
                     onSuccess={() => {
                         setShowCreateModal(false);
+                        setEditingAnnouncement(null);
                         queryClient.invalidateQueries({ queryKey: ['all-announcements'] });
                     }}
                 />
@@ -546,23 +555,29 @@ export const AnnouncementsPage: React.FC = () => {
     );
 };
 
-// Create Announcement Modal
+// Create / Edit Announcement Modal
 const CreateAnnouncementModal: React.FC<{
     onClose: () => void;
     onSuccess: () => void;
-}> = ({ onClose, onSuccess }) => {
+    editing?: Announcement | null;
+}> = ({ onClose, onSuccess, editing }) => {
     const [formData, setFormData] = useState({
-        title: '',
-        content: '',
-        priority: 'normal',
-        channels: ['portal'],
-        target_audience: { all_staff: true },
-        requires_acknowledgment: false,
-        scheduled_for: '',
+        title: editing?.title || '',
+        content: editing?.content || '',
+        priority: editing?.priority || 'normal',
+        channels: editing?.channels?.length ? editing.channels : ['portal'],
+        target_type: 'all',
+        requires_acknowledgment: editing?.requires_acknowledgment || false,
+        publish_at: editing?.scheduled_for ? new Date(editing.scheduled_for).toISOString().slice(0, 16) : '',
     });
 
     const createMutation = useMutation({
         mutationFn: (data: any) => api.post('/communications/announcements', data),
+        onSuccess,
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (data: any) => api.put(`/communications/announcements/${editing!.id}`, data),
         onSuccess,
     });
 
@@ -571,9 +586,31 @@ const CreateAnnouncementModal: React.FC<{
         onSuccess,
     });
 
+    const buildPayload = () => {
+        const payload: any = {
+            title: formData.title,
+            content: formData.content,
+            priority: formData.priority,
+            channels: formData.channels,
+            target_type: formData.target_type,
+            requires_acknowledgment: formData.requires_acknowledgment,
+        };
+        if (formData.publish_at) {
+            // datetime-local has no timezone; convert to ISO
+            payload.publish_at = new Date(formData.publish_at).toISOString();
+        }
+        return payload;
+    };
+
     const handleSubmit = async (publish: boolean) => {
-        const result = await createMutation.mutateAsync(formData);
-        if (publish && result.data?.id) {
+        const payload = buildPayload();
+        const isScheduled = Boolean(formData.publish_at);
+        const result = editing
+            ? await updateMutation.mutateAsync(payload)
+            : await createMutation.mutateAsync(payload);
+        // Only call publish for non-scheduled announcements. Scheduled ones
+        // wait until publish_at and are published by the scheduler.
+        if (publish && !isScheduled && result.data?.id) {
             await publishMutation.mutateAsync(result.data.id);
         }
     };
@@ -634,7 +671,7 @@ const CreateAnnouncementModal: React.FC<{
                             <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
                             <select
                                 value={formData.priority}
-                                onChange={e => setFormData({ ...formData, priority: e.target.value })}
+                                onChange={e => setFormData({ ...formData, priority: e.target.value as Announcement['priority'] })}
                                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                             >
                                 <option value="low">Low</option>
@@ -647,8 +684,8 @@ const CreateAnnouncementModal: React.FC<{
                             <label className="block text-sm font-medium text-slate-700 mb-1">Schedule <span className="text-slate-400">(optional)</span></label>
                             <input
                                 type="datetime-local"
-                                value={formData.scheduled_for}
-                                onChange={e => setFormData({ ...formData, scheduled_for: e.target.value })}
+                                value={formData.publish_at}
+                                onChange={e => setFormData({ ...formData, publish_at: e.target.value })}
                                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent"
                             />
                         </div>
@@ -698,19 +735,19 @@ const CreateAnnouncementModal: React.FC<{
                     <button
                         type="button"
                         onClick={() => handleSubmit(false)}
-                        disabled={createMutation.isPending || !formData.title}
+                        disabled={createMutation.isPending || updateMutation.isPending || !formData.title}
                         className="px-4 py-2.5 border border-[#0066B3] text-[#0066B3] rounded-lg font-medium hover:bg-blue-50 disabled:opacity-50"
                     >
-                        Save as Draft
+                        {editing ? 'Save Draft Changes' : 'Save as Draft'}
                     </button>
                     <button
                         type="button"
                         onClick={() => handleSubmit(true)}
-                        disabled={createMutation.isPending || publishMutation.isPending || !formData.title}
+                        disabled={createMutation.isPending || updateMutation.isPending || publishMutation.isPending || !formData.title}
                         className="flex items-center gap-2 px-5 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] disabled:opacity-50"
                     >
                         <Send size={16} />
-                        {formData.scheduled_for ? 'Schedule' : 'Publish Now'}
+                        {formData.publish_at ? 'Schedule' : 'Publish Now'}
                     </button>
                 </div>
             </div>

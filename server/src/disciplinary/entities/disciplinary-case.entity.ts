@@ -4,12 +4,20 @@ import { Staff } from '../../staff/entities/staff.entity';
 export enum CaseType {
     DISCIPLINARY = 'disciplinary',
     GRIEVANCE = 'grievance',
+    MISCONDUCT = 'misconduct',
+    GROSS_MISCONDUCT = 'gross_misconduct',
+    PERFORMANCE = 'performance',
+    ATTENDANCE = 'attendance',
+    HARASSMENT = 'harassment',
+    FRAUD = 'fraud',
+    OTHER = 'other',
 }
 
 export enum CaseSeverity {
     MINOR = 'minor',
     MODERATE = 'moderate',
     SERIOUS = 'serious',
+    GROSS = 'gross',
     GROSS_MISCONDUCT = 'gross_misconduct',
 }
 

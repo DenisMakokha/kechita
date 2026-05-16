@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { Announcement, AnnouncementRead, AnnouncementStatus, AnnouncementPriority, DeliveryChannel, TargetAudience } from './entities/announcement.entity';
@@ -27,6 +28,8 @@ export interface CreateAnnouncementDto {
 
 @Injectable()
 export class CommunicationsService {
+    private readonly logger = new Logger(CommunicationsService.name);
+
     constructor(
         @InjectRepository(Announcement)
         private announcementRepo: Repository<Announcement>,
@@ -353,6 +356,22 @@ export class CommunicationsService {
     }
 
     // ==================== SCHEDULED PUBLISHING ====================
+
+    @Cron(CronExpression.EVERY_MINUTE)
+    async runScheduledJobs(): Promise<void> {
+        try {
+            const published = await this.publishScheduledAnnouncements();
+            if (published > 0) this.logger.log(`Auto-published ${published} scheduled announcement(s)`);
+        } catch (err: any) {
+            this.logger.error(`Scheduled publish failed: ${err?.message}`);
+        }
+        try {
+            const expired = await this.expireOldAnnouncements();
+            if (expired > 0) this.logger.log(`Expired ${expired} announcement(s)`);
+        } catch (err: any) {
+            this.logger.error(`Announcement expiry failed: ${err?.message}`);
+        }
+    }
 
     async publishScheduledAnnouncements(): Promise<number> {
         const now = new Date();
