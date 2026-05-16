@@ -8,7 +8,7 @@ import {
     PiggyBank, X, DollarSign, ChevronRight, Save, CheckCircle, AlertCircle,
     Mail, Send, Wifi, WifiOff, Loader2, MessageSquare, Smartphone,
     Umbrella, FileCheck, Wallet, Users, Building2, Briefcase, ClipboardList,
-    BarChart3, ShieldCheck
+    BarChart3, ShieldCheck, Search
 } from 'lucide-react';
 
 type Tab = 'claim-types' | 'leave-types' | 'approval-flows' | 'holidays' | 'loan-settings' | 'email-settings' | 'sms-settings' | 'leave-settings' | 'claims-settings' | 'petty-cash-settings' | 'recruitment-settings' | 'onboarding-settings' | 'reports-settings' | 'org-settings' | 'hr-settings' | 'approvals-settings';
@@ -96,6 +96,7 @@ interface PublicHoliday {
 
 const SettingsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('claim-types');
+    const [tabSearch, setTabSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({});
@@ -1901,9 +1902,22 @@ const SettingsPage: React.FC = () => {
                 )}
             </div>
 
+            {/* Settings tab search */}
+            <div className="relative max-w-md">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                    type="text"
+                    value={tabSearch}
+                    onChange={(e) => setTabSearch(e.target.value)}
+                    placeholder="Filter settings…"
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                    aria-label="Filter settings tabs"
+                />
+            </div>
+
             {/* Main Tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2">
-                {mainTabs.map((tab) => {
+                {mainTabs.filter(t => !tabSearch || t.label.toLowerCase().includes(tabSearch.toLowerCase())).map((tab) => {
                     const Icon = tab.icon;
                     return (
                         <button

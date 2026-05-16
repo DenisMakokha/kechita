@@ -315,8 +315,29 @@ export const NotificationsPage: React.FC = () => {
                                 <p className="text-slate-500">No notifications</p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-slate-100">
-                                {filteredNotifications.map((notification) => (
+                            <div>
+                                {(() => {
+                                    const now = new Date();
+                                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                                    const sevenDaysAgo = startOfToday - 7 * 24 * 60 * 60 * 1000;
+                                    const groups: { label: string; items: Notification[] }[] = [
+                                        { label: 'Today', items: [] },
+                                        { label: 'This Week', items: [] },
+                                        { label: 'Older', items: [] },
+                                    ];
+                                    for (const n of filteredNotifications) {
+                                        const t = new Date(n.created_at).getTime();
+                                        if (t >= startOfToday) groups[0].items.push(n);
+                                        else if (t >= sevenDaysAgo) groups[1].items.push(n);
+                                        else groups[2].items.push(n);
+                                    }
+                                    return groups.filter(g => g.items.length > 0).map((group) => (
+                                        <div key={group.label}>
+                                            <div className="px-4 py-2 bg-slate-50/70 border-b border-slate-100 sticky top-0 z-10">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{group.label} <span className="ml-1 text-slate-400 font-normal">· {group.items.length}</span></p>
+                                            </div>
+                                            <div className="divide-y divide-slate-100">
+                                                {group.items.map((notification) => (
                                     <div
                                         key={notification.id}
                                         className={`p-4 hover:bg-slate-50 transition-colors ${!notification.is_read ? 'bg-blue-50' : ''}`}
@@ -394,6 +415,10 @@ export const NotificationsPage: React.FC = () => {
                                         </div>
                                     </div>
                                 ))}
+                                            </div>
+                                        </div>
+                                    ));
+                                })()}
                             </div>
                         )}
                     </div>
