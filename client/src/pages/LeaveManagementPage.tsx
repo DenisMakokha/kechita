@@ -8,7 +8,8 @@ import type { ValidationRules } from '../hooks/useFormValidation';
 import { FieldError } from '../components/ui/FieldError';
 import {
     Plus, Calendar as CalendarIcon, Clock, CheckCircle, Umbrella, Users, AlertTriangle,
-    TrendingUp, X, CalendarDays, ChevronLeft, ChevronRight, Sun, Search, RefreshCw, BarChart3, Settings, Eye
+    TrendingUp, X, CalendarDays, ChevronLeft, ChevronRight, Sun, Search, RefreshCw, BarChart3, Settings, Eye,
+    ChevronDown, Edit3, Loader2,
 } from 'lucide-react';
 
 type Tab = 'my-leave' | 'team' | 'calendar' | 'balances' | 'stats' | 'admin';
@@ -21,6 +22,118 @@ interface LeaveStats { totalRequests: number; pendingRequests: number; approvedR
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     const colors: Record<string, string> = { pending: 'bg-amber-100 text-amber-700', approved: 'bg-emerald-100 text-emerald-700', rejected: 'bg-red-100 text-red-700', cancelled: 'bg-slate-100 text-slate-600' };
     return <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${colors[status] || 'bg-slate-100 text-slate-600'}`}>{status}</span>;
+};
+
+// Color palette for leave-type badges
+const typeColor = (code?: string) => {
+    const map: Record<string, string> = {
+        ANNUAL: 'bg-blue-50 text-blue-700 border-blue-200',
+        SICK: 'bg-red-50 text-red-700 border-red-200',
+        MATERNITY: 'bg-pink-50 text-pink-700 border-pink-200',
+        PATERNITY: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+        COMPASSIONATE: 'bg-purple-50 text-purple-700 border-purple-200',
+        STUDY: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        UNPAID: 'bg-slate-50 text-slate-700 border-slate-200',
+    };
+    return map[code || ''] || 'bg-emerald-50 text-emerald-700 border-emerald-200';
+};
+
+// Expandable row showing a single staff's leave balances for the selected year
+const StaffBalanceRow: React.FC<{
+    staff: any;
+    year: number;
+    onAdjust: (staffId: string, leaveTypeId: string, leaveTypeName: string) => void;
+}> = ({ staff, year, onAdjust }) => {
+    const [open, setOpen] = useState(false);
+    const { data: balance, isLoading } = useQuery<LeaveBalance[]>({
+        queryKey: ['staff-balance', staff.id, year],
+        queryFn: async () => (await api.get(`/leave/balance/${staff.id}?year=${year}`)).data,
+        enabled: open,
+    });
+
+    const totalAvailable = balance?.reduce((s, b) => s + Number(b.balance_days || 0), 0) || 0;
+    const totalUsed = balance?.reduce((s, b) => s + Number(b.used_days || 0), 0) || 0;
+
+    return (
+        <>
+            <tr className="hover:bg-slate-50 cursor-pointer" onClick={() => setOpen(o => !o)}>
+                <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                        <button className={`p-1 rounded transition-transform ${open ? 'rotate-180' : ''}`}>
+                            <ChevronDown size={16} className="text-slate-400" />
+                        </button>
+                        <div className="w-9 h-9 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-medium shrink-0">
+                            {staff.first_name?.[0]}{staff.last_name?.[0]}
+                        </div>
+                        <div>
+                            <p className="font-medium text-slate-900">{staff.full_name || `${staff.first_name} ${staff.last_name}`}</p>
+                            <p className="text-xs text-slate-400">{staff.employee_number || ''}</p>
+                        </div>
+                    </div>
+                </td>
+                <td className="px-4 py-3 text-slate-600 text-sm">{staff.position?.name || '-'}</td>
+                <td className="px-4 py-3 text-slate-600 text-sm">{staff.branch?.name || '-'}</td>
+                <td className="px-4 py-3 text-right">
+                    {open && !isLoading && balance && (
+                        <div className="inline-flex items-center gap-2">
+                            <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-semibold tabular-nums">{totalAvailable.toFixed(1)}d available</span>
+                            <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs font-semibold tabular-nums">{totalUsed.toFixed(1)}d used</span>
+                        </div>
+                    )}
+                </td>
+            </tr>
+            {open && (
+                <tr className="bg-slate-50/50">
+                    <td colSpan={4} className="px-4 py-4">
+                        {isLoading ? (
+                            <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 className="animate-spin" size={14} /> Loading balances…</div>
+                        ) : !balance || balance.length === 0 ? (
+                            <p className="text-sm text-slate-400 italic">No balances initialized for {year}. Click "Initialize {year}" above.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {balance.map(b => {
+                                    const total = Number(b.entitled_days || 0);
+                                    const used = Number(b.used_days || 0);
+                                    const pending = Number(b.pending_days || 0);
+                                    const available = Number(b.balance_days || 0);
+                                    const usedPct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
+                                    const pendingPct = total > 0 ? Math.min(100 - usedPct, (pending / total) * 100) : 0;
+                                    return (
+                                        <div key={b.id} className={`border rounded-xl p-3 ${typeColor(b.leaveType?.code)}`}>
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div>
+                                                    <p className="font-semibold text-sm">{b.leaveType?.name}</p>
+                                                    <p className="text-[11px] opacity-70 font-mono">{b.leaveType?.code}</p>
+                                                </div>
+                                                <button onClick={(e) => { e.stopPropagation(); onAdjust(staff.id, b.leaveType.id, b.leaveType?.name || ''); }} className="p-1.5 rounded-md bg-white/70 hover:bg-white border border-slate-200 text-slate-500" title="Adjust balance">
+                                                    <Edit3 size={13} />
+                                                </button>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-baseline justify-between text-xs">
+                                                    <span className="opacity-70">Available</span>
+                                                    <span className="text-base font-bold tabular-nums">{available.toFixed(1)}d</span>
+                                                </div>
+                                                <div className="h-2 bg-white/60 rounded-full overflow-hidden flex">
+                                                    <div className="h-full bg-red-400/70" style={{ width: `${usedPct}%` }} title={`Used: ${used}d`} />
+                                                    <div className="h-full bg-amber-300/70" style={{ width: `${pendingPct}%` }} title={`Pending: ${pending}d`} />
+                                                </div>
+                                                <div className="flex items-center justify-between text-[11px] opacity-80 tabular-nums">
+                                                    <span>Used {used.toFixed(1)}</span>
+                                                    {pending > 0 && <span>Pending {pending.toFixed(1)}</span>}
+                                                    <span>of {total.toFixed(1)}d</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </td>
+                </tr>
+            )}
+        </>
+    );
 };
 
 export const LeaveManagementPage: React.FC = () => {
@@ -36,7 +149,9 @@ export const LeaveManagementPage: React.FC = () => {
     const [rejectDialogLeaveId, setRejectDialogLeaveId] = useState<string | null>(null);
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [searchStaff, setSearchStaff] = useState('');
-    const [selectedYear] = useState(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [adjustTarget, setAdjustTarget] = useState<{ staffId: string; leaveTypeId: string; leaveTypeName: string } | null>(null);
+    const [adjustForm, setAdjustForm] = useState({ adjustmentDays: 0, reason: '' });
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -87,8 +202,20 @@ export const LeaveManagementPage: React.FC = () => {
 
     const initializeBalancesMutation = useMutation({
         mutationFn: async (year: number) => (await api.post('/leave/balance/initialize', { year })).data,
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-balances'] }); showToast('Balances initialized'); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-balance'] }); showToast('Balances initialized'); },
         onError: (error: any) => showToast(error?.response?.data?.message || 'Failed to initialize balances', 'error'),
+    });
+
+    const adjustBalanceMutation = useMutation({
+        mutationFn: async ({ staffId, leaveTypeId, adjustmentDays, reason }: { staffId: string; leaveTypeId: string; adjustmentDays: number; reason: string }) =>
+            (await api.post(`/leave/balance/${staffId}/adjust`, { leaveTypeId, adjustmentDays, reason })).data,
+        onSuccess: (_, vars) => {
+            queryClient.invalidateQueries({ queryKey: ['staff-balance', vars.staffId, selectedYear] });
+            setAdjustTarget(null);
+            setAdjustForm({ adjustmentDays: 0, reason: '' });
+            showToast('Balance adjusted');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to adjust balance', 'error'),
     });
 
     const processAccrualMutation = useMutation({
@@ -264,42 +391,158 @@ export const LeaveManagementPage: React.FC = () => {
             )}
 
             {/* STAFF BALANCES TAB (Admin) */}
-            {activeTab === 'balances' && isAdmin && (
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                        <h2 className="font-semibold text-slate-900">Staff Leave Balances</h2>
-                        <div className="flex items-center gap-3">
-                            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search staff..." value={searchStaff} onChange={(e) => setSearchStaff(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm" /></div>
-                            <button onClick={() => initializeBalancesMutation.mutate(selectedYear)} className="px-3 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium">Initialize {selectedYear}</button>
+            {activeTab === 'balances' && isAdmin && (() => {
+                const allStaff = Array.isArray(staffList) ? staffList : (staffList?.data || []);
+                const filtered = allStaff.filter((s: any) => {
+                    if (!searchStaff) return true;
+                    const name = (s.full_name || `${s.first_name} ${s.last_name}` || '').toLowerCase();
+                    const empNo = (s.employee_number || '').toLowerCase();
+                    const q = searchStaff.toLowerCase();
+                    return name.includes(q) || empNo.includes(q);
+                });
+                const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
+                return (
+                    <div className="space-y-4">
+                        {/* Summary header */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg"><Users className="text-[#0066B3]" size={20} /></div>
+                                <div><p className="text-2xl font-bold text-slate-900">{allStaff.length}</p><p className="text-xs text-slate-500">Total Staff</p></div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                                <div className="p-2 bg-emerald-100 rounded-lg"><CalendarDays className="text-emerald-600" size={20} /></div>
+                                <div><p className="text-2xl font-bold text-slate-900">{leaveTypes?.length || 0}</p><p className="text-xs text-slate-500">Leave Types</p></div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                                <div className="p-2 bg-purple-100 rounded-lg"><CalendarIcon className="text-purple-600" size={20} /></div>
+                                <div><p className="text-2xl font-bold text-slate-900">{selectedYear}</p><p className="text-xs text-slate-500">Active Year</p></div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                                <div className="p-2 bg-amber-100 rounded-lg"><Search className="text-amber-600" size={20} /></div>
+                                <div><p className="text-2xl font-bold text-slate-900">{filtered.length}</p><p className="text-xs text-slate-500">Matching</p></div>
+                            </div>
+                        </div>
+
+                        {/* Table card */}
+                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                <div>
+                                    <h2 className="font-semibold text-slate-900">Staff Leave Balances</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">Click any row to view detailed balances. Use the edit icon on each card to adjust.</p>
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input type="text" placeholder="Search name or employee #..." value={searchStaff} onChange={(e) => setSearchStaff(e.target.value)} className="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm w-64" />
+                                    </div>
+                                    <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium">
+                                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                    <button
+                                        onClick={() => initializeBalancesMutation.mutate(selectedYear)}
+                                        disabled={initializeBalancesMutation.isPending}
+                                        className="flex items-center gap-2 px-3 py-2 bg-[#0066B3] text-white rounded-lg text-sm font-medium hover:bg-[#005299] disabled:opacity-50"
+                                    >
+                                        {initializeBalancesMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                        Initialize {selectedYear}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {filtered.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <Users className="mx-auto text-slate-300 mb-3" size={48} />
+                                    <p className="text-slate-500 font-medium">No staff found</p>
+                                    <p className="text-sm text-slate-400 mt-1">Try a different search term.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-slate-50">
+                                            <tr>
+                                                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Staff</th>
+                                                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Position</th>
+                                                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Branch</th>
+                                                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {filtered.slice(0, 50).map((s: any) => (
+                                                <StaffBalanceRow
+                                                    key={s.id}
+                                                    staff={s}
+                                                    year={selectedYear}
+                                                    onAdjust={(staffId, leaveTypeId, leaveTypeName) => {
+                                                        setAdjustTarget({ staffId, leaveTypeId, leaveTypeName });
+                                                        setAdjustForm({ adjustmentDays: 0, reason: '' });
+                                                    }}
+                                                />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {filtered.length > 50 && (
+                                        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 text-center">
+                                            Showing first 50 of {filtered.length} staff. Refine your search to see more.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="p-6">
-                        {(Array.isArray(staffList) ? staffList : staffList?.data || []).filter((s: any) => {
-                            if (!searchStaff) return true;
-                            const name = (s.full_name || `${s.first_name} ${s.last_name}`).toLowerCase();
-                            return name.includes(searchStaff.toLowerCase());
-                        }).length === 0 ? (
-                            <p className="text-slate-500 text-center py-8">No staff found. Try a different search.</p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-slate-50"><tr><th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Staff</th><th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Position</th><th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Branch</th></tr></thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {(Array.isArray(staffList) ? staffList : staffList?.data || []).filter((s: any) => {
-                                            if (!searchStaff) return true;
-                                            const name = (s.full_name || `${s.first_name} ${s.last_name}`).toLowerCase();
-                                            return name.includes(searchStaff.toLowerCase());
-                                        }).slice(0, 20).map((s: any) => (
-                                            <tr key={s.id} className="hover:bg-slate-50">
-                                                <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-medium">{s.first_name?.[0]}{s.last_name?.[0]}</div><span className="font-medium text-slate-900">{s.full_name || `${s.first_name} ${s.last_name}`}</span></div></td>
-                                                <td className="px-4 py-3 text-slate-600 text-sm">{s.position?.name || '-'}</td>
-                                                <td className="px-4 py-3 text-slate-600 text-sm">{s.branch?.name || '-'}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                );
+            })()}
+
+            {/* Adjust Balance Modal */}
+            {adjustTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <div>
+                                <h2 className="font-semibold text-slate-900">Adjust Balance</h2>
+                                <p className="text-xs text-slate-500 mt-0.5">{adjustTarget.leaveTypeName} · {selectedYear}</p>
                             </div>
-                        )}
+                            <button onClick={() => setAdjustTarget(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Adjustment (days)</label>
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    value={adjustForm.adjustmentDays}
+                                    onChange={(e) => setAdjustForm({ ...adjustForm, adjustmentDays: parseFloat(e.target.value) || 0 })}
+                                    placeholder="e.g., 2 to add, -1 to deduct"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">Use positive numbers to credit, negative to debit.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
+                                <textarea
+                                    value={adjustForm.reason}
+                                    onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+                                    placeholder="Reason for adjustment (audit trail)"
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setAdjustTarget(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => adjustBalanceMutation.mutate({
+                                    staffId: adjustTarget.staffId,
+                                    leaveTypeId: adjustTarget.leaveTypeId,
+                                    adjustmentDays: adjustForm.adjustmentDays,
+                                    reason: adjustForm.reason,
+                                })}
+                                disabled={!adjustForm.adjustmentDays || !adjustForm.reason || adjustBalanceMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
+                            >
+                                {adjustBalanceMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                                Apply Adjustment
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
