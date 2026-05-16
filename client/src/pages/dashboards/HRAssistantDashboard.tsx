@@ -6,7 +6,7 @@ import {
     Users, Calendar, FileText, CheckSquare, Clock, ChevronRight,
     UserPlus, ClipboardList, AlertCircle, Briefcase,
     CalendarDays, UserCheck, AlertTriangle, FileWarning, ScrollText,
-    Video, MapPin, FileCheck, FileWarning as FileWarningIcon,
+    Video, MapPin, FileCheck,
 } from 'lucide-react';
 
 interface StatCardProps {
