@@ -59,6 +59,10 @@ export class CreateLeaveTypeDto {
 
     @IsOptional()
     @IsBoolean()
+    is_paid?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
     requires_attachment?: boolean;
 
     @IsOptional()
@@ -127,6 +131,10 @@ export class UpdateLeaveTypeDto {
     @IsOptional()
     @IsBoolean()
     requires_confirmation?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    is_paid?: boolean;
 
     @IsOptional()
     @IsBoolean()

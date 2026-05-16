@@ -48,6 +48,10 @@ export class LeaveType {
     @Column({ default: false })
     requires_confirmation: boolean; // Only confirmed staff can take this leave
 
+    // Paid/unpaid
+    @Column({ default: true })
+    is_paid: boolean;
+
     // Document requirements
     @Column({ default: false })
     requires_attachment: boolean;
