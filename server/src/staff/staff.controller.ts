@@ -198,14 +198,28 @@ export class StaffController {
         return this.staffService.getTeamHierarchy(id);
     }
 
+    // NestJS does NOT compose multiple HTTP-method decorators on one handler;
+    // only one survives, so callers using the "other" verb hit a 404 from the
+    // Express layer ("Cannot PUT /staff/:id"). We register the same handler
+    // under each verb explicitly.
     @Patch(':id')
-    @Put(':id')
     @Roles('CEO', 'HR_MANAGER')
     update(@Param('id', ParseUUIDPipe) id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: AuthenticatedRequest) {
         return this.staffService.update(id, updateStaffDto, req.user.id);
     }
 
+    @Put(':id')
+    @Roles('CEO', 'HR_MANAGER')
+    updatePut(@Param('id', ParseUUIDPipe) id: string, @Body() updateStaffDto: UpdateStaffDto, @Req() req: AuthenticatedRequest) {
+        return this.staffService.update(id, updateStaffDto, req.user.id);
+    }
+
     @Post(':id/activate')
+    @Roles('CEO', 'HR_MANAGER')
+    activatePost(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+        return this.staffService.activateStaff(id, req.user.id);
+    }
+
     @Patch(':id/activate')
     @Roles('CEO', 'HR_MANAGER')
     activate(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
@@ -213,6 +227,11 @@ export class StaffController {
     }
 
     @Post(':id/deactivate')
+    @Roles('CEO', 'HR_MANAGER')
+    deactivatePost(@Param('id', ParseUUIDPipe) id: string, @Body('reason') reason: string | undefined, @Req() req: AuthenticatedRequest) {
+        return this.staffService.deactivateStaff(id, reason, req.user.id);
+    }
+
     @Patch(':id/deactivate')
     @Roles('CEO', 'HR_MANAGER')
     deactivate(@Param('id', ParseUUIDPipe) id: string, @Body('reason') reason: string | undefined, @Req() req: AuthenticatedRequest) {
