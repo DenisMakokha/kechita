@@ -621,17 +621,34 @@ export class StaffController {
 
     @Get('me/profile')
     async getMyProfile(@Req() req: AuthenticatedRequest) {
-        // Try staff_id from token first, fallback to user.id lookup
+        // Resolution chain:
+        //   1. JWT staff_id (set by JwtStrategy.validate)
+        //   2. JWT sub / user.id (covers cases where staff was linked AFTER login)
+        //   3. JWT email (covers stale tokens whose sub no longer matches the
+        //      current users.id, e.g. after a database reseed — without this,
+        //      users get a 404 until they log out and back in)
         const staffId = req.user?.staff_id;
         if (staffId) {
-            return this.staffService.findOne(staffId);
+            try {
+                return await this.staffService.findOne(staffId);
+            } catch {
+                // Stale staff_id in token; fall through to other resolvers.
+            }
         }
-        // Fallback: look up staff by user ID
-        const staff = await this.staffService.findByUserId(req.user.id);
-        if (!staff) {
-            throw new NotFoundException('No staff profile found for your account. Please contact HR to set up your staff profile.');
+
+        if (req.user?.id) {
+            const byUser = await this.staffService.findByUserId(req.user.id);
+            if (byUser) return byUser;
         }
-        return staff;
+
+        if (req.user?.email) {
+            const byEmail = await this.staffService.findByUserEmail(req.user.email);
+            if (byEmail) return byEmail;
+        }
+
+        throw new NotFoundException(
+            'No staff profile found for your account. Your session may be stale — please log out and log back in. If the problem persists, contact HR.'
+        );
     }
 
     @Patch('me/profile')

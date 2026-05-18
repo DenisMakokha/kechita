@@ -320,6 +320,20 @@ export class StaffService {
         });
     }
 
+    /**
+     * Fallback resolver used by self-service endpoints (e.g. /staff/me/profile).
+     * If a JWT carries a stale `sub` (e.g. after a database reseed) the user_id
+     * lookup will miss; matching by email still recovers the right record so
+     * the user isn't locked out until they re-login.
+     */
+    async findByUserEmail(email: string): Promise<Staff | null> {
+        if (!email) return null;
+        return this.staffRepo.findOne({
+            where: { user: { email } },
+            relations: ['user', 'position', 'branch', 'region', 'department'],
+        });
+    }
+
     async findByEmployeeNumber(employeeNumber: string): Promise<Staff | null> {
         return this.staffRepo.findOne({
             where: { employee_number: employeeNumber },
