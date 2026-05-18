@@ -1,32 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { JobPost } from './job-post.entity';
-
-export enum CriteriaType {
-    EXPERIENCE_YEARS = 'experience_years',
-    EDUCATION_LEVEL = 'education_level',
-    SKILL_REQUIRED = 'skill_required',
-    CERTIFICATION = 'certification',
-    KEYWORD = 'keyword',
-    LOCATION = 'location',
-    SALARY_EXPECTATION = 'salary_expectation',
-    AVAILABILITY = 'availability',
-    WORK_AUTHORIZATION = 'work_authorization',
-}
-
-export enum EducationLevel {
-    HIGH_SCHOOL = 'high_school',
-    DIPLOMA = 'diploma',
-    BACHELORS = 'bachelors',
-    MASTERS = 'masters',
-    PHD = 'phd',
-    ANY = 'any',
-}
-
-export enum CriteriaImportance {
-    KNOCKOUT = 'knockout',       // Must meet - auto-reject if not met
-    REQUIRED = 'required',       // Strongly required - heavy score penalty if not met
-    PREFERRED = 'preferred',     // Nice to have - bonus points if met
-}
+// Enums live in a leaf module to avoid the circular import with job-post.entity.
+// We re-export them so existing call sites keep working.
+import { CriteriaType, EducationLevel, CriteriaImportance } from './recruitment-enums';
+export { CriteriaType, EducationLevel, CriteriaImportance };
 
 @Entity('screening_criteria')
 export class ScreeningCriteria {

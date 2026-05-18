@@ -12,6 +12,8 @@ import { join } from 'path';
 
 loadEnv();
 
+// NOTE: the typeorm-ts-node-commonjs CLI requires this file to expose
+// exactly one DataSource export. We use a named export only.
 export const AppDataSource = new DataSource({
     type: 'postgres',
     host: process.env.DB_HOST,
@@ -25,5 +27,3 @@ export const AppDataSource = new DataSource({
     synchronize: false,
     logging: process.env.NODE_ENV !== 'production',
 });
-
-export default AppDataSource;

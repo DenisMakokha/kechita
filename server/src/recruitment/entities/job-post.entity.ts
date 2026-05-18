@@ -4,7 +4,9 @@ import { Region } from '../../org/entities/region.entity';
 import { Branch } from '../../org/entities/branch.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 import { Position } from '../../org/entities/position.entity';
-import { EducationLevel } from './screening-criteria.entity';
+// Import from the leaf enums module to avoid a circular import with
+// screening-criteria.entity (which itself imports JobPost from this file).
+import { EducationLevel } from './recruitment-enums';
 
 export enum JobStatus {
     DRAFT = 'draft',
