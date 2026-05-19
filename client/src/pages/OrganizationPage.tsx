@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import JdManagerModal from '../components/org/JdManagerModal';
 import {
     MapPin, Building, Briefcase, Users, Plus, Edit, Trash2,
     X, CheckCircle, XCircle, Search, ChevronRight, ChevronDown,
-    Phone, Mail, UserCheck, Building2, Network
+    Phone, Mail, UserCheck, Building2, Network, FileText,
 } from 'lucide-react';
 
 type Tab = 'regions' | 'branches' | 'departments' | 'positions' | 'chart';
@@ -70,6 +71,10 @@ export const OrganizationPage: React.FC = () => {
     const [chartSearch, setChartSearch] = useState('');
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3500); };
+
+    // Job Description modal state
+    const [showJdModal, setShowJdModal] = useState(false);
+    const [jdTarget, setJdTarget] = useState<{ id: string; name: string } | null>(null);
 
     // Fetch data
     const { data: regions } = useQuery<Region[]>({
@@ -706,6 +711,13 @@ export const OrganizationPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center justify-end gap-1">
+                                            <button
+                                                onClick={() => { setJdTarget(position); setShowJdModal(true); }}
+                                                title="Manage Job Description"
+                                                className="p-2 hover:bg-indigo-50 rounded-lg text-slate-400 hover:text-indigo-600"
+                                            >
+                                                <FileText size={16} />
+                                            </button>
                                             <button onClick={() => openModal('positions', position)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600"><Edit size={16} /></button>
                                             <button onClick={() => handleToggleStatus('positions', position.id, position.is_active)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600">{position.is_active ? <XCircle size={16} /> : <CheckCircle size={16} />}</button>
                                             <button onClick={() => handleDelete('positions', position.id, position.name)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
@@ -1145,6 +1157,16 @@ export const OrganizationPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* JD Manager Modal */}
+            {showJdModal && jdTarget && (
+                <JdManagerModal
+                    positionId={jdTarget.id}
+                    positionName={jdTarget.name}
+                    onClose={() => { setShowJdModal(false); setJdTarget(null); }}
+                    showToast={showToast}
+                />
             )}
         </div>
     );

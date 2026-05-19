@@ -46,6 +46,7 @@ import { Region } from './org/entities/region.entity';
 import { Branch } from './org/entities/branch.entity';
 import { Department } from './org/entities/department.entity';
 import { Position } from './org/entities/position.entity';
+import { JobDescription } from './org/entities/job-description.entity';
 // Staff Entities
 import { Staff } from './staff/entities/staff.entity';
 import { Document } from './staff/entities/document.entity';
@@ -168,7 +169,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         // Auth
         User, Role, Permission, PasswordResetToken, RefreshToken,
         // Org
-        Region, Branch, Department, Position,
+        Region, Branch, Department, Position, JobDescription,
         // Staff
         Staff, Document, DocumentType, StaffDocument, EmploymentHistory, StaffContract, StaffContractAddendum,
         NextOfKin, Dependent, ProbationReview, SalaryHistory,
