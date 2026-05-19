@@ -123,7 +123,7 @@ export class UpdateContractTemplatesRichContent1779216220573 implements Migratio
 <ul style="margin-bottom:12px;padding-left:20px;">
   <li>Pay As You Earn (PAYE) — Income Tax</li>
   <li>National Social Security Fund (NSSF) contributions</li>
-  <li>National Hospital Insurance Fund (NHIF) contributions</li>
+  <li>Social Health Insurance Fund (SHIF) contributions</li>
   <li>Housing Levy as applicable</li>
 </ul>
 
