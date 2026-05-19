@@ -51,6 +51,7 @@ const navItems = [
     // Performance shown only to non-admin staff; admins access it via HR Admin
     { path: '/performance', label: 'Performance', icon: Award, roles: ['REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'STAFF', 'RELATIONSHIP_OFFICER', 'BDM', 'REGIONAL_ADMIN'] },
     { path: '/hr-admin', label: 'HR Admin', icon: Briefcase, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
+    { path: '/document-templates', label: 'Templates', icon: FileText, roles: ['CEO', 'HR_MANAGER'] },
     { path: '/recruitment', label: 'Recruitment', icon: UserPlus, roles: ['CEO', 'HR_MANAGER', 'HR_ASSISTANT'] },
     // Onboarding moved into Recruitment page
     { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'RELATIONSHIP_OFFICER', 'BDM'] },

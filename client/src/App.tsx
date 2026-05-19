@@ -26,6 +26,7 @@ const PayrollPage = React.lazy(() => import('./pages/PayrollPage'));
 const AttendancePage = React.lazy(() => import('./pages/AttendancePage'));
 const PerformancePage = React.lazy(() => import('./pages/PerformancePage'));
 const HRAdminPage = React.lazy(() => import('./pages/HRAdminPage'));
+const DocumentTemplatesPage = React.lazy(() => import('./pages/DocumentTemplatesPage'));
 const AnnouncementsPage = React.lazy(() => import('./pages/AnnouncementsPage'));
 const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
 const OrganizationPage = React.lazy(() => import('./pages/OrganizationPage'));
@@ -257,6 +258,16 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER, ROLES.HR_ASSISTANT]}>
                   <HRAdminPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Document Templates (contracts, offers, JDs, warnings, …) */}
+            <Route
+              path="document-templates"
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.CEO, ROLES.HR_MANAGER]}>
+                  <DocumentTemplatesPage />
                 </ProtectedRoute>
               }
             />

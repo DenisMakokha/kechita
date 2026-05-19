@@ -34,6 +34,7 @@ import { TrainingModule } from './training/training.module';
 import { DisciplinaryModule } from './disciplinary/disciplinary.module';
 import { CompBenefitsModule } from './comp-benefits/comp-benefits.module';
 import { AssetsModule } from './assets/assets.module';
+import { DocumentTemplatesModule } from './document-templates/document-templates.module';
 // Auth Entities
 import { User } from './auth/entities/user.entity';
 import { Role } from './auth/entities/role.entity';
@@ -139,6 +140,8 @@ import { BenefitEnrollment } from './comp-benefits/entities/benefit-enrollment.e
 // Assets Entities
 import { Asset } from './assets/entities/asset.entity';
 import { AssetAssignment } from './assets/entities/asset-assignment.entity';
+// Document Templates
+import { DocumentTemplate } from './document-templates/entities/document-template.entity';
 
 const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
 
@@ -210,6 +213,8 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         SalaryBand, BenefitPlan, BenefitEnrollment,
         // Assets
         Asset, AssetAssignment,
+        // Document Templates
+        DocumentTemplate,
       ],
       synchronize: shouldSynchronize,
       logging: process.env.NODE_ENV !== 'production',
@@ -245,6 +250,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
     DisciplinaryModule,
     CompBenefitsModule,
     AssetsModule,
+    DocumentTemplatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
