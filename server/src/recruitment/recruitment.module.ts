@@ -21,9 +21,11 @@ import { ScreeningCriteria } from './entities/screening-criteria.entity';
 import { KnockoutQuestion } from './entities/knockout-question.entity';
 import { ScreeningResult } from './entities/screening-result.entity';
 import { Staff } from '../staff/entities/staff.entity';
+import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 
 @Module({
     imports: [
+        DocumentTemplatesModule,
         TypeOrmModule.forFeature([
             JobPost,
             PipelineStage,

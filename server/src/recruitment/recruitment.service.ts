@@ -12,6 +12,8 @@ import { Offer } from './entities/offer.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { EmailService } from '../email/email.service';
 import { CalendarService } from '../email/calendar.service';
+import { DocumentTemplatesService } from '../document-templates/document-templates.service';
+import { DocumentTemplateKind } from '../document-templates/entities/document-template.entity';
 import { randomDigits, uuid } from '../common/id-utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -121,7 +123,10 @@ export class RecruitmentService {
         private dataSource: DataSource,
         private emailService: EmailService,
         private calendarService: CalendarService,
+        private templates: DocumentTemplatesService,
     ) { }
+
+    private readonly recruitLogger = new (require('@nestjs/common').Logger)('RecruitmentService');
 
     // ==================== JOB POSTS ====================
 
@@ -958,20 +963,36 @@ export class RecruitmentService {
         return this.offerRepo.save(offer);
     }
 
+    /**
+     * Renders the offer-letter PDF and writes it under /uploads/offers/.
+     * Prefers the active "offer_letter" template (Phase 1 document engine);
+     * falls back to the legacy hard-coded PDFKit layout if no template
+     * exists (or if rendering fails for any reason).
+     */
     private async generateOfferPdf(offer: Offer, application: Application, notes?: string): Promise<string> {
+        const safeFirstName = (application.candidate.first_name || 'candidate').replace(/[^a-z0-9_-]/gi, '');
+        const fileName = `offer-${safeFirstName}-${uuid()}.pdf`;
+        const uploadDir = path.join(process.cwd(), 'uploads', 'offers');
+        const filePath = path.join(uploadDir, fileName);
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+        // ---- Template-engine path ----
+        try {
+            const tpl = await this.templates.findActive(DocumentTemplateKind.OFFER_LETTER);
+            if (tpl) {
+                const ctx = this.buildOfferLetterContext(offer, application, notes);
+                const buffer = await this.templates.renderPdfWithContext(tpl.id, ctx);
+                fs.writeFileSync(filePath, buffer);
+                if (!offer.template_id) offer.template_id = tpl.id;
+                return fileName;
+            }
+        } catch (err: any) {
+            this.recruitLogger.warn(`Template-engine offer render failed; falling back to PDFKit. ${err?.message}`);
+        }
+
+        // ---- Legacy PDFKit path ----
         return new Promise((resolve, reject) => {
             const doc = new PDFDocument({ margin: 50 });
-            const safeFirstName = (application.candidate.first_name || 'candidate').replace(/[^a-z0-9_-]/gi, '');
-            const fileName = `offer-${safeFirstName}-${uuid()}.pdf`;
-            // Ensure path resolution is correct relative to dist/src/recruitment/recruitment.service.js
-            // Or use process.cwd()
-            const uploadDir = path.join(process.cwd(), 'uploads', 'offers');
-            const filePath = path.join(uploadDir, fileName);
-
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-
             const stream = fs.createWriteStream(filePath);
             doc.pipe(stream);
 
@@ -1025,6 +1046,46 @@ export class RecruitmentService {
             stream.on('finish', () => resolve(fileName));
             stream.on('error', reject);
         });
+    }
+
+    /**
+     * Build the Handlebars context for an offer-letter template. Mirrors
+     * the variable catalog in `template-variables.ts` (offer_letter kind).
+     * `accept_link` is wired by the signature service when it sends the
+     * email; here we leave it as the placeholder text since the PDF copy is
+     * generated up-front (before the signature token exists).
+     */
+    private buildOfferLetterContext(offer: Offer, application: Application, notes?: string): Record<string, any> {
+        const candidate = application.candidate || ({} as any);
+        const job = application.jobPost || ({} as any);
+        return {
+            company: {
+                name: 'Kechita Capital Limited',
+                address: 'Nairobi, Kenya',
+                phone: '+254 700 000 000',
+                email: 'hr@kechita.co.ke',
+            },
+            offer: {
+                position_name: job.title || 'Position',
+                start_date: offer.start_date,
+                salary: offer.offered_salary,
+                salary_currency: offer.currency || 'KES',
+                expiry_date: offer.expiration_date,
+                reporting_to: (job as any).hiringManager
+                    ? `${(job as any).hiringManager.first_name || ''} ${(job as any).hiringManager.last_name || ''}`.trim()
+                    : 'Hiring Manager',
+                special_clauses: notes || '',
+            },
+            candidate: {
+                first_name: candidate.first_name,
+                last_name: candidate.last_name,
+                email: candidate.email,
+            },
+            // Filled in by the signature email once a token is minted. For
+            // the PDF copy generated at offer creation, this stays as a
+            // human-readable hint.
+            accept_link: 'See signing email for secure link',
+        };
     }
 
     // ==================== REJECT APPLICATION ====================
