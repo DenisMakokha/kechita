@@ -13,7 +13,8 @@ import {
     CreditCard, Shield, History, Camera, RefreshCw,
     ChevronRight, AlertCircle, TrendingUp, DollarSign,
     FileCheck, Plus, RotateCcw, Ban, Play, Heart,
-    KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2, MoreHorizontal
+    KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2, MoreHorizontal,
+    PenTool,
 } from 'lucide-react';
 import StaffPeopleTab from '../components/staff/StaffPeopleTab';
 
@@ -388,6 +389,15 @@ export const StaffProfilePage: React.FC = () => {
         mutationFn: async (contractId: string) => (await api.patch(`/staff/contracts/${contractId}/activate`)).data,
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-contracts', id] }); showToast('Contract activated'); },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed', 'error'),
+    });
+
+    // Phase 2: send contract for e-signature (mails a magic link to staff
+    // and flips status to pending_signature). The same endpoint can be
+    // called again to rotate the token if needed.
+    const sendForSignatureMutation = useMutation({
+        mutationFn: async (contractId: string) => (await api.post(`/staff/contracts/${contractId}/send-for-signature`, {})).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-contracts', id] }); showToast('Signing link sent to employee'); },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to send for signature', 'error'),
     });
 
     const terminateContractMutation = useMutation({
@@ -1105,9 +1115,19 @@ export const StaffProfilePage: React.FC = () => {
                                                     <Download size={12} /> Download PDF
                                                 </button>
                                                 {(c.status === 'draft' || c.status === 'pending_signature') && (
-                                                    <button onClick={() => activateContractMutation.mutate(c.id)} className="px-3 py-1.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 flex items-center gap-1">
-                                                        <Play size={12} /> Activate
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => sendForSignatureMutation.mutate(c.id)}
+                                                            disabled={sendForSignatureMutation.isPending}
+                                                            className="px-3 py-1.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 flex items-center gap-1 disabled:opacity-50"
+                                                            title={c.status === 'pending_signature' ? 'Resend signing link (rotates token)' : 'Email a secure signing link to the employee'}
+                                                        >
+                                                            <PenTool size={12} /> {c.status === 'pending_signature' ? 'Resend signing link' : 'Send for signature'}
+                                                        </button>
+                                                        <button onClick={() => activateContractMutation.mutate(c.id)} className="px-3 py-1.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 flex items-center gap-1">
+                                                            <Play size={12} /> Activate
+                                                        </button>
+                                                    </>
                                                 )}
                                                 {c.status === 'active' && (
                                                     <button onClick={() => { setRenewContractTarget(c.id); setRenewEndDate(c.end_date ? new Date(new Date(c.end_date).getTime() + 365*24*60*60*1000).toISOString().split('T')[0] : ''); setRenewSalary(c.salary ? String(c.salary) : ''); setShowRenewModal(true); }} className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1">

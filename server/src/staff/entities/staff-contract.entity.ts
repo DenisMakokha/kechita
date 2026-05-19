@@ -81,6 +81,49 @@ export class StaffContract {
     @Column({ nullable: true })
     signed_by_employer?: string;
 
+    // ===== Signature & audit (Phase 2 — e-signature lite) =====
+
+    /** Base64-encoded PNG of the employee's drawn signature. */
+    @Column({ type: 'text', nullable: true })
+    signature_image?: string;
+
+    /** Remote IP captured at the moment of signing (audit trail). */
+    @Column({ nullable: true })
+    signed_ip?: string;
+
+    /** User-agent captured at the moment of signing (audit trail). */
+    @Column({ type: 'text', nullable: true })
+    signed_user_agent?: string;
+
+    /**
+     * Magic-link token mailed to the employee so they can sign without an
+     * IDE login session (work-from-home onboarding). One-shot; cleared on
+     * successful signature.
+     */
+    @Column({ nullable: true, unique: true })
+    signature_token?: string;
+
+    @Column({ type: 'timestamptz', nullable: true })
+    signature_token_expires_at?: Date;
+
+    /**
+     * Reserved for future swap-in of DocuSign/SignNow. Today everything runs
+     * through the built-in pad ('internal').
+     */
+    @Column({ default: 'internal' })
+    e_signature_provider: string;
+
+    @Column({ nullable: true })
+    provider_envelope_id?: string;
+
+    /**
+     * Optional: link to the active DocumentTemplate used to render this
+     * contract's PDF. Stored as a plain uuid string (no FK relation here to
+     * avoid a cross-module entity cycle).
+     */
+    @Column({ type: 'uuid', nullable: true })
+    template_id?: string;
+
     // Renewal tracking
     @Column({ type: 'int', default: 0 })
     renewal_count: number;

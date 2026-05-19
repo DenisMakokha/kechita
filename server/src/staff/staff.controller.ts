@@ -871,6 +871,32 @@ export class StaffController {
         return this.contractService.delete(contractId);
     }
 
+    @Post('contracts/:contractId/send-for-signature')
+    @Roles('CEO', 'HR_MANAGER')
+    sendContractForSignature(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: { baseUrl?: string; expiresInDays?: number },
+    ) {
+        return this.contractService.sendForSignature(contractId, data || {});
+    }
+
+    @Post('contracts/:contractId/sign')
+    @Roles('CEO', 'HR_MANAGER', 'STAFF', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'RELATIONSHIP_OFFICER', 'BDM', 'REGIONAL_ADMIN', 'HR_ASSISTANT')
+    signContractFromPortal(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: { signatureImage: string; signedByName: string },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || (req as any).ip;
+        const ua = req.headers['user-agent'] as string | undefined;
+        return this.contractService.signFromPortal(contractId, {
+            signatureImage: data.signatureImage,
+            signedByName: data.signedByName,
+            ip,
+            userAgent: ua,
+        });
+    }
+
     @Get('contracts/:contractId/pdf')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     async downloadContractPDF(

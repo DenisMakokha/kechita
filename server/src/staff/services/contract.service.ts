@@ -1,17 +1,23 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, Between, Not, IsNull } from 'typeorm';
 import { StaffContract, ContractType, ContractStatus } from '../entities/staff-contract.entity';
 import { Staff } from '../entities/staff.entity';
 import { JobPost } from '../../recruitment/entities/job-post.entity';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as crypto from 'crypto';
+import { DocumentTemplatesService } from '../../document-templates/document-templates.service';
+import {
+    DocumentTemplateKind, DocumentTemplateScope,
+} from '../../document-templates/entities/document-template.entity';
+import { EmailService } from '../../email/email.service';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 
 @Injectable()
 export class ContractService {
+    private readonly logger = new Logger(ContractService.name);
+
     constructor(
         @InjectRepository(StaffContract)
         private contractRepo: Repository<StaffContract>,
@@ -19,6 +25,8 @@ export class ContractService {
         private staffRepo: Repository<Staff>,
         @InjectRepository(JobPost)
         private jobPostRepo: Repository<JobPost>,
+        private readonly templates: DocumentTemplatesService,
+        private readonly emailService: EmailService,
     ) {}
 
     async create(
@@ -196,6 +204,12 @@ export class ContractService {
 
     // ==================== PDF GENERATION ====================
 
+    /**
+     * Main entry point. Tries to render via the new template engine; falls
+     * back to the legacy PDFKit layout if no active template is found for
+     * the contract's type. This lets HR opt-in per contract type by
+     * activating a template, without forcing migration of every record.
+     */
     async generateContractPDF(contractId: string): Promise<{ buffer: Buffer; fileName: string }> {
         const contract = await this.contractRepo.findOne({
             where: { id: contractId },
@@ -205,6 +219,105 @@ export class ContractService {
 
         const staff = contract.staff;
         if (!staff) throw new BadRequestException('Contract has no linked staff member');
+
+        // ---- New path: template engine ----
+        try {
+            const tpl = await this.templates.findActive(
+                DocumentTemplateKind.EMPLOYMENT_CONTRACT,
+                DocumentTemplateScope.PER_CONTRACT_TYPE,
+                contract.contract_type,
+            );
+            if (tpl) {
+                const ctx = this.buildContractContext(contract);
+                const buffer = await this.templates.renderPdfWithContext(tpl.id, ctx);
+                // Remember which template rendered this contract (for audit / reprints)
+                if (contract.template_id !== tpl.id) {
+                    contract.template_id = tpl.id;
+                    await this.contractRepo.save(contract);
+                }
+                const safeName = `${staff.first_name}_${staff.last_name}`.replace(/[^a-z0-9_-]/gi, '_');
+                return {
+                    buffer,
+                    fileName: `Contract_${safeName}_${contract.contract_number || contractId}.pdf`,
+                };
+            }
+        } catch (err: any) {
+            this.logger.warn(`Template-engine render failed for contract ${contractId}; falling back to PDFKit. ${err?.message}`);
+        }
+        // ---- Fallback: legacy PDFKit layout (kept for back-compat) ----
+        return this.generateContractPDFLegacy(contract);
+    }
+
+    /**
+     * Build the Handlebars context for a contract template. Mirrors the
+     * variable catalog declared in template-variables.ts.
+     */
+    private buildContractContext(contract: StaffContract): Record<string, any> {
+        const staff: any = contract.staff || {};
+        const fullName = [staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ');
+        const addressParts = [staff.address, staff.city, staff.postal_code].filter(Boolean);
+        return {
+            company: {
+                name: 'Kechita Capital Limited',
+                address: 'Nairobi, Kenya',
+                phone: '+254 700 000 000',
+                email: 'hr@kechita.co.ke',
+            },
+            staff: {
+                first_name: staff.first_name,
+                middle_name: staff.middle_name,
+                last_name: staff.last_name,
+                full_name: fullName,
+                employee_number: staff.employee_number,
+                national_id: staff.national_id,
+                tax_pin: staff.tax_pin,
+                nssf_number: staff.nssf_number,
+                nhif_number: staff.nhif_number,
+                personal_email: staff.personal_email,
+                phone: staff.phone,
+                address: addressParts.join(', '),
+                city: staff.city,
+                gender: staff.gender,
+                date_of_birth: staff.date_of_birth,
+                hire_date: staff.hire_date,
+                position: { name: staff.position?.name },
+                department: { name: staff.department?.name },
+                branch: { name: staff.branch?.name },
+                region: { name: staff.region?.name },
+                manager: staff.manager ? {
+                    full_name: [staff.manager.first_name, staff.manager.last_name].filter(Boolean).join(' '),
+                    position: { name: staff.manager.position?.name },
+                } : undefined,
+                bank_name: staff.bank_name,
+                bank_branch: staff.bank_branch,
+                bank_account_number: staff.bank_account_number,
+                basic_salary: staff.basic_salary,
+                salary_currency: staff.salary_currency || 'KES',
+            },
+            contract: {
+                contract_number: contract.contract_number,
+                contract_type: contract.contract_type,
+                start_date: contract.start_date,
+                end_date: contract.end_date,
+                salary: contract.salary,
+                salary_currency: contract.salary_currency || 'KES',
+                notice_period_days: contract.notice_period_days,
+                title: contract.title,
+                job_title: contract.job_title || staff.position?.name,
+                terms: contract.terms,
+                special_conditions: contract.special_conditions,
+                signed_date: contract.signed_date,
+                signed_by_staff: contract.signed_by_staff,
+                signed_by_employer: contract.signed_by_employer,
+            },
+            // Embed the signature image if signed, so the rendered PDF shows it.
+            signature_image: contract.signature_image,
+        };
+    }
+
+    /** Backwards-compatible PDFKit layout. Reached when no template exists. */
+    private async generateContractPDFLegacy(contract: StaffContract): Promise<{ buffer: Buffer; fileName: string }> {
+        const staff = contract.staff!;
 
         // Try to find the matching job post for the JD appendix
         let jobPost: JobPost | null = null;
@@ -238,7 +351,7 @@ export class ContractService {
                 doc.on('end', () => {
                     const buffer = Buffer.concat(chunks);
                     const safeName = `${staff.first_name}_${staff.last_name}`.replace(/[^a-z0-9_-]/gi, '_');
-                    resolve({ buffer, fileName: `Contract_${safeName}_${contract.contract_number || contractId}.pdf` });
+                    resolve({ buffer, fileName: `Contract_${safeName}_${contract.contract_number || contract.id}.pdf` });
                 });
                 doc.on('error', reject);
 
@@ -677,5 +790,157 @@ export class ContractService {
                 reject(error);
             }
         });
+    }
+
+    // ==================== E-SIGNATURE FLOW (Phase 2) ====================
+
+    /**
+     * Generates a single-use signing token, flips the contract to
+     * PENDING_SIGNATURE, and emails the employee a magic link. Token expires
+     * in 14 days by default. Re-sending a contract that's already pending
+     * rotates the token (old links become invalid).
+     */
+    async sendForSignature(contractId: string, opts?: { baseUrl?: string; expiresInDays?: number }): Promise<StaffContract> {
+        const contract = await this.contractRepo.findOne({
+            where: { id: contractId },
+            relations: ['staff'],
+        });
+        if (!contract) throw new NotFoundException('Contract not found');
+        if (contract.status === ContractStatus.ACTIVE)
+            throw new BadRequestException('Contract is already active');
+        if (contract.status === ContractStatus.TERMINATED || contract.status === ContractStatus.RENEWED || contract.status === ContractStatus.SUPERSEDED)
+            throw new BadRequestException(`Cannot send a ${contract.status} contract for signature`);
+
+        const staff = contract.staff;
+        if (!staff) throw new BadRequestException('Contract has no linked staff member');
+        const recipient = (staff as any).work_email || (staff as any).personal_email;
+        if (!recipient) throw new BadRequestException('Staff member has no email on file');
+
+        const days = opts?.expiresInDays ?? 14;
+        contract.signature_token = crypto.randomBytes(24).toString('base64url');
+        contract.signature_token_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        contract.status = ContractStatus.PENDING_SIGNATURE;
+        await this.contractRepo.save(contract);
+
+        // Build the magic link. Defaults to a sensible portal path; caller
+        // can override (e.g. when running behind a different host).
+        const base = opts?.baseUrl || process.env.APP_URL || 'https://kechita.cloud';
+        const link = `${base.replace(/\/$/, '')}/sign/contract/${contract.signature_token}`;
+
+        const fullName = [staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ');
+        const html = `
+            <p>Dear ${staff.first_name || 'Colleague'},</p>
+            <p>Please find your employment contract ready for signing. Click the secure link below to review and sign:</p>
+            <p style="margin:20px 0;">
+                <a href="${link}" style="background:#0066B3;color:#fff;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;">Review &amp; Sign Contract</a>
+            </p>
+            <p>This link will expire on <strong>${contract.signature_token_expires_at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+            <p>If you have any questions, please contact our HR team.</p>
+            <p>Best regards,<br>Human Resources Department<br>Kechita Capital Limited</p>
+        `;
+
+        try {
+            await this.emailService.sendEmail({
+                to: recipient,
+                subject: `Action required: sign your employment contract (${contract.contract_number || 'pending'})`,
+                html,
+            });
+        } catch (err: any) {
+            this.logger.error(`Failed to send signature email for contract ${contractId}: ${err?.message}`);
+            // Don't roll back the token — HR can resend / copy the link manually.
+        }
+
+        return contract;
+    }
+
+    /**
+     * Validate a signing token and return the contract record (without the
+     * sensitive bits). Used by the public signing page to confirm the link
+     * is still good before showing the signature pad.
+     */
+    async getByToken(token: string): Promise<StaffContract> {
+        const contract = await this.contractRepo.findOne({
+            where: { signature_token: token },
+            relations: ['staff', 'staff.position', 'staff.branch', 'staff.department'],
+        });
+        if (!contract) throw new NotFoundException('Invalid or expired signing link');
+        if (contract.signature_token_expires_at && contract.signature_token_expires_at < new Date())
+            throw new BadRequestException('This signing link has expired. Please contact HR for a new link.');
+        if (contract.status === ContractStatus.ACTIVE)
+            throw new BadRequestException('This contract has already been signed.');
+        return contract;
+    }
+
+    /**
+     * Record the employee's signature. Accepts a base64-encoded PNG drawn on
+     * the front-end canvas. Captures IP + UA for the audit trail. Flips the
+     * contract to ACTIVE and clears the one-shot token.
+     *
+     * `signedByName` is the typed full name from the signing form; we store
+     * it as an additional check that the right person signed.
+     */
+    async signWithToken(
+        token: string,
+        opts: { signatureImage: string; signedByName: string; ip?: string; userAgent?: string },
+    ): Promise<StaffContract> {
+        const contract = await this.getByToken(token);
+
+        if (!opts.signatureImage || !opts.signatureImage.startsWith('data:image/'))
+            throw new BadRequestException('signatureImage must be a base64 PNG data URL');
+        if (!opts.signedByName?.trim())
+            throw new BadRequestException('signedByName is required');
+
+        contract.signature_image = opts.signatureImage;
+        contract.signed_ip = opts.ip;
+        contract.signed_user_agent = opts.userAgent;
+        contract.signed_date = new Date();
+        contract.signed_by_staff = opts.signedByName.trim();
+        contract.status = ContractStatus.ACTIVE;
+        // One-shot token — clear it so the link can't be replayed.
+        contract.signature_token = undefined;
+        contract.signature_token_expires_at = undefined;
+
+        // Supersede any other active contracts for this staff member.
+        const otherActive = await this.contractRepo.find({
+            where: { staff: { id: contract.staff!.id }, status: ContractStatus.ACTIVE },
+        });
+        for (const c of otherActive) {
+            if (c.id === contract.id) continue;
+            c.status = ContractStatus.SUPERSEDED;
+            await this.contractRepo.save(c);
+        }
+
+        return this.contractRepo.save(contract);
+    }
+
+    /**
+     * Same as signWithToken but signed from inside the IDE by an
+     * authenticated employee (no token needed because the request already
+     * carries their JWT). The caller (controller) is responsible for asserting
+     * that the JWT subject equals `contract.staff.id` or has HR/CEO role.
+     */
+    async signFromPortal(
+        contractId: string,
+        opts: { signatureImage: string; signedByName: string; ip?: string; userAgent?: string },
+    ): Promise<StaffContract> {
+        const contract = await this.contractRepo.findOne({
+            where: { id: contractId },
+            relations: ['staff'],
+        });
+        if (!contract) throw new NotFoundException('Contract not found');
+        if (contract.status === ContractStatus.ACTIVE)
+            throw new BadRequestException('Contract is already active');
+        if (!opts.signatureImage?.startsWith('data:image/'))
+            throw new BadRequestException('signatureImage must be a base64 PNG data URL');
+
+        contract.signature_image = opts.signatureImage;
+        contract.signed_ip = opts.ip;
+        contract.signed_user_agent = opts.userAgent;
+        contract.signed_date = new Date();
+        contract.signed_by_staff = opts.signedByName?.trim();
+        contract.status = ContractStatus.ACTIVE;
+        contract.signature_token = undefined;
+        contract.signature_token_expires_at = undefined;
+        return this.contractRepo.save(contract);
     }
 }

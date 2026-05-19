@@ -7,6 +7,7 @@ import { StaffController } from './staff.controller';
 import { DocumentController } from './document.controller';
 import { OnboardingController } from './onboarding.controller';
 import { StaffPeopleController } from './staff-people.controller';
+import { PublicContractSigningController } from './public-contract-signing.controller';
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
 import { DocumentExpiryScheduler } from './services/document-expiry.scheduler';
@@ -15,6 +16,8 @@ import { StaffProbationScheduler } from './services/staff-probation.scheduler';
 import { NotificationModule } from '../notifications/notification.module';
 import { AuthModule } from '../auth/auth.module';
 import { AuditModule } from '../audit/audit.module';
+import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
+import { EmailModule } from '../email/email.module';
 
 // Staff Entities
 import { Staff } from './entities/staff.entity';
@@ -83,8 +86,10 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     NotificationModule,
     AuthModule,
     AuditModule,
+    DocumentTemplatesModule,
+    EmailModule,
   ],
-  controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController],
+  controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController, PublicContractSigningController],
   providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler],
   exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService],
 })
