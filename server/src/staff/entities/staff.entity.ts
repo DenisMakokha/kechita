@@ -30,6 +30,34 @@ export enum Gender {
     OTHER = 'other',
 }
 
+export enum MaritalStatus {
+    SINGLE = 'single',
+    MARRIED = 'married',
+    DIVORCED = 'divorced',
+    WIDOWED = 'widowed',
+    SEPARATED = 'separated',
+}
+
+export enum Religion {
+    CHRISTIAN = 'christian',
+    MUSLIM = 'muslim',
+    HINDU = 'hindu',
+    BUDDHIST = 'buddhist',
+    OTHER = 'other',
+    PREFER_NOT_TO_SAY = 'prefer_not_to_say',
+}
+
+export enum BloodGroup {
+    A_POSITIVE = 'A+',
+    A_NEGATIVE = 'A-',
+    B_POSITIVE = 'B+',
+    B_NEGATIVE = 'B-',
+    AB_POSITIVE = 'AB+',
+    AB_NEGATIVE = 'AB-',
+    O_POSITIVE = 'O+',
+    O_NEGATIVE = 'O-',
+}
+
 @Entity('staff')
 export class Staff {
     @PrimaryGeneratedColumn('uuid')
@@ -59,6 +87,21 @@ export class Staff {
     @Column({ type: 'date', nullable: true })
     date_of_birth?: Date;
 
+    @Column({ type: 'enum', enum: MaritalStatus, nullable: true })
+    marital_status?: MaritalStatus;
+
+    @Column({ type: 'enum', enum: Religion, nullable: true })
+    religion?: Religion;
+
+    @Column({ type: 'enum', enum: BloodGroup, nullable: true })
+    blood_group?: BloodGroup;
+
+    @Column({ nullable: true })
+    nationality?: string;
+
+    @Column({ nullable: true })
+    place_of_birth?: string;
+
     @Column({ nullable: true })
     national_id?: string;
 
@@ -70,6 +113,21 @@ export class Staff {
 
     @Column({ nullable: true })
     nhif_number?: string;
+
+    @Column({ nullable: true })
+    passport_number?: string;
+
+    @Column({ type: 'date', nullable: true })
+    passport_expiry?: Date;
+
+    @Column({ default: false })
+    has_disability: boolean;
+
+    @Column({ type: 'text', nullable: true })
+    disability_details?: string; // nature of disability, accommodations needed
+
+    @Column({ type: 'int', nullable: true })
+    completeness_score?: number; // 0-100 calculated field
 
     // Contact Information
     @Column({ nullable: true })

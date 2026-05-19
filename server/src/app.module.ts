@@ -59,6 +59,12 @@ import { NextOfKin } from './staff/entities/next-of-kin.entity';
 import { Dependent } from './staff/entities/dependent.entity';
 import { ProbationReview } from './staff/entities/probation-review.entity';
 import { SalaryHistory } from './staff/entities/salary-history.entity';
+import { StaffEducation } from './staff/entities/staff-education.entity';
+import { StaffWorkExperience } from './staff/entities/staff-work-experience.entity';
+import { StaffSkill } from './staff/entities/staff-skill.entity';
+import { StaffLanguage } from './staff/entities/staff-language.entity';
+import { StaffAsset } from './staff/entities/staff-asset.entity';
+import { StaffBankAccount } from './staff/entities/staff-bank-account.entity';
 // Onboarding Entities
 import { OnboardingTemplate } from './staff/entities/onboarding-template.entity';
 import { OnboardingTask } from './staff/entities/onboarding-task.entity';
@@ -173,6 +179,7 @@ const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
         // Staff
         Staff, Document, DocumentType, StaffDocument, EmploymentHistory, StaffContract, StaffContractAddendum,
         NextOfKin, Dependent, ProbationReview, SalaryHistory,
+        StaffEducation, StaffWorkExperience, StaffSkill, StaffLanguage, StaffAsset, StaffBankAccount,
         // Onboarding
         OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus,
         // Leave

@@ -8,6 +8,8 @@ import { DocumentController } from './document.controller';
 import { OnboardingController } from './onboarding.controller';
 import { StaffPeopleController } from './staff-people.controller';
 import { PublicContractSigningController } from './public-contract-signing.controller';
+import { BiodataController } from './biodata.controller';
+import { BiodataService } from './services/biodata.service';
 import { DocumentService } from './services/document.service';
 import { OnboardingService } from './services/onboarding.service';
 import { DocumentExpiryScheduler } from './services/document-expiry.scheduler';
@@ -34,6 +36,14 @@ import { ProbationReview } from './entities/probation-review.entity';
 import { SalaryHistory } from './entities/salary-history.entity';
 import { ContractService } from './services/contract.service';
 import { BulkImportService } from './services/bulk-import.service';
+
+// Phase 5 Biodata Entities
+import { StaffEducation } from './entities/staff-education.entity';
+import { StaffWorkExperience } from './entities/staff-work-experience.entity';
+import { StaffSkill } from './entities/staff-skill.entity';
+import { StaffLanguage } from './entities/staff-language.entity';
+import { StaffAsset } from './entities/staff-asset.entity';
+import { StaffBankAccount } from './entities/staff-bank-account.entity';
 
 // Onboarding Entities
 import { OnboardingTemplate } from './entities/onboarding-template.entity';
@@ -69,6 +79,13 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
       Dependent,
       ProbationReview,
       SalaryHistory,
+      // Phase 5 Biodata
+      StaffEducation,
+      StaffWorkExperience,
+      StaffSkill,
+      StaffLanguage,
+      StaffAsset,
+      StaffBankAccount,
       // Onboarding domain
       OnboardingTemplate,
       OnboardingTask,
@@ -92,8 +109,8 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     DocumentTemplatesModule,
     EmailModule,
   ],
-  controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController, PublicContractSigningController],
-  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler, ContractExpiryScheduler],
-  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService],
+  controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController, PublicContractSigningController, BiodataController],
+  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler, ContractExpiryScheduler, BiodataService],
+  exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, BiodataService],
 })
 export class StaffModule { }
