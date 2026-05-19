@@ -88,16 +88,18 @@ export const AnnouncementsPage: React.FC = () => {
     // User announcements (for feed)
     const { data: myAnnouncements = [] } = useQuery<Announcement[]>({
         queryKey: ['my-announcements'],
-        queryFn: () => api.get('/communications/announcements/my').then(r => r.data),
+        queryFn: () => api.get('/communications/my-announcements').then(r => r.data),
         refetchInterval: 60000,
     });
 
-    // Admin announcements (for management)
+    // Admin announcements (for management) — poll so 'scheduled' rows
+    // flip to 'published' in the UI after the every-minute cron fires,
+    // otherwise admins assume scheduling failed and re-publish manually.
     const { data: allAnnouncements = [] } = useQuery<Announcement[]>({
         queryKey: ['all-announcements', statusFilter],
         queryFn: () => api.get('/communications/announcements', { params: { status: statusFilter || undefined } }).then(r => r.data),
         enabled: isAdmin,
-        refetchInterval: 60000,
+        refetchInterval: 30000,
     });
 
     const acknowledgeMutation = useMutation({
