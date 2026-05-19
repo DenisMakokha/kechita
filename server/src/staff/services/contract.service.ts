@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, Between, Not, IsNull } from 'typeorm';
 import { StaffContract, ContractType, ContractStatus } from '../entities/staff-contract.entity';
+import { StaffContractAddendum, AddendumStatus } from '../entities/staff-contract-addendum.entity';
 import { Staff } from '../entities/staff.entity';
 import { JobPost } from '../../recruitment/entities/job-post.entity';
 import * as crypto from 'crypto';
@@ -25,6 +26,8 @@ export class ContractService {
         private staffRepo: Repository<Staff>,
         @InjectRepository(JobPost)
         private jobPostRepo: Repository<JobPost>,
+        @InjectRepository(StaffContractAddendum)
+        private addendumRepo: Repository<StaffContractAddendum>,
         private readonly templates: DocumentTemplatesService,
         private readonly emailService: EmailService,
     ) {}
@@ -896,9 +899,11 @@ export class ContractService {
         contract.signed_date = new Date();
         contract.signed_by_staff = opts.signedByName.trim();
         contract.status = ContractStatus.ACTIVE;
-        // One-shot token — clear it so the link can't be replayed.
-        contract.signature_token = undefined;
-        contract.signature_token_expires_at = undefined;
+        // One-shot token — null it so the magic-link can't be replayed even
+        // if the ACTIVE-status guard is ever bypassed. (TypeORM treats
+        // `undefined` as "leave the column alone" on update, hence `null`.)
+        contract.signature_token = null as any;
+        contract.signature_token_expires_at = null as any;
 
         // Supersede any other active contracts for this staff member.
         const otherActive = await this.contractRepo.find({
@@ -939,8 +944,150 @@ export class ContractService {
         contract.signed_date = new Date();
         contract.signed_by_staff = opts.signedByName?.trim();
         contract.status = ContractStatus.ACTIVE;
-        contract.signature_token = undefined;
-        contract.signature_token_expires_at = undefined;
+        contract.signature_token = null as any;
+        contract.signature_token_expires_at = null as any;
         return this.contractRepo.save(contract);
+    }
+
+    // ==================== ADDENDUMS (Phase 2C) ====================
+
+    /**
+     * Create a new addendum against an active (or pending) contract. Auto-
+     * increments `sequence` so each contract has 1..N addendums.
+     */
+    async createAddendum(
+        contractId: string,
+        data: { title: string; body: string; effective_date: Date | string },
+        createdBy?: string,
+    ): Promise<StaffContractAddendum> {
+        const contract = await this.contractRepo.findOneBy({ id: contractId });
+        if (!contract) throw new NotFoundException('Contract not found');
+        if (contract.status === ContractStatus.TERMINATED ||
+            contract.status === ContractStatus.SUPERSEDED ||
+            contract.status === ContractStatus.RENEWED) {
+            throw new BadRequestException(`Cannot add an addendum to a ${contract.status} contract`);
+        }
+
+        const existing = await this.addendumRepo.count({ where: { contract_id: contractId } });
+        const addendum = this.addendumRepo.create({
+            contract_id: contractId,
+            sequence: existing + 1,
+            title: data.title,
+            body: data.body,
+            effective_date: new Date(data.effective_date) as any,
+            status: AddendumStatus.DRAFT,
+            created_by: createdBy,
+        });
+        return this.addendumRepo.save(addendum);
+    }
+
+    async listAddendums(contractId: string): Promise<StaffContractAddendum[]> {
+        return this.addendumRepo.find({
+            where: { contract_id: contractId },
+            order: { sequence: 'ASC' },
+        });
+    }
+
+    async findAddendum(id: string): Promise<StaffContractAddendum> {
+        const a = await this.addendumRepo.findOne({ where: { id } });
+        if (!a) throw new NotFoundException('Addendum not found');
+        return a;
+    }
+
+    async updateAddendum(id: string, data: Partial<StaffContractAddendum>): Promise<StaffContractAddendum> {
+        const a = await this.findAddendum(id);
+        if (a.status !== AddendumStatus.DRAFT)
+            throw new BadRequestException(`Cannot edit a ${a.status} addendum`);
+        Object.assign(a, data);
+        return this.addendumRepo.save(a);
+    }
+
+    async voidAddendum(id: string): Promise<StaffContractAddendum> {
+        const a = await this.findAddendum(id);
+        if (a.status === AddendumStatus.SIGNED)
+            throw new BadRequestException('Signed addendums cannot be voided');
+        a.status = AddendumStatus.VOID;
+        return this.addendumRepo.save(a);
+    }
+
+    /**
+     * Mint a one-shot token for an addendum and mail the employee a signing
+     * link. Mirrors the parent contract flow, just on /sign/addendum/:token.
+     */
+    async sendAddendumForSignature(id: string, opts?: { baseUrl?: string; expiresInDays?: number }): Promise<StaffContractAddendum> {
+        const a = await this.addendumRepo.findOne({ where: { id } });
+        if (!a) throw new NotFoundException('Addendum not found');
+        if (a.status === AddendumStatus.SIGNED) throw new BadRequestException('Already signed');
+        if (a.status === AddendumStatus.VOID) throw new BadRequestException('Cannot send a voided addendum');
+
+        const contract = await this.contractRepo.findOne({
+            where: { id: a.contract_id },
+            relations: ['staff'],
+        });
+        const staff = contract?.staff;
+        if (!staff) throw new BadRequestException('Parent contract has no staff member');
+        const recipient = (staff as any).work_email || (staff as any).personal_email;
+        if (!recipient) throw new BadRequestException('Staff member has no email on file');
+
+        const days = opts?.expiresInDays ?? 14;
+        a.signature_token = crypto.randomBytes(24).toString('base64url');
+        a.signature_token_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        a.status = AddendumStatus.PENDING_SIGNATURE;
+        await this.addendumRepo.save(a);
+
+        const base = opts?.baseUrl || process.env.APP_URL || 'https://kechita.cloud';
+        const link = `${base.replace(/\/$/, '')}/sign/addendum/${a.signature_token}`;
+
+        const html = `
+            <p>Dear ${staff.first_name || 'Colleague'},</p>
+            <p>A new addendum to your employment contract is ready for your review and signature:</p>
+            <p><strong>${a.title}</strong> — effective ${new Date(a.effective_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p style="margin:20px 0;">
+                <a href="${link}" style="background:#0066B3;color:#fff;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;">Review &amp; Sign Addendum</a>
+            </p>
+            <p>This link will expire on <strong>${a.signature_token_expires_at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+            <p>Best regards,<br>Human Resources Department<br>Kechita Capital Limited</p>
+        `;
+
+        try {
+            await this.emailService.sendEmail({
+                to: recipient,
+                subject: `Action required: sign contract addendum #${a.sequence}`,
+                html,
+            });
+        } catch (err: any) {
+            this.logger.error(`Failed to send addendum signature email ${id}: ${err?.message}`);
+        }
+        return a;
+    }
+
+    async getAddendumByToken(token: string): Promise<StaffContractAddendum> {
+        const a = await this.addendumRepo.findOne({ where: { signature_token: token } });
+        if (!a) throw new NotFoundException('Invalid or expired signing link');
+        if (a.signature_token_expires_at && a.signature_token_expires_at < new Date())
+            throw new BadRequestException('This signing link has expired.');
+        if (a.status === AddendumStatus.SIGNED)
+            throw new BadRequestException('This addendum has already been signed.');
+        return a;
+    }
+
+    async signAddendumWithToken(
+        token: string,
+        opts: { signatureImage: string; signedByName: string; ip?: string; userAgent?: string },
+    ): Promise<StaffContractAddendum> {
+        const a = await this.getAddendumByToken(token);
+        if (!opts.signatureImage?.startsWith('data:image/'))
+            throw new BadRequestException('signatureImage must be a base64 PNG data URL');
+        if (!opts.signedByName?.trim()) throw new BadRequestException('signedByName is required');
+
+        a.signature_image = opts.signatureImage;
+        a.signed_ip = opts.ip;
+        a.signed_user_agent = opts.userAgent;
+        a.signed_date = new Date();
+        a.signed_by_staff = opts.signedByName.trim();
+        a.status = AddendumStatus.SIGNED;
+        a.signature_token = null as any;
+        a.signature_token_expires_at = null as any;
+        return this.addendumRepo.save(a);
     }
 }

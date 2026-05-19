@@ -13,6 +13,7 @@ import { OnboardingService } from './services/onboarding.service';
 import { DocumentExpiryScheduler } from './services/document-expiry.scheduler';
 import { StaffPeopleService } from './services/staff-people.service';
 import { StaffProbationScheduler } from './services/staff-probation.scheduler';
+import { ContractExpiryScheduler } from './services/contract-expiry.scheduler';
 import { NotificationModule } from '../notifications/notification.module';
 import { AuthModule } from '../auth/auth.module';
 import { AuditModule } from '../audit/audit.module';
@@ -26,6 +27,7 @@ import { DocumentType } from './entities/document-type.entity';
 import { StaffDocument } from './entities/staff-document.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
 import { StaffContract } from './entities/staff-contract.entity';
+import { StaffContractAddendum } from './entities/staff-contract-addendum.entity';
 import { NextOfKin } from './entities/next-of-kin.entity';
 import { Dependent } from './entities/dependent.entity';
 import { ProbationReview } from './entities/probation-review.entity';
@@ -62,6 +64,7 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
       StaffDocument,
       EmploymentHistory,
       StaffContract,
+      StaffContractAddendum,
       NextOfKin,
       Dependent,
       ProbationReview,
@@ -90,7 +93,7 @@ import { JobPost } from '../recruitment/entities/job-post.entity';
     EmailModule,
   ],
   controllers: [StaffController, DocumentController, OnboardingController, StaffPeopleController, PublicContractSigningController],
-  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler],
+  providers: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService, StaffProbationScheduler, ContractExpiryScheduler],
   exports: [StaffService, DocumentService, OnboardingService, ContractService, DocumentExpiryScheduler, BulkImportService, StaffPeopleService],
 })
 export class StaffModule { }

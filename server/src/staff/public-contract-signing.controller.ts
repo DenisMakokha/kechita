@@ -66,4 +66,37 @@ export class PublicContractSigningController {
             status: c.status,
         };
     }
+
+    // ===== Addendum signing (Phase 2C) =====
+
+    @Get('addendums/sign/:token')
+    async getAddendumByToken(@Param('token') token: string) {
+        const a = await this.contractService.getAddendumByToken(token);
+        return {
+            id: a.id,
+            sequence: a.sequence,
+            title: a.title,
+            body: a.body,
+            effective_date: a.effective_date,
+            status: a.status,
+            expires_at: a.signature_token_expires_at,
+        };
+    }
+
+    @Post('addendums/sign/:token')
+    async signAddendum(
+        @Param('token') token: string,
+        @Body() data: { signatureImage: string; signedByName: string },
+        @Req() req: any,
+    ) {
+        const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
+        const ua = req.headers['user-agent'] as string | undefined;
+        const a = await this.contractService.signAddendumWithToken(token, {
+            signatureImage: data.signatureImage,
+            signedByName: data.signedByName,
+            ip,
+            userAgent: ua,
+        });
+        return { ok: true, addendum_id: a.id, signed_date: a.signed_date, status: a.status };
+    }
 }

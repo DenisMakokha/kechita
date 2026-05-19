@@ -897,6 +897,50 @@ export class StaffController {
         });
     }
 
+    // ============== Addendums (Phase 2C) ==============
+
+    @Get('contracts/:contractId/addendums')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    listAddendums(@Param('contractId', ParseUUIDPipe) contractId: string) {
+        return this.contractService.listAddendums(contractId);
+    }
+
+    @Post('contracts/:contractId/addendums')
+    @Roles('CEO', 'HR_MANAGER')
+    createAddendum(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: { title: string; body: string; effective_date: string },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.contractService.createAddendum(contractId, data, req.user?.id);
+    }
+
+    @Put('addendums/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    updateAddendum(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: { title?: string; body?: string; effective_date?: string },
+    ) {
+        const u: any = { ...data };
+        if (data.effective_date) u.effective_date = new Date(data.effective_date);
+        return this.contractService.updateAddendum(id, u);
+    }
+
+    @Patch('addendums/:id/void')
+    @Roles('CEO', 'HR_MANAGER')
+    voidAddendum(@Param('id', ParseUUIDPipe) id: string) {
+        return this.contractService.voidAddendum(id);
+    }
+
+    @Post('addendums/:id/send-for-signature')
+    @Roles('CEO', 'HR_MANAGER')
+    sendAddendumForSignature(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: { baseUrl?: string; expiresInDays?: number },
+    ) {
+        return this.contractService.sendAddendumForSignature(id, data || {});
+    }
+
     @Get('contracts/:contractId/pdf')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     async downloadContractPDF(

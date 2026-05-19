@@ -40,6 +40,7 @@ const CareersPage = React.lazy(() => import('./pages/public/CareersPage'));
 const JobDetailPage = React.lazy(() => import('./pages/public/JobDetailPage'));
 const OfferSigningPage = React.lazy(() => import('./pages/public/OfferSigningPage'));
 const ContractSigningPage = React.lazy(() => import('./pages/public/ContractSigningPage'));
+const AddendumSigningPage = React.lazy(() => import('./pages/public/AddendumSigningPage'));
 const StaffManagementPage = React.lazy(() => import('./pages/StaffManagementPage'));
 const LeaveManagementPage = React.lazy(() => import('./pages/LeaveManagementPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
@@ -135,6 +136,7 @@ function App() {
 
           {/* Public Contract Signing (Phase 2) */}
           <Route path="/sign/contract/:token" element={<ContractSigningPage />} />
+          <Route path="/sign/addendum/:token" element={<AddendumSigningPage />} />
 
           {/* Protected routes with role-based access */}
           <Route
