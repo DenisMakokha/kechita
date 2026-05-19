@@ -1902,7 +1902,7 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Actions tab removed — lifecycle actions live in the header "More actions" dropdown */}
             </div>
 
-            {/* Edit Modal */}
+            {/* Edit Modal - Full Featured */}
             <Modal
                 isOpen={showEditModal}
                 onClose={() => setShowEditModal(false)}
@@ -1918,25 +1918,30 @@ export const StaffProfilePage: React.FC = () => {
                 )}
             >
                 {showEditModal && (
-                    <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+                        {/* Section: Personal Information */}
+                        <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-100">
+                            <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4">
+                                <User size={18} /> Personal Information
+                            </h4>
+                            <div className="grid grid-cols-3 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                                    <input type="text" value={formData.first_name || ''} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">First Name *</label>
+                                    <input type="text" value={formData.first_name || ''} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Middle Name</label>
-                                    <input type="text" value={formData.middle_name || ''} onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Middle Name</label>
+                                    <input type="text" value={formData.middle_name || ''} onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                                    <input type="text" value={formData.last_name || ''} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Last Name *</label>
+                                    <input type="text" value={formData.last_name || ''} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-4 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
-                                    <select value={formData.gender || ''} onChange={(e) => setFormData({ ...formData, gender: e.target.value || undefined })} className="w-full px-3 py-2 border border-slate-200 rounded-lg">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Gender</label>
+                                    <select value={formData.gender || ''} onChange={(e) => setFormData({ ...formData, gender: e.target.value || undefined })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none bg-white">
                                         <option value="">Select...</option>
                                         <option value="male">Male</option>
                                         <option value="female">Female</option>
@@ -1944,91 +1949,235 @@ export const StaffProfilePage: React.FC = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                                    <input type="date" value={formData.date_of_birth || ''} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Date of Birth</label>
+                                    <input type="date" value={formData.date_of_birth || ''} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">National ID</label>
-                                    <input type="text" value={formData.national_id || ''} onChange={(e) => setFormData({ ...formData, national_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Marital Status</label>
+                                    <select value={formData.marital_status || ''} onChange={(e) => setFormData({ ...formData, marital_status: e.target.value || undefined })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none bg-white">
+                                        <option value="">Select...</option>
+                                        <option value="single">Single</option>
+                                        <option value="married">Married</option>
+                                        <option value="divorced">Divorced</option>
+                                        <option value="widowed">Widowed</option>
+                                        <option value="separated">Separated</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Religion</label>
+                                    <select value={formData.religion || ''} onChange={(e) => setFormData({ ...formData, religion: e.target.value || undefined })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none bg-white">
+                                        <option value="">Select...</option>
+                                        <option value="christian">Christian</option>
+                                        <option value="muslim">Muslim</option>
+                                        <option value="hindu">Hindu</option>
+                                        <option value="buddhist">Buddhist</option>
+                                        <option value="other">Other</option>
+                                        <option value="prefer_not_to_say">Prefer Not To Say</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-4 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
-                                    <input type="text" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Nationality</label>
+                                    <input type="text" value={formData.nationality || ''} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} placeholder="e.g. Kenyan" className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Phone</label>
-                                    <input type="text" value={formData.alternate_phone || ''} onChange={(e) => setFormData({ ...formData, alternate_phone: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Place of Birth</label>
+                                    <input type="text" value={formData.place_of_birth || ''} onChange={(e) => setFormData({ ...formData, place_of_birth: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Blood Group</label>
+                                    <select value={formData.blood_group || ''} onChange={(e) => setFormData({ ...formData, blood_group: e.target.value || undefined })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none bg-white">
+                                        <option value="">Select...</option>
+                                        <option value="A+">A+</option>
+                                        <option value="A-">A-</option>
+                                        <option value="B+">B+</option>
+                                        <option value="B-">B-</option>
+                                        <option value="AB+">AB+</option>
+                                        <option value="AB-">AB-</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O-</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">National ID</label>
+                                    <input type="text" value={formData.national_id || ''} onChange={(e) => setFormData({ ...formData, national_id: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none font-mono" />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Personal Email</label>
-                                <input type="email" value={formData.personal_email || ''} onChange={(e) => setFormData({ ...formData, personal_email: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                        </div>
+
+                        {/* Section: Contact Information */}
+                        <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-100">
+                            <h4 className="font-bold text-emerald-800 flex items-center gap-2 mb-4">
+                                <Phone size={18} /> Contact Information
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Primary Phone</label>
+                                    <input type="text" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Alternate Phone</label>
+                                    <input type="text" value={formData.alternate_phone || ''} onChange={(e) => setFormData({ ...formData, alternate_phone: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
+                                </div>
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Personal Email</label>
+                                <input type="email" value={formData.personal_email || ''} onChange={(e) => setFormData({ ...formData, personal_email: e.target.value })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
                             </div>
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                                    <input type="text" value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Address</label>
+                                    <input type="text" value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
-                                    <input type="text" value={formData.city || ''} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">City</label>
+                                    <input type="text" value={formData.city || ''} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
                                 </div>
                             </div>
-                            <h4 className="font-medium text-slate-900 pt-4">Statutory & Salary</h4>
+                            <div className="mt-4">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Postal Code</label>
+                                <input type="text" value={formData.postal_code || ''} onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })} className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none w-1/3" />
+                            </div>
+                        </div>
+
+                        {/* Section: Passport Information */}
+                        <div className="bg-violet-50 rounded-xl p-4 border-2 border-violet-100">
+                            <h4 className="font-bold text-violet-800 flex items-center gap-2 mb-4">
+                                <FileText size={18} /> Passport Information
+                            </h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">KRA PIN</label>
-                                    <input type="text" value={formData.tax_pin || ''} onChange={(e) => setFormData({ ...formData, tax_pin: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Passport Number</label>
+                                    <input type="text" value={formData.passport_number || ''} onChange={(e) => setFormData({ ...formData, passport_number: e.target.value })} className="w-full px-3 py-2 border-2 border-violet-200 rounded-lg focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none font-mono" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">NSSF Number</label>
-                                    <input type="text" value={formData.nssf_number || ''} onChange={(e) => setFormData({ ...formData, nssf_number: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">NHIF Number</label>
-                                    <input type="text" value={formData.nhif_number || ''} onChange={(e) => setFormData({ ...formData, nhif_number: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Basic Salary (KES)</label>
-                                    <input type="number" value={formData.basic_salary || ''} onChange={(e) => setFormData({ ...formData, basic_salary: parseFloat(e.target.value) || undefined })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Passport Expiry</label>
+                                    <input type="date" value={formData.passport_expiry || ''} onChange={(e) => setFormData({ ...formData, passport_expiry: e.target.value })} className="w-full px-3 py-2 border-2 border-violet-200 rounded-lg focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none" />
                                 </div>
                             </div>
-                            <h4 className="font-medium text-slate-900 pt-4">Emergency Contact</h4>
+                        </div>
+
+                        {/* Section: Disability Information */}
+                        <div className="bg-amber-50 rounded-xl p-4 border-2 border-amber-100">
+                            <h4 className="font-bold text-amber-800 flex items-center gap-2 mb-4">
+                                <Heart size={18} /> Disability Information
+                            </h4>
+                            <div className="flex items-center gap-3 mb-4">
+                                <input 
+                                    type="checkbox" 
+                                    id="has_disability" 
+                                    checked={formData.has_disability || false} 
+                                    onChange={(e) => setFormData({ ...formData, has_disability: e.target.checked })} 
+                                    className="w-5 h-5 text-amber-600 border-2 border-amber-300 rounded focus:ring-amber-500"
+                                />
+                                <label htmlFor="has_disability" className="text-sm font-bold text-slate-700">Person has disability</label>
+                            </div>
+                            {formData.has_disability && (
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Disability Details</label>
+                                    <textarea 
+                                        value={formData.disability_details || ''} 
+                                        onChange={(e) => setFormData({ ...formData, disability_details: e.target.value })} 
+                                        placeholder="Nature of disability and accommodations needed..."
+                                        rows={3}
+                                        className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Section: Employment Dates */}
+                        <div className="bg-indigo-50 rounded-xl p-4 border-2 border-indigo-100">
+                            <h4 className="font-bold text-indigo-800 flex items-center gap-2 mb-4">
+                                <Briefcase size={18} /> Employment Dates
+                            </h4>
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                                    <input type="text" value={formData.emergency_contact_name || ''} onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Hire Date</label>
+                                    <input type="date" value={formData.hire_date || ''} onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })} className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
-                                    <input type="text" value={formData.emergency_contact_phone || ''} onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Confirmation Date</label>
+                                    <input type="date" value={formData.confirmation_date || ''} onChange={(e) => setFormData({ ...formData, confirmation_date: e.target.value })} className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Relationship</label>
-                                    <input type="text" value={formData.emergency_contact_relationship || ''} onChange={(e) => setFormData({ ...formData, emergency_contact_relationship: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Probation End Date</label>
+                                    <input type="date" value={formData.probation_end_date || ''} onChange={(e) => setFormData({ ...formData, probation_end_date: e.target.value })} className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
                                 </div>
                             </div>
-                            <h4 className="font-medium text-slate-900 pt-4">Bank Details</h4>
+                        </div>
+
+                        {/* Section: Statutory Information */}
+                        <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-100">
+                            <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-4">
+                                <Shield size={18} /> Statutory Information
+                            </h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
-                                    <input type="text" value={formData.bank_name || ''} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">KRA PIN</label>
+                                    <input type="text" value={formData.tax_pin || ''} onChange={(e) => setFormData({ ...formData, tax_pin: e.target.value })} className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none font-mono" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch</label>
-                                    <input type="text" value={formData.bank_branch || ''} onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">NSSF Number</label>
+                                    <input type="text" value={formData.nssf_number || ''} onChange={(e) => setFormData({ ...formData, nssf_number: e.target.value })} className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none font-mono" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label>
-                                    <input type="text" value={formData.bank_account_number || ''} onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">SHIF Number</label>
+                                    <input type="text" value={formData.nhif_number || ''} onChange={(e) => setFormData({ ...formData, nhif_number: e.target.value })} className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none font-mono" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Account Name</label>
-                                    <input type="text" value={formData.bank_account_name || ''} onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Basic Salary (KES)</label>
+                                    <input type="number" value={formData.basic_salary || ''} onChange={(e) => setFormData({ ...formData, basic_salary: parseFloat(e.target.value) || undefined })} className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none" />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Section: Emergency Contact */}
+                        <div className="bg-red-50 rounded-xl p-4 border-2 border-red-100">
+                            <h4 className="font-bold text-red-800 flex items-center gap-2 mb-4">
+                                <Heart size={18} /> Emergency Contact
+                            </h4>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Name</label>
+                                    <input type="text" value={formData.emergency_contact_name || ''} onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })} className="w-full px-3 py-2 border-2 border-red-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Phone</label>
+                                    <input type="text" value={formData.emergency_contact_phone || ''} onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })} className="w-full px-3 py-2 border-2 border-red-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Relationship</label>
+                                    <input type="text" value={formData.emergency_contact_relationship || ''} onChange={(e) => setFormData({ ...formData, emergency_contact_relationship: e.target.value })} placeholder="e.g. Spouse, Parent" className="w-full px-3 py-2 border-2 border-red-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section: Bank Details */}
+                        <div className="bg-amber-50 rounded-xl p-4 border-2 border-amber-100">
+                            <h4 className="font-bold text-amber-800 flex items-center gap-2 mb-4">
+                                <CreditCard size={18} /> Bank Details
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Bank Name</label>
+                                    <input type="text" value={formData.bank_name || ''} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Branch</label>
+                                    <input type="text" value={formData.bank_branch || ''} onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })} className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Account Number</label>
+                                    <input type="text" value={formData.bank_account_number || ''} onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })} className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none font-mono" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Account Name</label>
+                                    <input type="text" value={formData.bank_account_name || ''} onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })} className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </Modal>
