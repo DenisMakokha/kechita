@@ -775,212 +775,230 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
-                        {/* Info Cards Grid */}
-                        <div className="grid gap-5 md:grid-cols-2">
-                            {/* Personal Information */}
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                                        <User size={16} className="text-blue-600" />
+                        {/* Info Cards Grid - Bold Design */}
+                        <div className="grid gap-6 md:grid-cols-2">
+                            {/* Personal Information - Vibrant Blue */}
+                            <div className="bg-gradient-to-br from-white to-blue-50/50 rounded-2xl border-2 border-blue-200 shadow-lg shadow-blue-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-blue-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <User size={20} className="text-white" />
                                     </div>
-                                    <h3 className="font-semibold text-slate-900">Personal Information</h3>
+                                    <h3 className="font-bold text-lg">Personal Information</h3>
                                 </div>
-                                <div className="p-5 space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Full Name</p>
-                                            <p className="text-sm font-semibold text-slate-900">{[staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ') || '-'}</p>
+                                <div className="p-6 space-y-5">
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-100">
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Full Name</p>
+                                            <p className="text-base font-bold text-slate-900">{[staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ') || '-'}</p>
                                         </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Date of Birth</p>
-                                            <p className="text-sm text-slate-700">{staff.date_of_birth ? new Date(staff.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Gender</p>
-                                            <p className="text-sm text-slate-700 capitalize">{staff.gender || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">National ID</p>
-                                            <p className="text-sm font-mono text-slate-700">{staff.national_id || '-'}</p>
+                                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-100">
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Date of Birth</p>
+                                            <p className="text-base text-slate-700">{staff.date_of_birth ? new Date(staff.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
                                         </div>
                                     </div>
-                                    <div className="pt-3 border-t border-slate-100">
-                                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Contact</p>
-                                        <div className="flex items-center gap-4 text-sm text-slate-700">
-                                            {staff.phone && <span className="flex items-center gap-1"><Phone size={12} className="text-slate-400" /> {staff.phone}</span>}
-                                            {staff.personal_email && <span className="flex items-center gap-1"><Mail size={12} className="text-slate-400" /> {staff.personal_email}</span>}
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-100">
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Gender</p>
+                                            <p className="text-base font-bold text-slate-700 capitalize">{staff.gender || '-'}</p>
+                                        </div>
+                                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-100">
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">National ID</p>
+                                            <p className="text-base font-mono font-bold text-slate-700">{staff.national_id || '-'}</p>
                                         </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Address</p>
-                                        <p className="text-sm text-slate-700">{[staff.address, staff.city, staff.postal_code].filter(Boolean).join(', ') || '-'}</p>
+                                    <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-100">
+                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                            <Phone size={12} /> Contact
+                                        </p>
+                                        <div className="space-y-2">
+                                            {staff.phone && (
+                                                <div className="flex items-center gap-2 text-slate-800">
+                                                    <span className="text-blue-500 font-bold">📱</span>
+                                                    <span className="font-semibold">{staff.phone}</span>
+                                                </div>
+                                            )}
+                                            {staff.personal_email && (
+                                                <div className="flex items-center gap-2 text-slate-800">
+                                                    <span className="text-blue-500 font-bold">✉️</span>
+                                                    <span className="font-semibold">{staff.personal_email}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-100">
+                                        <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Address</p>
+                                        <p className="text-base text-slate-700">{[staff.address, staff.city, staff.postal_code].filter(Boolean).join(', ') || '-'}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Employment Information */}
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                        <Briefcase size={16} className="text-emerald-600" />
+                            {/* Employment - Bold Emerald */}
+                            <div className="bg-gradient-to-br from-white to-emerald-50/50 rounded-2xl border-2 border-emerald-200 shadow-lg shadow-emerald-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Briefcase size={20} className="text-white" />
                                     </div>
-                                    <h3 className="font-semibold text-slate-900">Employment</h3>
+                                    <h3 className="font-bold text-lg">Employment Details</h3>
                                 </div>
-                                <div className="p-5 space-y-4">
-                                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Basic Salary</p>
-                                            <p className="text-lg font-bold text-emerald-700">
-                                                {staff.basic_salary ? `${staff.salary_currency || 'KES'} ${Number(staff.basic_salary).toLocaleString()}` : '-'}
-                                            </p>
-                                        </div>
-                                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                                            <DollarSign size={20} className="text-emerald-600" />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Hire Date</p>
-                                            <p className="text-sm text-slate-700">{staff.hire_date ? new Date(staff.hire_date).toLocaleDateString('en-GB') : '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Confirmation</p>
-                                            <p className="text-sm text-slate-700">{staff.confirmation_date ? new Date(staff.confirmation_date).toLocaleDateString('en-GB') : '-'}</p>
+                                <div className="p-6 space-y-5">
+                                    {/* Salary - Highlight Card */}
+                                    <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl p-4 text-white shadow-lg">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-emerald-100 text-sm font-semibold uppercase tracking-wider mb-1">Basic Salary</p>
+                                                <p className="text-2xl font-black">
+                                                    {staff.basic_salary ? `${staff.salary_currency || 'KES'} ${Number(staff.basic_salary).toLocaleString()}` : '-'}
+                                                </p>
+                                            </div>
+                                            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
+                                                <DollarSign size={28} className="text-white" />
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Department</p>
-                                            <p className="text-sm text-slate-700">{staff.department?.name || '-'}</p>
+                                        <div className="bg-emerald-50 rounded-xl p-3 border-2 border-emerald-100">
+                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Hire Date</p>
+                                            <p className="text-base font-bold text-slate-800">{staff.hire_date ? new Date(staff.hire_date).toLocaleDateString('en-GB') : '-'}</p>
                                         </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Reports To</p>
-                                            <p className="text-sm text-slate-700">{staff.manager ? `${staff.manager.first_name} ${staff.manager.last_name}` : '-'}</p>
+                                        <div className="bg-emerald-50 rounded-xl p-3 border-2 border-emerald-100">
+                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Confirmation</p>
+                                            <p className="text-base font-bold text-slate-800">{staff.confirmation_date ? new Date(staff.confirmation_date).toLocaleDateString('en-GB') : '-'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-white rounded-xl p-3 shadow-sm border-2 border-emerald-100">
+                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Department</p>
+                                            <p className="text-base font-bold text-slate-800">{staff.department?.name || '-'}</p>
+                                        </div>
+                                        <div className="bg-white rounded-xl p-3 shadow-sm border-2 border-emerald-100">
+                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Reports To</p>
+                                            <p className="text-base font-bold text-slate-800">{staff.manager ? `${staff.manager.first_name} ${staff.manager.last_name}` : '-'}</p>
                                         </div>
                                     </div>
                                     {staff.probation_end_date && (
-                                        <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-100 rounded-lg">
-                                            <Clock size={14} className="text-amber-600" />
-                                            <span className="text-sm text-amber-800">
-                                                Probation ends {new Date(staff.probation_end_date).toLocaleDateString('en-GB')}
-                                            </span>
+                                        <div className="bg-amber-100 rounded-xl p-4 border-2 border-amber-300 flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
+                                                <Clock size={20} className="text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-amber-900">Probation Period</p>
+                                                <p className="text-sm text-amber-700 font-semibold">
+                                                    Ends {new Date(staff.probation_end_date).toLocaleDateString('en-GB')}
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Statutory Information */}
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                                        <Shield size={16} className="text-purple-600" />
+                            {/* Statutory Info - Rich Purple */}
+                            <div className="bg-gradient-to-br from-white to-violet-50/50 rounded-2xl border-2 border-violet-200 shadow-lg shadow-violet-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-violet-600 to-purple-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Shield size={20} className="text-white" />
                                     </div>
-                                    <h3 className="font-semibold text-slate-900">Statutory Info</h3>
+                                    <h3 className="font-bold text-lg">Statutory Information</h3>
                                 </div>
-                                <div className="p-5 space-y-3">
+                                <div className="p-6 space-y-3">
                                     {[ 
-                                        { label: 'KRA PIN', value: staff.tax_pin },
-                                        { label: 'NSSF Number', value: staff.nssf_number },
-                                        { label: 'SHIF Number', value: staff.nhif_number },
+                                        { label: 'KRA PIN', value: staff.tax_pin, icon: '🇰🇪' },
+                                        { label: 'NSSF Number', value: staff.nssf_number, icon: '🔒' },
+                                        { label: 'SHIF Number', value: staff.nhif_number, icon: '🏥' },
                                     ].map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                                            <span className="text-sm text-slate-500">{item.label}</span>
-                                            <span className="text-sm font-mono font-medium text-slate-700">{item.value || '-'}</span>
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-violet-100 shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">{item.icon}</span>
+                                                <span className="font-bold text-slate-600">{item.label}</span>
+                                            </div>
+                                            <span className="text-base font-mono font-bold text-violet-700 bg-violet-50 px-3 py-1 rounded-lg">{item.value || '-'}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Emergency Contact */}
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                                        <Heart size={16} className="text-red-600" />
+                            {/* Emergency Contact - Bold Red */}
+                            <div className="bg-gradient-to-br from-white to-red-50/50 rounded-2xl border-2 border-red-200 shadow-lg shadow-red-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-red-600 to-rose-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Heart size={20} className="text-white" />
                                     </div>
-                                    <h3 className="font-semibold text-slate-900">Emergency Contact</h3>
+                                    <h3 className="font-bold text-lg">Emergency Contact</h3>
                                 </div>
-                                <div className="p-5 space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                                            <User size={18} className="text-slate-400" />
+                                <div className="p-6 space-y-4">
+                                    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border-2 border-red-100 shadow-sm">
+                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-rose-400 flex items-center justify-center text-white text-xl font-black">
+                                            {staff.emergency_contact_name ? staff.emergency_contact_name[0] : '?'}
                                         </div>
                                         <div>
-                                            <p className="font-medium text-slate-900">{staff.emergency_contact_name || 'Not set'}</p>
+                                            <p className="text-lg font-bold text-slate-900">{staff.emergency_contact_name || 'Not set'}</p>
                                             {staff.emergency_contact_relationship && (
-                                                <p className="text-sm text-slate-500 capitalize">{staff.emergency_contact_relationship}</p>
+                                                <p className="text-sm font-semibold text-rose-600 capitalize">{staff.emergency_contact_relationship}</p>
                                             )}
                                         </div>
                                     </div>
                                     {staff.emergency_contact_phone && (
-                                        <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
-                                            <Phone size={14} className="text-emerald-600" />
-                                            <span className="text-sm font-medium text-slate-700">{staff.emergency_contact_phone}</span>
+                                        <div className="bg-gradient-to-r from-red-500 to-rose-500 rounded-xl p-4 text-white flex items-center gap-3 shadow-lg">
+                                            <Phone size={24} />
+                                            <span className="text-lg font-bold">{staff.emergency_contact_phone}</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Bank Information */}
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden md:col-span-2">
-                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                                        <CreditCard size={16} className="text-amber-600" />
+                            {/* Bank Information - Bold Amber */}
+                            <div className="bg-gradient-to-br from-white to-amber-50/50 rounded-2xl border-2 border-amber-200 shadow-lg shadow-amber-100/50 overflow-hidden md:col-span-2">
+                                <div className="px-6 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <CreditCard size={20} className="text-white" />
                                     </div>
-                                    <h3 className="font-semibold text-slate-900">Bank Information</h3>
+                                    <h3 className="font-bold text-lg">Bank Information</h3>
                                 </div>
-                                <div className="p-5">
+                                <div className="p-6">
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Bank Name</p>
-                                            <p className="text-sm font-medium text-slate-900">{staff.bank_name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Branch</p>
-                                            <p className="text-sm text-slate-700">{staff.bank_branch || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Account Number</p>
-                                            <p className="text-sm font-mono text-slate-700">{staff.bank_account_number || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Account Name</p>
-                                            <p className="text-sm text-slate-700">{staff.bank_account_name || '-'}</p>
-                                        </div>
+                                        {[
+                                            { label: 'Bank Name', value: staff.bank_name },
+                                            { label: 'Branch', value: staff.bank_branch },
+                                            { label: 'Account Number', value: staff.bank_account_number, mono: true },
+                                            { label: 'Account Name', value: staff.bank_account_name },
+                                        ].map((item, idx) => (
+                                            <div key={idx} className="bg-white rounded-xl p-4 border-2 border-amber-100 shadow-sm">
+                                                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">{item.label}</p>
+                                                <p className={`text-base font-bold text-slate-800 ${item.mono ? 'font-mono' : ''}`}>{item.value || '-'}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Direct Reports */}
+                        {/* Direct Reports - Bold Indigo */}
                         {directReports.length > 0 && (
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                            <Users size={16} className="text-indigo-600" />
+                            <div className="bg-gradient-to-br from-white to-indigo-50/50 rounded-2xl border-2 border-indigo-200 shadow-lg shadow-indigo-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                            <Users size={20} className="text-white" />
                                         </div>
-                                        <h3 className="font-semibold text-slate-900">Direct Reports</h3>
-                                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">{directReports.length}</span>
+                                        <h3 className="font-bold text-lg">Direct Reports</h3>
+                                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-bold">{directReports.length}</span>
                                     </div>
                                 </div>
-                                <div className="p-5">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {directReports.map((dr) => (
                                             <button 
                                                 key={dr.id} 
                                                 onClick={() => navigate(`/staff/${dr.id}`)} 
-                                                className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-all text-left group"
+                                                className="flex items-center gap-4 p-4 bg-white rounded-xl shadow-md border-2 border-transparent hover:border-indigo-300 hover:shadow-xl transition-all text-left group"
                                             >
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0066B3] to-[#005599] flex items-center justify-center text-white text-sm font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-lg font-black flex-shrink-0 group-hover:scale-110 transition-transform">
                                                     {dr.first_name[0]}{dr.last_name[0]}
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-slate-900 truncate">{dr.first_name} {dr.last_name}</p>
-                                                    <p className="text-xs text-slate-500 truncate">{dr.position?.name || 'No position'}</p>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-bold text-slate-900 truncate">{dr.first_name} {dr.last_name}</p>
+                                                    <p className="text-sm text-indigo-600 font-semibold truncate">{dr.position?.name || 'No position'}</p>
                                                 </div>
-                                                <ChevronRight size={16} className="text-slate-300 ml-auto group-hover:text-indigo-400" />
+                                                <ChevronRight size={20} className="text-indigo-300 group-hover:text-indigo-500" />
                                             </button>
                                         ))}
                                     </div>
