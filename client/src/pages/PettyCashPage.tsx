@@ -869,9 +869,13 @@ const AddFloatModal: React.FC<{
 
     const floatRules = useMemo<ValidationRules<typeof formData>>(() => ({
         branch_id: [v => validators.required(v, 'Branch')],
-        maximum_limit: [v => validators.required(v, 'Maximum limit'), validators.positiveNumber('Maximum limit')],
+        // maximum_limit is informational only — the backend derives the actual
+        // ceiling from the tier policy. Keep validation soft (positive if filled).
+        maximum_limit: [validators.positiveNumber('Maximum limit')],
         minimum_threshold: [v => validators.required(v, 'Minimum threshold'), validators.positiveNumber('Minimum threshold')],
-        custodian_id: [v => validators.required(v, 'Custodian')],
+        // custodian_id is optional in the backend DTO and labelled "(Optional)"
+        // in the UI; do not force-require it here, otherwise the form fails
+        // silent client-side validation and never POSTs.
     }), []);
     const fv = useFormValidation(floatRules);
 
