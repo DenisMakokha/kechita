@@ -8,13 +8,13 @@ import { InputDialog } from '../components/ui/InputDialog';
 import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
 import {
     ArrowLeft, Edit, Mail, Phone, Building2, MapPin,
-    Briefcase, FileText, Clock, CheckCircle, XCircle,
-    Upload, Download, Trash2, AlertTriangle, User,
+    Briefcase, FileText, Clock, CheckCircle, CheckCircle2, XCircle,
+    Upload, Download, Trash2, AlertTriangle, User, Users,
     CreditCard, Shield, History, Camera, RefreshCw,
     ChevronRight, AlertCircle, TrendingUp, DollarSign,
     FileCheck, Plus, RotateCcw, Ban, Play, Heart,
     KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2, MoreHorizontal,
-    PenTool,
+    PenTool, Eye, Calendar, Target, GraduationCap, UserCircle, FileSignature, FolderOpen,
 } from 'lucide-react';
 import StaffPeopleTab from '../components/staff/StaffPeopleTab';
 
@@ -775,251 +775,350 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {/* Personal Information */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                <User size={18} className="text-[#0066B3]" />
-                                Personal Information
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Full Name</span>
-                                    <span className="font-medium">{[staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ')}</span>
+                        {/* Info Cards Grid */}
+                        <div className="grid gap-5 md:grid-cols-2">
+                            {/* Personal Information */}
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                        <User size={16} className="text-blue-600" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-900">Personal Information</h3>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Date of Birth</span>
-                                    <span className="font-medium">{staff.date_of_birth ? new Date(staff.date_of_birth).toLocaleDateString('en-GB') : '-'}</span>
+                                <div className="p-5 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Full Name</p>
+                                            <p className="text-sm font-semibold text-slate-900">{[staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ') || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Date of Birth</p>
+                                            <p className="text-sm text-slate-700">{staff.date_of_birth ? new Date(staff.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Gender</p>
+                                            <p className="text-sm text-slate-700 capitalize">{staff.gender || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">National ID</p>
+                                            <p className="text-sm font-mono text-slate-700">{staff.national_id || '-'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="pt-3 border-t border-slate-100">
+                                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Contact</p>
+                                        <div className="flex items-center gap-4 text-sm text-slate-700">
+                                            {staff.phone && <span className="flex items-center gap-1"><Phone size={12} className="text-slate-400" /> {staff.phone}</span>}
+                                            {staff.personal_email && <span className="flex items-center gap-1"><Mail size={12} className="text-slate-400" /> {staff.personal_email}</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Address</p>
+                                        <p className="text-sm text-slate-700">{[staff.address, staff.city, staff.postal_code].filter(Boolean).join(', ') || '-'}</p>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Gender</span>
-                                    <span className="font-medium capitalize">{staff.gender || '-'}</span>
+                            </div>
+
+                            {/* Employment Information */}
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                        <Briefcase size={16} className="text-emerald-600" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-900">Employment</h3>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">National ID</span>
-                                    <span className="font-medium">{staff.national_id || '-'}</span>
+                                <div className="p-5 space-y-4">
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Basic Salary</p>
+                                            <p className="text-lg font-bold text-emerald-700">
+                                                {staff.basic_salary ? `${staff.salary_currency || 'KES'} ${Number(staff.basic_salary).toLocaleString()}` : '-'}
+                                            </p>
+                                        </div>
+                                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                            <DollarSign size={20} className="text-emerald-600" />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Hire Date</p>
+                                            <p className="text-sm text-slate-700">{staff.hire_date ? new Date(staff.hire_date).toLocaleDateString('en-GB') : '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Confirmation</p>
+                                            <p className="text-sm text-slate-700">{staff.confirmation_date ? new Date(staff.confirmation_date).toLocaleDateString('en-GB') : '-'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Department</p>
+                                            <p className="text-sm text-slate-700">{staff.department?.name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Reports To</p>
+                                            <p className="text-sm text-slate-700">{staff.manager ? `${staff.manager.first_name} ${staff.manager.last_name}` : '-'}</p>
+                                        </div>
+                                    </div>
+                                    {staff.probation_end_date && (
+                                        <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-100 rounded-lg">
+                                            <Clock size={14} className="text-amber-600" />
+                                            <span className="text-sm text-amber-800">
+                                                Probation ends {new Date(staff.probation_end_date).toLocaleDateString('en-GB')}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Personal Email</span>
-                                    <span className="font-medium">{staff.personal_email || '-'}</span>
+                            </div>
+
+                            {/* Statutory Information */}
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                                        <Shield size={16} className="text-purple-600" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-900">Statutory Info</h3>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Address</span>
-                                    <span className="font-medium">{[staff.address, staff.city, staff.postal_code].filter(Boolean).join(', ') || '-'}</span>
+                                <div className="p-5 space-y-3">
+                                    {[ 
+                                        { label: 'KRA PIN', value: staff.tax_pin },
+                                        { label: 'NSSF Number', value: staff.nssf_number },
+                                        { label: 'SHIF Number', value: staff.nhif_number },
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                                            <span className="text-sm text-slate-500">{item.label}</span>
+                                            <span className="text-sm font-mono font-medium text-slate-700">{item.value || '-'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Emergency Contact */}
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                        <Heart size={16} className="text-red-600" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-900">Emergency Contact</h3>
+                                </div>
+                                <div className="p-5 space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                            <User size={18} className="text-slate-400" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-900">{staff.emergency_contact_name || 'Not set'}</p>
+                                            {staff.emergency_contact_relationship && (
+                                                <p className="text-sm text-slate-500 capitalize">{staff.emergency_contact_relationship}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {staff.emergency_contact_phone && (
+                                        <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
+                                            <Phone size={14} className="text-emerald-600" />
+                                            <span className="text-sm font-medium text-slate-700">{staff.emergency_contact_phone}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Bank Information */}
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden md:col-span-2">
+                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                                        <CreditCard size={16} className="text-amber-600" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-900">Bank Information</h3>
+                                </div>
+                                <div className="p-5">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Bank Name</p>
+                                            <p className="text-sm font-medium text-slate-900">{staff.bank_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Branch</p>
+                                            <p className="text-sm text-slate-700">{staff.bank_branch || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Account Number</p>
+                                            <p className="text-sm font-mono text-slate-700">{staff.bank_account_number || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Account Name</p>
+                                            <p className="text-sm text-slate-700">{staff.bank_account_name || '-'}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Employment Information */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                <Briefcase size={18} className="text-[#0066B3]" />
-                                Employment Information
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Hire Date</span>
-                                    <span className="font-medium">{staff.hire_date ? new Date(staff.hire_date).toLocaleDateString('en-GB') : '-'}</span>
+                        {/* Direct Reports */}
+                        {directReports.length > 0 && (
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                            <Users size={16} className="text-indigo-600" />
+                                        </div>
+                                        <h3 className="font-semibold text-slate-900">Direct Reports</h3>
+                                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">{directReports.length}</span>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Confirmation Date</span>
-                                    <span className="font-medium">{staff.confirmation_date ? new Date(staff.confirmation_date).toLocaleDateString('en-GB') : '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Department</span>
-                                    <span className="font-medium">{staff.department?.name || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Manager</span>
-                                    <span className="font-medium">{staff.manager ? `${staff.manager.first_name} ${staff.manager.last_name}` : '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Probation</span>
-                                    <span className="font-medium">
-                                        {staff.probation_end_date ? `Ends ${new Date(staff.probation_end_date).toLocaleDateString('en-GB')}` : '-'}
-                                        {staff.probation_status && staff.probation_status !== 'not_applicable' && (
-                                            <StatusBadge status={staff.probation_status} size="sm" />
-                                        )}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Basic Salary</span>
-                                    <span className="font-medium flex items-center gap-1">
-                                        <DollarSign size={14} className="text-emerald-600" />
-                                        {staff.basic_salary ? `${staff.salary_currency || 'KES'} ${Number(staff.basic_salary).toLocaleString()}` : '-'}
-                                    </span>
+                                <div className="p-5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {directReports.map((dr) => (
+                                            <button 
+                                                key={dr.id} 
+                                                onClick={() => navigate(`/staff/${dr.id}`)} 
+                                                className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-all text-left group"
+                                            >
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0066B3] to-[#005599] flex items-center justify-center text-white text-sm font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                                                    {dr.first_name[0]}{dr.last_name[0]}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-slate-900 truncate">{dr.first_name} {dr.last_name}</p>
+                                                    <p className="text-xs text-slate-500 truncate">{dr.position?.name || 'No position'}</p>
+                                                </div>
+                                                <ChevronRight size={16} className="text-slate-300 ml-auto group-hover:text-indigo-400" />
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Statutory Information */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                <Shield size={18} className="text-[#0066B3]" />
-                                Statutory Information
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">KRA PIN</span>
-                                    <span className="font-medium">{staff.tax_pin || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">NSSF Number</span>
-                                    <span className="font-medium">{staff.nssf_number || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">NHIF Number</span>
-                                    <span className="font-medium">{staff.nhif_number || '-'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Emergency Contact */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                <AlertTriangle size={18} className="text-[#0066B3]" />
-                                Emergency Contact
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Name</span>
-                                    <span className="font-medium">{staff.emergency_contact_name || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Phone</span>
-                                    <span className="font-medium">{staff.emergency_contact_phone || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Relationship</span>
-                                    <span className="font-medium capitalize">{staff.emergency_contact_relationship || '-'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Bank Information */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                <CreditCard size={18} className="text-[#0066B3]" />
-                                Bank Information
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Bank Name</span>
-                                    <span className="font-medium">{staff.bank_name || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Branch</span>
-                                    <span className="font-medium">{staff.bank_branch || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Account Number</span>
-                                    <span className="font-medium">{staff.bank_account_number || '-'}</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="text-slate-500">Account Name</span>
-                                    <span className="font-medium">{staff.bank_account_name || '-'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {/* Direct Reports */}
-                    {directReports.length > 0 && (
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2"><MapPin size={18} className="text-[#0066B3]" />Direct Reports ({directReports.length})</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {directReports.map((dr) => (
-                                    <button key={dr.id} onClick={() => navigate(`/staff/${dr.id}`)} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-blue-50 transition-colors text-left">
-                                        <div className="w-9 h-9 rounded-full bg-[#0066B3] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{dr.first_name[0]}{dr.last_name[0]}</div>
-                                        <div className="min-w-0"><p className="text-sm font-medium text-slate-900 truncate">{dr.first_name} {dr.last_name}</p><p className="text-xs text-slate-500 truncate">{dr.position?.name || '-'}</p></div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                        )}
                     </div>
                 )}
 
                 {/* Documents Tab */}
                 {activeTab === 'documents' && (
                     <div>
+                        {/* Header */}
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-semibold text-slate-900">Staff Documents</h3>
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Staff Documents</h3>
+                                <p className="text-sm text-slate-500 mt-0.5">{documents?.length || 0} document{documents?.length !== 1 ? 's' : ''} uploaded</p>
+                            </div>
                             <button
                                 onClick={() => setShowUploadModal(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599]"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] shadow-sm hover:shadow transition-all"
                             >
                                 <Upload size={18} />
                                 Upload Document
                             </button>
                         </div>
+
                         {documents?.length === 0 ? (
-                            <div className="text-center py-12">
-                                <FileText className="mx-auto text-slate-300 mb-4" size={48} />
-                                <p className="text-slate-500">No documents uploaded</p>
+                            <div className="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FolderOpen className="text-slate-400" size={28} />
+                                </div>
+                                <p className="text-slate-600 font-medium">No documents uploaded</p>
+                                <p className="text-sm text-slate-400 mt-1">Upload ID, certificates, and other important documents</p>
                             </div>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="grid gap-3">
                                 {documents?.map((doc) => {
-                                    const docStatusColors: Record<string, string> = {
-                                        verified: 'bg-emerald-100 text-emerald-700',
-                                        uploaded: 'bg-blue-100 text-blue-700',
-                                        pending: 'bg-amber-100 text-amber-700',
-                                        rejected: 'bg-red-100 text-red-700',
-                                        expired: 'bg-red-100 text-red-700',
-                                        expiring_soon: 'bg-orange-100 text-orange-700',
+                                    const docStatusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
+                                        verified: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, label: 'Verified' },
+                                        uploaded: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Upload, label: 'Uploaded' },
+                                        pending: { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, label: 'Pending' },
+                                        rejected: { bg: 'bg-red-50', text: 'text-red-700', icon: XCircle, label: 'Rejected' },
+                                        expired: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle, label: 'Expired' },
+                                        expiring_soon: { bg: 'bg-orange-50', text: 'text-orange-700', icon: Clock, label: 'Expiring Soon' },
                                     };
+                                    const config = docStatusConfig[doc.status] || docStatusConfig.pending;
+                                    const StatusIcon = config.icon;
+                                    const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
+
                                     return (
-                                        <div key={doc.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-white rounded-lg border border-slate-200 flex items-center justify-center">
-                                                    <FileText size={24} className="text-slate-400" />
+                                        <div key={doc.id} className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all hover:shadow-sm ${
+                                            doc.status === 'verified' ? 'border-emerald-200 bg-white' :
+                                            doc.status === 'rejected' || isExpired ? 'border-red-200 bg-red-50/30' :
+                                            doc.status === 'expiring_soon' ? 'border-orange-200 bg-orange-50/30' :
+                                            'border-slate-200 bg-white'
+                                        }`}>
+                                            {/* Document Icon */}
+                                            <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
+                                                doc.status === 'verified' ? 'bg-emerald-100 text-emerald-600' :
+                                                doc.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                                                doc.status === 'pending' ? 'bg-amber-100 text-amber-600' :
+                                                'bg-slate-100 text-slate-500'
+                                            }`}>
+                                                <FileText size={24} />
+                                            </div>
+
+                                            {/* Document Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h4 className="font-semibold text-slate-900 truncate">
+                                                        {doc.documentType?.name || doc.doc_type || 'Document'}
+                                                    </h4>
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${config.bg} ${config.text}`}>
+                                                        <StatusIcon size={12} />
+                                                        {config.label}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <p className="font-medium text-slate-900">{doc.documentType?.name || doc.doc_type || 'Document'}</p>
-                                                    <p className="text-sm text-slate-500">{doc.document?.original_name || doc.original_name}</p>
-                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${docStatusColors[doc.status] || 'bg-slate-100 text-slate-600'}`}>
-                                                            {doc.status?.replace('_', ' ')}
+                                                <p className="text-sm text-slate-500 truncate">{doc.document?.original_name || doc.original_name}</p>
+                                                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                                    {doc.reference_number && (
+                                                        <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Ref: {doc.reference_number}</span>
+                                                    )}
+                                                    {doc.issue_date && (
+                                                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                                                            <Calendar size={10} />
+                                                            Issued {new Date(doc.issue_date).toLocaleDateString('en-GB')}
                                                         </span>
-                                                        {doc.reference_number && (
-                                                            <span className="text-xs text-slate-400">Ref: {doc.reference_number}</span>
-                                                        )}
-                                                        {doc.expiry_date && (
-                                                            <span className={`text-xs ${new Date(doc.expiry_date) < new Date() ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
-                                                                {new Date(doc.expiry_date) < new Date() ? 'Expired' : 'Expires'}: {new Date(doc.expiry_date).toLocaleDateString('en-GB')}
-                                                            </span>
-                                                        )}
-                                                        {doc.issue_date && (
-                                                            <span className="text-xs text-slate-400">Issued: {new Date(doc.issue_date).toLocaleDateString('en-GB')}</span>
-                                                        )}
-                                                    </div>
-                                                    {doc.rejection_reason && (
-                                                        <p className="text-xs text-red-500 mt-1">Rejected: {doc.rejection_reason}</p>
+                                                    )}
+                                                    {doc.expiry_date && (
+                                                        <span className={`text-xs flex items-center gap-1 ${isExpired ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+                                                            <Clock size={10} />
+                                                            {isExpired ? 'Expired' : 'Expires'} {new Date(doc.expiry_date).toLocaleDateString('en-GB')}
+                                                        </span>
                                                     )}
                                                 </div>
+                                                {doc.rejection_reason && (
+                                                    <p className="text-sm text-red-600 mt-2 bg-red-50 px-2 py-1 rounded inline-block">
+                                                        Rejected: {doc.rejection_reason}
+                                                    </p>
+                                                )}
                                             </div>
-                                            <div className="flex items-center gap-1">
+
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-1 flex-shrink-0">
                                                 {doc.document?.id && (
                                                     <button
                                                         type="button"
                                                         onClick={() => downloadAuthedFile(`/staff/documents/file/${doc.document!.id}`, doc.document!.original_name || 'document')}
-                                                        className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"
-                                                        title="Download" aria-label="Download"
+                                                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-[#0066B3] transition-colors"
+                                                        title="Download"
                                                     >
                                                         <Download size={18} />
                                                     </button>
                                                 )}
                                                 {(doc.status === 'uploaded' || doc.status === 'pending') && (
                                                     <>
-                                                        <button onClick={() => verifyDocMutation.mutate(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-600" title="Verify" aria-label="Verify">
+                                                        <button 
+                                                            onClick={() => verifyDocMutation.mutate(doc.id)} 
+                                                            className="p-2 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors"
+                                                            title="Verify"
+                                                        >
                                                             <CheckCircle size={18} />
                                                         </button>
-                                                        <button onClick={() => setRejectDocId(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-orange-600" title="Reject" aria-label="Reject">
+                                                        <button 
+                                                            onClick={() => setRejectDocId(doc.id)} 
+                                                            className="p-2 hover:bg-orange-50 rounded-lg text-slate-400 hover:text-orange-600 transition-colors"
+                                                            title="Reject"
+                                                        >
                                                             <XCircle size={18} />
                                                         </button>
                                                     </>
                                                 )}
-                                                <button onClick={() => setDeleteDocId(doc.id)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-600" title="Delete" aria-label="Delete">
+                                                <button 
+                                                    onClick={() => setDeleteDocId(doc.id)} 
+                                                    className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
+                                                    title="Delete"
+                                                >
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
@@ -1034,111 +1133,304 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Contracts Tab */}
                 {activeTab === 'contracts' && (
                     <div>
+                        {/* Header */}
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-semibold text-slate-900">Employment Contracts</h3>
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Employment Contracts</h3>
+                                <p className="text-sm text-slate-500 mt-0.5">{contracts?.length || 0} contract{contracts?.length !== 1 ? 's' : ''} on record</p>
+                            </div>
                             <button
                                 onClick={() => { setContractFormData({ contract_type: 'permanent', notice_period_days: 30, salary: staff.basic_salary, job_title: staff.position?.name }); setShowContractModal(true); }}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599]"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] shadow-sm hover:shadow transition-all"
                             >
                                 <Plus size={18} />
                                 New Contract
                             </button>
                         </div>
+
                         {contracts?.length === 0 ? (
-                            <div className="text-center py-12">
-                                <FileCheck className="mx-auto text-slate-300 mb-4" size={48} />
-                                <p className="text-slate-500">No contracts found</p>
-                                <p className="text-sm text-slate-400 mt-1">Create a contract to track employment terms</p>
+                            <div className="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FileCheck className="text-slate-400" size={28} />
+                                </div>
+                                <p className="text-slate-600 font-medium">No contracts found</p>
+                                <p className="text-sm text-slate-400 mt-1">Create a contract to track employment terms and salary</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
                                 {contracts?.map((c) => {
-                                    const statusColors: Record<string, string> = {
-                                        draft: 'bg-slate-100 text-slate-600',
-                                        pending_signature: 'bg-amber-100 text-amber-700',
-                                        active: 'bg-emerald-100 text-emerald-700',
-                                        expired: 'bg-red-100 text-red-700',
-                                        terminated: 'bg-red-100 text-red-700',
-                                        renewed: 'bg-blue-100 text-blue-700',
-                                        superseded: 'bg-slate-100 text-slate-500',
+                                    // Status configuration with colors and icons
+                                    const statusConfig: Record<string, { bg: string; border: string; badge: string; label: string; icon: any }> = {
+                                        draft: { 
+                                            bg: 'bg-white', 
+                                            border: 'border-slate-200',
+                                            badge: 'bg-slate-100 text-slate-700 ring-slate-200',
+                                            label: 'Draft',
+                                            icon: FileText
+                                        },
+                                        pending_signature: { 
+                                            bg: 'bg-white', 
+                                            border: 'border-amber-300',
+                                            badge: 'bg-amber-100 text-amber-700 ring-amber-200',
+                                            label: 'Pending Signature',
+                                            icon: PenTool
+                                        },
+                                        active: { 
+                                            bg: 'bg-white', 
+                                            border: 'border-emerald-300',
+                                            badge: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+                                            label: 'Active',
+                                            icon: CheckCircle2
+                                        },
+                                        expired: { 
+                                            bg: 'bg-slate-50', 
+                                            border: 'border-slate-300',
+                                            badge: 'bg-slate-200 text-slate-700 ring-slate-300',
+                                            label: 'Expired',
+                                            icon: Clock
+                                        },
+                                        terminated: { 
+                                            bg: 'bg-red-50/50', 
+                                            border: 'border-red-200',
+                                            badge: 'bg-red-100 text-red-700 ring-red-200',
+                                            label: 'Terminated',
+                                            icon: Ban
+                                        },
+                                        renewed: { 
+                                            bg: 'bg-blue-50/30', 
+                                            border: 'border-blue-200',
+                                            badge: 'bg-blue-100 text-blue-700 ring-blue-200',
+                                            label: 'Renewed',
+                                            icon: RotateCcw
+                                        },
+                                        superseded: { 
+                                            bg: 'bg-slate-50', 
+                                            border: 'border-slate-200',
+                                            badge: 'bg-slate-100 text-slate-600 ring-slate-200',
+                                            label: 'Superseded',
+                                            icon: FileText
+                                        },
                                     };
+
+                                    // Contract type icons
+                                    const contractTypeIcons: Record<string, any> = {
+                                        permanent: Briefcase,
+                                        fixed_term: Calendar,
+                                        probation: Target,
+                                        internship: GraduationCap,
+                                        casual: UserCircle,
+                                        consultancy: FileSignature,
+                                    };
+
+                                    const config = statusConfig[c.status] || statusConfig.draft;
+                                    const TypeIcon = contractTypeIcons[c.contract_type] || Briefcase;
+                                    const StatusIcon = config.icon;
+
                                     const daysRemaining = c.end_date ? Math.ceil((new Date(c.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+                                    const progressPercent = c.end_date && c.start_date && daysRemaining !== null
+                                        ? Math.max(0, Math.min(100, (daysRemaining / Math.ceil((new Date(c.end_date).getTime() - new Date(c.start_date).getTime()) / (1000 * 60 * 60 * 24))) * 100))
+                                        : null;
+
                                     return (
-                                        <div key={c.id} className={`p-5 rounded-xl border ${c.status === 'active' ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-slate-50'}`}>
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h4 className="font-semibold text-slate-900">{c.title || `${c.contract_type.replace('_', ' ')} Contract`}</h4>
-                                                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${statusColors[c.status] || 'bg-slate-100 text-slate-600'}`}>
-                                                            {c.status.replace('_', ' ')}
-                                                        </span>
-                                                        {c.renewal_count ? <span className="text-xs text-slate-400">Renewal #{c.renewal_count}</span> : null}
+                                        <div key={c.id} className={`relative overflow-hidden rounded-xl border-2 ${config.border} ${config.bg} shadow-sm hover:shadow-md transition-shadow`}>
+                                            {/* Status indicator strip */}
+                                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                                                c.status === 'active' ? 'bg-emerald-500' :
+                                                c.status === 'pending_signature' ? 'bg-amber-500' :
+                                                c.status === 'terminated' ? 'bg-red-500' :
+                                                c.status === 'renewed' ? 'bg-blue-500' :
+                                                'bg-slate-400'
+                                            }`} />
+
+                                            <div className="p-5 pl-6">
+                                                {/* Top row: Type, Status, Salary */}
+                                                <div className="flex items-start justify-between gap-4 mb-4">
+                                                    <div className="flex items-start gap-3">
+                                                        {/* Contract Type Icon */}
+                                                        <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                                                            c.status === 'active' ? 'bg-emerald-100 text-emerald-600' :
+                                                            c.status === 'pending_signature' ? 'bg-amber-100 text-amber-600' :
+                                                            c.status === 'terminated' ? 'bg-red-100 text-red-600' :
+                                                            'bg-slate-100 text-slate-600'
+                                                        }`}>
+                                                            <TypeIcon size={20} />
+                                                        </div>
+
+                                                        <div>
+                                                            {/* Title & Status */}
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className="font-semibold text-slate-900 text-base">
+                                                                    {c.title || `${c.contract_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Contract`}
+                                                                </h4>
+                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full ring-1 ${config.badge}`}>
+                                                                    <StatusIcon size={12} />
+                                                                    {config.label}
+                                                                </span>
+                                                                {c.renewal_count ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700 ring-1 ring-purple-200">
+                                                                        <RotateCcw size={10} />
+                                                                        Renewal #{c.renewal_count}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+
+                                                            {/* Contract Number & Type */}
+                                                            <div className="flex items-center gap-3 text-sm text-slate-500">
+                                                                <span className="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-xs">{c.contract_number}</span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Shield size={12} />
+                                                                    Notice: {c.notice_period_days} days
+                                                                </span>
+                                                                {c.job_title && (
+                                                                    <span className="flex items-center gap-1 text-slate-600">
+                                                                        <Briefcase size={12} />
+                                                                        {c.job_title}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <p className="text-sm text-slate-500">
-                                                        {c.contract_number} • {c.contract_type.replace('_', ' ')} • Notice: {c.notice_period_days}d
-                                                    </p>
+
+                                                    {/* Salary */}
+                                                    {c.salary ? (
+                                                        <div className="text-right flex-shrink-0">
+                                                            <div className="flex items-baseline justify-end gap-1">
+                                                                <span className="text-sm font-medium text-slate-500">{c.salary_currency || 'KES'}</span>
+                                                                <span className="text-xl font-bold text-slate-900">{Number(c.salary).toLocaleString()}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-400">per month</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-right flex-shrink-0">
+                                                            <p className="text-sm text-slate-400 italic">Salary not set</p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {c.salary && (
-                                                    <div className="text-right">
-                                                        <p className="text-lg font-bold text-emerald-700 flex items-center gap-1">
-                                                            <DollarSign size={16} /> {c.salary_currency || 'KES'} {Number(c.salary).toLocaleString()}
-                                                        </p>
-                                                        <p className="text-xs text-slate-400">per month</p>
+
+                                                {/* Date timeline */}
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                                        <span className="text-slate-600 font-medium">{new Date(c.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                                    </div>
+                                                    <div className="flex-1 h-px bg-slate-200 relative">
+                                                        {c.end_date && progressPercent !== null && c.status === 'active' && daysRemaining !== null && (
+                                                            <div 
+                                                                className={`absolute left-0 top-0 bottom-0 ${daysRemaining <= 30 ? 'bg-red-400' : daysRemaining <= 90 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                                                style={{ width: `${100 - progressPercent}%` }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        {c.end_date ? (
+                                                            <>
+                                                                <div className={`w-2 h-2 rounded-full ${daysRemaining !== null && daysRemaining <= 30 ? 'bg-red-500' : 'bg-slate-400'}`} />
+                                                                <span className={`font-medium ${daysRemaining !== null && daysRemaining <= 30 ? 'text-red-600' : 'text-slate-600'}`}>
+                                                                    {new Date(c.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                                <span className="text-emerald-600 font-medium">Ongoing</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Days remaining warning */}
+                                                {daysRemaining !== null && c.status === 'active' && (
+                                                    <div className={`mb-4 p-2.5 rounded-lg flex items-center gap-2 text-sm ${
+                                                        daysRemaining <= 30 ? 'bg-red-50 text-red-700 border border-red-100' :
+                                                        daysRemaining <= 90 ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                                        'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                                    }`}>
+                                                        <AlertCircle size={16} />
+                                                        <span className="font-medium">
+                                                            {daysRemaining > 0 ? `${daysRemaining} days remaining` : 'Expired'}
+                                                        </span>
+                                                        {daysRemaining <= 30 && daysRemaining > 0 && (
+                                                            <span className="text-xs opacity-75">— Consider renewal</span>
+                                                        )}
                                                     </div>
                                                 )}
-                                            </div>
-                                            <div className="flex items-center gap-4 text-sm text-slate-500 mb-3">
-                                                <span className="flex items-center gap-1"><Clock size={14} /> {new Date(c.start_date).toLocaleDateString('en-GB')} — {c.end_date ? new Date(c.end_date).toLocaleDateString('en-GB') : 'Ongoing'}</span>
-                                                {daysRemaining !== null && c.status === 'active' && (
-                                                    <span className={`font-medium ${daysRemaining <= 30 ? 'text-red-600' : daysRemaining <= 90 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                                        {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
-                                                    </span>
+
+                                                {/* Termination reason */}
+                                                {c.termination_reason && (
+                                                    <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-100">
+                                                        <p className="text-sm text-red-700">
+                                                            <span className="font-medium">Termination:</span> {c.termination_reason}
+                                                        </p>
+                                                        {c.termination_date && (
+                                                            <p className="text-xs text-red-500 mt-1">
+                                                                Effective: {new Date(c.termination_date).toLocaleDateString('en-GB')}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 )}
-                                            </div>
-                                            {c.termination_reason && (
-                                                <p className="text-sm text-red-600 mb-3">Termination: {c.termination_reason}</p>
-                                            )}
-                                            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
-                                                {/* PDF Actions */}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => downloadAuthedFile(`/staff/contracts/${c.id}/pdf/preview`)}
-                                                    className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 flex items-center gap-1"
-                                                >
-                                                    <FileText size={12} /> Preview PDF
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => downloadAuthedFile(`/staff/contracts/${c.id}/pdf`, `contract-${c.contract_number || c.id}.pdf`)}
-                                                    className="px-3 py-1.5 text-xs font-medium bg-[#0066B3]/10 text-[#0066B3] rounded-lg hover:bg-[#0066B3]/20 flex items-center gap-1"
-                                                >
-                                                    <Download size={12} /> Download PDF
-                                                </button>
-                                                {(c.status === 'draft' || c.status === 'pending_signature') && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => sendForSignatureMutation.mutate(c.id)}
-                                                            disabled={sendForSignatureMutation.isPending}
-                                                            className="px-3 py-1.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 flex items-center gap-1 disabled:opacity-50"
-                                                            title={c.status === 'pending_signature' ? 'Resend signing link (rotates token)' : 'Email a secure signing link to the employee'}
-                                                        >
-                                                            <PenTool size={12} /> {c.status === 'pending_signature' ? 'Resend signing link' : 'Send for signature'}
-                                                        </button>
-                                                        <button onClick={() => activateContractMutation.mutate(c.id)} className="px-3 py-1.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 flex items-center gap-1">
-                                                            <Play size={12} /> Activate
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {c.status === 'active' && (
-                                                    <button onClick={() => { setRenewContractTarget(c.id); setRenewEndDate(c.end_date ? new Date(new Date(c.end_date).getTime() + 365*24*60*60*1000).toISOString().split('T')[0] : ''); setRenewSalary(c.salary ? String(c.salary) : ''); setShowRenewModal(true); }} className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1">
-                                                        <RotateCcw size={12} /> Renew
+
+                                                {/* Action buttons */}
+                                                <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
+                                                    {/* Primary: PDF Actions */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => downloadAuthedFile(`/staff/contracts/${c.id}/pdf/preview`)}
+                                                        className="px-3 py-2 text-sm font-medium bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:border-slate-300 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Eye size={16} />
+                                                        Preview
                                                     </button>
-                                                )}
-                                                {c.status === 'active' && (
-                                                    <button onClick={() => { setTerminateContractTarget(c.id); setTerminateContractDate(new Date().toISOString().split('T')[0]); setShowTerminateContractModal(true); }} className="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-1">
-                                                        <Ban size={12} /> Terminate
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => downloadAuthedFile(`/staff/contracts/${c.id}/pdf`, `contract-${c.contract_number || c.id}.pdf`)}
+                                                        className="px-3 py-2 text-sm font-medium bg-[#0066B3] text-white rounded-lg hover:bg-[#005599] flex items-center gap-2 transition-colors shadow-sm"
+                                                    >
+                                                        <Download size={16} />
+                                                        Download PDF
                                                     </button>
-                                                )}
+
+                                                    <div className="flex-1" />
+
+                                                    {/* Status-specific actions */}
+                                                    {(c.status === 'draft' || c.status === 'pending_signature') && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => sendForSignatureMutation.mutate(c.id)}
+                                                                disabled={sendForSignatureMutation.isPending}
+                                                                className="px-3 py-2 text-sm font-medium bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                                title={c.status === 'pending_signature' ? 'Resend signing link' : 'Send for signature'}
+                                                            >
+                                                                <PenTool size={16} />
+                                                                {c.status === 'pending_signature' ? 'Resend' : 'Send for Signature'}
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => activateContractMutation.mutate(c.id)} 
+                                                                className="px-3 py-2 text-sm font-medium bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 flex items-center gap-2 transition-colors"
+                                                            >
+                                                                <Play size={16} />
+                                                                Activate
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {c.status === 'active' && (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => { setRenewContractTarget(c.id); setRenewEndDate(c.end_date ? new Date(new Date(c.end_date).getTime() + 365*24*60*60*1000).toISOString().split('T')[0] : ''); setRenewSalary(c.salary ? String(c.salary) : ''); setShowRenewModal(true); }} 
+                                                                className="px-3 py-2 text-sm font-medium bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 flex items-center gap-2 transition-colors"
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                                Renew
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => { setTerminateContractTarget(c.id); setTerminateContractDate(new Date().toISOString().split('T')[0]); setShowTerminateContractModal(true); }} 
+                                                                className="px-3 py-2 text-sm font-medium bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                                            >
+                                                                <Ban size={16} />
+                                                                Terminate
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -1151,70 +1443,133 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Employment History Tab */}
                 {activeTab === 'employment' && (
                     <div>
-                        <h3 className="font-semibold text-slate-900 mb-6">Employment History</h3>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Employment History</h3>
+                                <p className="text-sm text-slate-500 mt-0.5">{employmentHistory?.length || 0} record{employmentHistory?.length !== 1 ? 's' : ''}</p>
+                            </div>
+                        </div>
+
                         {employmentHistory?.length === 0 ? (
-                            <div className="text-center py-12">
-                                <History className="mx-auto text-slate-300 mb-4" size={48} />
-                                <p className="text-slate-500">No employment history</p>
+                            <div className="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <History className="text-slate-400" size={28} />
+                                </div>
+                                <p className="text-slate-600 font-medium">No employment history</p>
+                                <p className="text-sm text-slate-400 mt-1">Position changes and transfers will appear here</p>
                             </div>
                         ) : (
                             <div className="relative">
-                                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
+                                {/* Timeline line */}
+                                <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-slate-200 via-slate-300 to-slate-200" />
+                                
                                 <div className="space-y-6">
                                     {employmentHistory?.map((entry, idx) => {
-                                        const changeColors: Record<string, string> = {
-                                            initial: 'bg-blue-500 border-blue-500',
-                                            promotion: 'bg-emerald-500 border-emerald-500',
-                                            transfer: 'bg-purple-500 border-purple-500',
-                                            demotion: 'bg-red-500 border-red-500',
-                                            salary_change: 'bg-amber-500 border-amber-500',
-                                            lateral: 'bg-slate-500 border-slate-500',
+                                        const changeConfig: Record<string, { dot: string; badge: string; icon: any }> = {
+                                            initial: { 
+                                                dot: 'bg-blue-500 border-blue-500 ring-blue-100',
+                                                badge: 'bg-blue-100 text-blue-700 ring-blue-200',
+                                                icon: Briefcase
+                                            },
+                                            promotion: { 
+                                                dot: 'bg-emerald-500 border-emerald-500 ring-emerald-100',
+                                                badge: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+                                                icon: TrendingUp
+                                            },
+                                            transfer: { 
+                                                dot: 'bg-purple-500 border-purple-500 ring-purple-100',
+                                                badge: 'bg-purple-100 text-purple-700 ring-purple-200',
+                                                icon: MapPin
+                                            },
+                                            demotion: { 
+                                                dot: 'bg-red-500 border-red-500 ring-red-100',
+                                                badge: 'bg-red-100 text-red-700 ring-red-200',
+                                                icon: AlertTriangle
+                                            },
+                                            salary_change: { 
+                                                dot: 'bg-amber-500 border-amber-500 ring-amber-100',
+                                                badge: 'bg-amber-100 text-amber-700 ring-amber-200',
+                                                icon: DollarSign
+                                            },
+                                            lateral: { 
+                                                dot: 'bg-slate-500 border-slate-500 ring-slate-100',
+                                                badge: 'bg-slate-100 text-slate-700 ring-slate-200',
+                                                icon: RefreshCw
+                                            },
                                         };
-                                        const dotColor = idx === 0
-                                            ? (changeColors[entry.change_type || 'initial'] || 'bg-[#0066B3] border-[#0066B3]')
-                                            : 'bg-white border-slate-300';
-                                        const changeBadgeColors: Record<string, string> = {
-                                            promotion: 'bg-emerald-100 text-emerald-700',
-                                            transfer: 'bg-purple-100 text-purple-700',
-                                            demotion: 'bg-red-100 text-red-700',
-                                            salary_change: 'bg-amber-100 text-amber-700',
-                                            initial: 'bg-blue-100 text-blue-700',
-                                        };
+                                        const config = changeConfig[entry.change_type || 'initial'] || changeConfig.initial;
+                                        const ChangeIcon = config.icon;
+                                        const isCurrent = idx === 0 && !entry.end_date;
+
                                         return (
-                                            <div key={entry.id} className="relative pl-10">
-                                                <div className={`absolute left-2 w-5 h-5 rounded-full border-2 ${dotColor}`} />
-                                                <div className="bg-slate-50 rounded-xl p-4">
-                                                    <div className="flex items-start justify-between">
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <p className="font-medium text-slate-900">{entry.position?.name || 'Position change'}</p>
+                                            <div key={entry.id} className="relative pl-14">
+                                                {/* Timeline dot */}
+                                                <div className={`absolute left-3 w-7 h-7 rounded-full border-2 ${config.dot} ring-4 flex items-center justify-center z-10`}>
+                                                    <ChangeIcon size={14} className="text-white" />
+                                                </div>
+
+                                                {/* Card */}
+                                                <div className={`rounded-xl border p-5 ${isCurrent ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50/80 border-slate-200'}`}>
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                                <h4 className="font-semibold text-slate-900 text-base">{entry.position?.name || 'Position'}</h4>
                                                                 {entry.change_type && entry.change_type !== 'initial' && (
-                                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${changeBadgeColors[entry.change_type] || 'bg-slate-100 text-slate-600'}`}>
+                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ring-1 ${config.badge}`}>
+                                                                        <ChangeIcon size={10} />
                                                                         {entry.change_type.replace('_', ' ')}
                                                                     </span>
                                                                 )}
-                                                                {idx === 0 && !entry.end_date && (
-                                                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Current</span>
+                                                                {isCurrent && (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 ring-1 ring-blue-200">
+                                                                        <CheckCircle size={10} />
+                                                                        Current
+                                                                    </span>
                                                                 )}
                                                             </div>
-                                                            <p className="text-sm text-slate-500">
-                                                                {[entry.department?.name, entry.branch?.name, entry.region?.name].filter(Boolean).join(' • ')}
-                                                            </p>
+                                                            
+                                                            <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+                                                                <Building2 size={14} />
+                                                                <span>{[entry.department?.name, entry.branch?.name, entry.region?.name].filter(Boolean).join(' • ') || 'N/A'}</span>
+                                                            </div>
+
                                                             {entry.salary && (
-                                                                <p className="text-sm text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                                                                    <DollarSign size={13} /> KES {Number(entry.salary).toLocaleString()}/mo
+                                                                <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-100 rounded-lg w-fit">
+                                                                    <DollarSign size={14} className="text-emerald-600" />
+                                                                    <span className="text-sm font-semibold text-emerald-700">
+                                                                        KES {Number(entry.salary).toLocaleString()}/month
+                                                                    </span>
+                                                                </div>
+                                                            )}
+
+                                                            {entry.change_reason && (
+                                                                <p className="text-sm text-slate-500 mt-3 italic bg-slate-100/50 p-2 rounded">
+                                                                    “{entry.change_reason}”
                                                                 </p>
                                                             )}
                                                         </div>
-                                                        <span className="text-sm text-slate-400 whitespace-nowrap">
-                                                            {new Date(entry.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                            {entry.end_date && ` — ${new Date(entry.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-                                                            {!entry.end_date && ' — Present'}
-                                                        </span>
+
+                                                        {/* Date range */}
+                                                        <div className="text-right flex-shrink-0">
+                                                            <div className="text-sm font-medium text-slate-700">
+                                                                {new Date(entry.start_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                                                            </div>
+                                                            {entry.end_date ? (
+                                                                <div className="text-sm text-slate-500">
+                                                                    {new Date(entry.end_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-sm text-emerald-600 font-medium">Present</div>
+                                                            )}
+                                                            <div className="text-xs text-slate-400 mt-1">
+                                                                {entry.end_date 
+                                                                    ? `${Math.ceil((new Date(entry.end_date).getTime() - new Date(entry.start_date).getTime()) / (1000 * 60 * 60 * 24 * 30))} months`
+                                                                    : `${Math.ceil((Date.now() - new Date(entry.start_date).getTime()) / (1000 * 60 * 60 * 24 * 30))} months`
+                                                                }
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    {entry.change_reason && (
-                                                        <p className="text-sm text-slate-500 mt-2 italic">{entry.change_reason}</p>
-                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -1228,61 +1583,168 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Onboarding Tab */}
                 {activeTab === 'onboarding' && (
                     <div>
+                        {/* Header */}
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-semibold text-slate-900">Onboarding Progress</h3>
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Onboarding Progress</h3>
+                                <p className="text-sm text-slate-500 mt-0.5">{onboarding ? `${onboarding.task_statuses?.length || 0} task${onboarding.task_statuses?.length !== 1 ? 's' : ''}` : 'No active onboarding'}</p>
+                            </div>
                             {!onboarding && (
-                                <button onClick={() => startOnboardingMutation.mutate()} disabled={startOnboardingMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50">
-                                    <Plus size={18} />{startOnboardingMutation.isPending ? 'Starting...' : 'Start Onboarding'}
+                                <button 
+                                    onClick={() => startOnboardingMutation.mutate()} 
+                                    disabled={startOnboardingMutation.isPending} 
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005599] disabled:opacity-50 shadow-sm"
+                                >
+                                    <Plus size={18} />
+                                    {startOnboardingMutation.isPending ? 'Starting...' : 'Start Onboarding'}
                                 </button>
                             )}
                         </div>
+
                         {!onboarding ? (
-                            <div className="text-center py-12">
-                                <CheckCircle className="mx-auto text-slate-300 mb-4" size={48} />
-                                <p className="text-slate-500">No active onboarding</p>
+                            <div className="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <CheckCircle className="text-slate-400" size={28} />
+                                </div>
+                                <p className="text-slate-600 font-medium">No active onboarding</p>
                                 <p className="text-sm text-slate-400 mt-1">Start onboarding to track tasks and document completion</p>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="font-medium text-slate-900">{onboarding.template?.name || 'Onboarding'}</p>
-                                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${{ in_progress: 'bg-blue-100 text-blue-700', completed: 'bg-emerald-100 text-emerald-700', overdue: 'bg-red-100 text-red-700' }[onboarding.status] || 'bg-slate-100 text-slate-600'}`}>{onboarding.status.replace('_',' ')}</span>
+                            <div className="space-y-6">
+                                {/* Progress Card */}
+                                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                    <div className="p-5">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                                                    onboarding.status === 'completed' ? 'bg-emerald-100' :
+                                                    onboarding.status === 'overdue' ? 'bg-red-100' :
+                                                    'bg-blue-100'
+                                                }`}>
+                                                    {onboarding.status === 'completed' ? <CheckCircle size={24} className="text-emerald-600" /> :
+                                                     onboarding.status === 'overdue' ? <AlertCircle size={24} className="text-red-600" /> :
+                                                     <Clock size={24} className="text-blue-600" />}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold text-slate-900">{onboarding.template?.name || 'Onboarding'}</h4>
+                                                    <p className="text-sm text-slate-500">{onboarding.progress_percentage ?? 0}% complete</p>
+                                                </div>
+                                            </div>
+                                            <span className={`px-3 py-1 text-xs font-medium rounded-full ring-1 ${
+                                                onboarding.status === 'completed' ? 'bg-emerald-100 text-emerald-700 ring-emerald-200' :
+                                                onboarding.status === 'overdue' ? 'bg-red-100 text-red-700 ring-red-200' :
+                                                'bg-blue-100 text-blue-700 ring-blue-200'
+                                            }`}>
+                                                {onboarding.status.replace('_', ' ')}
+                                            </span>
                                         </div>
-                                        <div className="w-full bg-slate-200 rounded-full h-2">
-                                            <div className="bg-[#0066B3] h-2 rounded-full transition-all" style={{ width: `${onboarding.progress_percentage ?? 0}%` }} />
+                                        
+                                        {/* Progress bar */}
+                                        <div className="relative">
+                                            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                                                <div 
+                                                    className={`h-3 rounded-full transition-all duration-500 ${
+                                                        onboarding.status === 'completed' ? 'bg-emerald-500' :
+                                                        onboarding.status === 'overdue' ? 'bg-red-500' :
+                                                        'bg-[#0066B3]'
+                                                    }`} 
+                                                    style={{ width: `${onboarding.progress_percentage ?? 0}%` }} 
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-2 text-xs text-slate-500">
+                                                <span>0%</span>
+                                                <span className="font-medium">{onboarding.progress_percentage ?? 0}%</span>
+                                                <span>100%</span>
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-slate-500 mt-1">{onboarding.progress_percentage ?? 0}% complete</p>
                                     </div>
                                 </div>
+
+                                {/* Task List */}
                                 <div className="space-y-3">
+                                    <h4 className="font-medium text-slate-900 flex items-center gap-2">
+                                        <CheckCircle2 size={16} className="text-slate-400" />
+                                        Tasks
+                                    </h4>
                                     {onboarding.task_statuses?.map((ts) => {
                                         const isDone = ts.status === 'completed';
                                         const isSkipped = ts.status === 'skipped';
                                         const isOverdue = ts.due_date && !isDone && !isSkipped && new Date(ts.due_date) < new Date();
+                                        
                                         return (
-                                            <div key={ts.id} className={`flex items-center gap-4 p-4 rounded-xl border ${isDone ? 'bg-emerald-50 border-emerald-200' : isSkipped ? 'bg-slate-50 border-slate-200 opacity-60' : isOverdue ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'}`}>
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-emerald-500' : isSkipped ? 'bg-slate-300' : 'bg-slate-200'}`}>
-                                                    {isDone ? <CheckCircle size={16} className="text-white" /> : isSkipped ? <XCircle size={16} className="text-white" /> : <Clock size={16} className="text-slate-500" />}
+                                            <div key={ts.id} className={`flex items-start gap-4 p-4 rounded-xl border-2 transition-all ${
+                                                isDone ? 'bg-emerald-50/50 border-emerald-200' : 
+                                                isSkipped ? 'bg-slate-50 border-slate-200 opacity-60' : 
+                                                isOverdue ? 'bg-red-50 border-red-200' : 
+                                                'bg-white border-slate-200 hover:border-slate-300'
+                                            }`}>
+                                                {/* Status icon */}
+                                                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                                    isDone ? 'bg-emerald-500' : 
+                                                    isSkipped ? 'bg-slate-300' : 
+                                                    isOverdue ? 'bg-red-500' :
+                                                    'bg-slate-200'
+                                                }`}>
+                                                    {isDone ? <CheckCircle size={20} className="text-white" /> : 
+                                                     isSkipped ? <XCircle size={20} className="text-white" /> : 
+                                                     isOverdue ? <AlertCircle size={20} className="text-white" /> :
+                                                     <Clock size={20} className="text-slate-500" />}
                                                 </div>
+
+                                                {/* Task info */}
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className={`text-sm font-medium ${isDone ? 'text-emerald-700 line-through' : 'text-slate-900'}`}>{ts.task?.title || 'Task'}</p>
-                                                        {ts.task?.is_required && <span className="text-xs text-red-500 font-medium">Required</span>}
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className={`font-medium ${isDone ? 'text-emerald-700 line-through' : 'text-slate-900'}`}>
+                                                            {ts.task?.title || 'Task'}
+                                                        </p>
+                                                        {ts.task?.is_required && !isDone && !isSkipped && (
+                                                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-600">Required</span>
+                                                        )}
                                                     </div>
-                                                    {ts.task?.description && <p className="text-xs text-slate-500 truncate">{ts.task.description}</p>}
-                                                    {ts.due_date && <p className={`text-xs mt-0.5 ${isOverdue ? 'text-red-600 font-medium' : 'text-slate-400'}`}>Due: {new Date(ts.due_date).toLocaleDateString('en-GB')}</p>}
-                                                    {ts.notes && <p className="text-xs text-slate-500 italic mt-0.5">{ts.notes}</p>}
-                                                    {ts.skipped_reason && <p className="text-xs text-amber-600 italic mt-0.5">Skipped: {ts.skipped_reason}</p>}
+                                                    {ts.task?.description && (
+                                                        <p className={`text-sm ${isDone ? 'text-emerald-600/70' : 'text-slate-500'}`}>
+                                                            {ts.task.description}
+                                                        </p>
+                                                    )}
+                                                    
+                                                    {/* Due date */}
+                                                    {ts.due_date && (
+                                                        <div className={`flex items-center gap-1 mt-2 text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+                                                            <Calendar size={14} />
+                                                            {isOverdue ? 'Overdue: ' : 'Due: '}
+                                                            {new Date(ts.due_date).toLocaleDateString('en-GB')}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Notes */}
+                                                    {ts.notes && (
+                                                        <p className="text-sm text-slate-500 italic mt-2 bg-slate-100/50 p-2 rounded">
+                                                            {ts.notes}
+                                                        </p>
+                                                    )}
+                                                    {ts.skipped_reason && (
+                                                        <p className="text-sm text-amber-600 italic mt-2">
+                                                            Skipped: {ts.skipped_reason}
+                                                        </p>
+                                                    )}
                                                 </div>
+
+                                                {/* Actions */}
                                                 {!isDone && !isSkipped && (
-                                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                                        <button onClick={() => completeTaskMutation.mutate({ taskStatusId: ts.id })} disabled={completeTaskMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 flex items-center gap-1">
-                                                            <CheckCircle size={12} /> Complete
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <button 
+                                                            onClick={() => completeTaskMutation.mutate({ taskStatusId: ts.id })} 
+                                                            disabled={completeTaskMutation.isPending} 
+                                                            className="px-4 py-2 text-sm font-medium bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                        >
+                                                            <CheckCircle size={16} /> Complete
                                                         </button>
                                                         {!ts.task?.is_required && (
-                                                            <button onClick={() => setSkipTaskId(ts.id)} disabled={skipTaskMutation.isPending} className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+                                                            <button 
+                                                                onClick={() => setSkipTaskId(ts.id)} 
+                                                                disabled={skipTaskMutation.isPending} 
+                                                                className="px-3 py-2 text-sm font-medium bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50"
+                                                            >
                                                                 Skip
                                                             </button>
                                                         )}
