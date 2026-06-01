@@ -38,13 +38,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/education')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createEducation(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createEducation(staffId, data);
     }
 
     @Put('education/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateEducation(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateEducation(id, data);
     }
@@ -64,13 +64,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/work-experience')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createWorkExperience(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createWorkExperience(staffId, data);
     }
 
     @Put('work-experience/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateWorkExperience(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateWorkExperience(id, data);
     }
@@ -90,13 +90,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/skills')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createSkill(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createSkill(staffId, data);
     }
 
     @Put('skills/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateSkill(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateSkill(id, data);
     }
@@ -116,13 +116,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/languages')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createLanguage(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createLanguage(staffId, data);
     }
 
     @Put('languages/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateLanguage(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateLanguage(id, data);
     }
@@ -142,7 +142,7 @@ export class BiodataController {
     }
 
     @Post(':staffId/assets')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createAsset(
         @Param('staffId', ParseUUIDPipe) staffId: string,
         @Body() data: any,
@@ -152,7 +152,7 @@ export class BiodataController {
     }
 
     @Put('assets/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateAsset(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateAsset(id, data);
     }
@@ -172,13 +172,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/bank-accounts')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createBankAccount(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createBankAccount(staffId, data);
     }
 
     @Put('bank-accounts/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateBankAccount(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateBankAccount(id, data);
     }
@@ -198,13 +198,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/next-of-kin')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createNextOfKin(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createNextOfKin(staffId, data);
     }
 
     @Put('next-of-kin/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateNextOfKin(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateNextOfKin(id, data);
     }
@@ -224,13 +224,13 @@ export class BiodataController {
     }
 
     @Post(':staffId/dependents')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     createDependent(@Param('staffId', ParseUUIDPipe) staffId: string, @Body() data: any) {
         return this.biodataService.createDependent(staffId, data);
     }
 
     @Put('dependents/:id')
-    @Roles('CEO', 'HR_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     updateDependent(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
         return this.biodataService.updateDependent(id, data);
     }

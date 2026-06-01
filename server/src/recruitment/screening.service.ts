@@ -39,29 +39,115 @@ export class ScreeningService {
 
     // ==================== SCREENING CRITERIA MANAGEMENT ====================
 
-    async addScreeningCriteria(jobPostId: string, data: Partial<ScreeningCriteria>): Promise<ScreeningCriteria> {
+    // ==================== SCREENING CRITERIA MANAGEMENT ====================
+
+    private mapCriteriaToFrontend(c: ScreeningCriteria): any {
+        let criteria_type = 'skills';
+        if (c.type === CriteriaType.EXPERIENCE_YEARS) criteria_type = 'experience';
+        else if (c.type === CriteriaType.EDUCATION_LEVEL) criteria_type = 'education';
+        else if (c.type === CriteriaType.SKILL_REQUIRED) criteria_type = 'skills';
+        else if (c.type === CriteriaType.CERTIFICATION) criteria_type = 'certifications';
+        else if (c.type === CriteriaType.KEYWORD) criteria_type = 'keywords';
+        else if (c.type === CriteriaType.LOCATION) criteria_type = 'location';
+        else if (c.type === CriteriaType.SALARY_EXPECTATION) criteria_type = 'salary';
+
+        return {
+            ...c,
+            criteria_type,
+            field_name: c.name,
+            operator: 'gte',
+            is_knockout: c.importance === CriteriaImportance.KNOCKOUT,
+        };
+    }
+
+    async addScreeningCriteria(jobPostId: string, data: any): Promise<any> {
         const jobPost = await this.jobPostRepo.findOne({ where: { id: jobPostId } });
         if (!jobPost) throw new NotFoundException('Job post not found');
 
+        const mappedData: Partial<ScreeningCriteria> = {};
+        
+        if (data.criteria_type) {
+            const cType = data.criteria_type;
+            if (cType === 'experience') mappedData.type = CriteriaType.EXPERIENCE_YEARS;
+            else if (cType === 'education') mappedData.type = CriteriaType.EDUCATION_LEVEL;
+            else if (cType === 'skills') mappedData.type = CriteriaType.SKILL_REQUIRED;
+            else if (cType === 'certifications') mappedData.type = CriteriaType.CERTIFICATION;
+            else if (cType === 'keywords') mappedData.type = CriteriaType.KEYWORD;
+            else if (cType === 'location') mappedData.type = CriteriaType.LOCATION;
+            else if (cType === 'salary') mappedData.type = CriteriaType.SALARY_EXPECTATION;
+            else mappedData.type = cType as CriteriaType;
+        } else if (data.type) {
+            mappedData.type = data.type;
+        }
+
+        if (data.is_knockout !== undefined) {
+            mappedData.importance = data.is_knockout ? CriteriaImportance.KNOCKOUT : CriteriaImportance.REQUIRED;
+        } else if (data.importance) {
+            mappedData.importance = data.importance;
+        }
+
+        mappedData.name = data.name || data.field_name || (data.criteria_type ? `${data.criteria_type} criteria` : 'Criteria');
+        mappedData.value = data.value;
+        mappedData.weight = data.weight !== undefined ? data.weight : 10;
+        mappedData.description = data.description || '';
+        mappedData.display_order = data.display_order !== undefined ? data.display_order : 0;
+        if (data.is_active !== undefined) mappedData.is_active = data.is_active;
+
         const criteria = this.criteriaRepo.create({
-            ...data,
+            ...mappedData,
             jobPost,
         });
-        return this.criteriaRepo.save(criteria);
+        const saved = await this.criteriaRepo.save(criteria);
+        return this.mapCriteriaToFrontend(saved);
     }
 
-    async getScreeningCriteria(jobPostId: string): Promise<ScreeningCriteria[]> {
-        return this.criteriaRepo.find({
+    async getScreeningCriteria(jobPostId: string): Promise<any[]> {
+        const list = await this.criteriaRepo.find({
             where: { jobPost: { id: jobPostId }, is_active: true },
             order: { display_order: 'ASC' },
         });
+        return list.map(c => this.mapCriteriaToFrontend(c));
     }
 
-    async updateScreeningCriteria(id: string, data: Partial<ScreeningCriteria>): Promise<ScreeningCriteria> {
+    async updateScreeningCriteria(id: string, data: any): Promise<any> {
         const criteria = await this.criteriaRepo.findOne({ where: { id } });
         if (!criteria) throw new NotFoundException('Screening criteria not found');
-        Object.assign(criteria, data);
-        return this.criteriaRepo.save(criteria);
+
+        const mappedData: Partial<ScreeningCriteria> = {};
+        
+        if (data.criteria_type) {
+            const cType = data.criteria_type;
+            if (cType === 'experience') mappedData.type = CriteriaType.EXPERIENCE_YEARS;
+            else if (cType === 'education') mappedData.type = CriteriaType.EDUCATION_LEVEL;
+            else if (cType === 'skills') mappedData.type = CriteriaType.SKILL_REQUIRED;
+            else if (cType === 'certifications') mappedData.type = CriteriaType.CERTIFICATION;
+            else if (cType === 'keywords') mappedData.type = CriteriaType.KEYWORD;
+            else if (cType === 'location') mappedData.type = CriteriaType.LOCATION;
+            else if (cType === 'salary') mappedData.type = CriteriaType.SALARY_EXPECTATION;
+            else mappedData.type = cType as CriteriaType;
+        } else if (data.type) {
+            mappedData.type = data.type;
+        }
+
+        if (data.is_knockout !== undefined) {
+            mappedData.importance = data.is_knockout ? CriteriaImportance.KNOCKOUT : CriteriaImportance.REQUIRED;
+        } else if (data.importance) {
+            mappedData.importance = data.importance;
+        }
+
+        if (data.name || data.field_name) {
+            mappedData.name = data.name || data.field_name;
+        }
+
+        if (data.value !== undefined) mappedData.value = data.value;
+        if (data.weight !== undefined) mappedData.weight = data.weight;
+        if (data.description !== undefined) mappedData.description = data.description;
+        if (data.display_order !== undefined) mappedData.display_order = data.display_order;
+        if (data.is_active !== undefined) mappedData.is_active = data.is_active;
+
+        Object.assign(criteria, mappedData);
+        const saved = await this.criteriaRepo.save(criteria);
+        return this.mapCriteriaToFrontend(saved);
     }
 
     async deleteScreeningCriteria(id: string): Promise<void> {
@@ -70,29 +156,70 @@ export class ScreeningService {
 
     // ==================== KNOCKOUT QUESTIONS MANAGEMENT ====================
 
-    async addKnockoutQuestion(jobPostId: string, data: Partial<KnockoutQuestion>): Promise<KnockoutQuestion> {
+    private mapQuestionToFrontend(q: KnockoutQuestion): any {
+        return {
+            ...q,
+            question_text: q.question,
+            expected_answer: q.acceptable_answer,
+            question_type: q.type,
+            disqualify_message: '',
+        };
+    }
+
+    async addKnockoutQuestion(jobPostId: string, data: any): Promise<any> {
         const jobPost = await this.jobPostRepo.findOne({ where: { id: jobPostId } });
         if (!jobPost) throw new NotFoundException('Job post not found');
 
+        const mappedData: Partial<KnockoutQuestion> = {};
+        mappedData.question = data.question_text || data.question;
+        mappedData.acceptable_answer = data.expected_answer || data.acceptable_answer;
+        mappedData.type = data.question_type || data.type || QuestionType.YES_NO;
+        
+        if (data.is_knockout !== undefined) mappedData.is_knockout = data.is_knockout;
+        if (data.points !== undefined) mappedData.points = data.points;
+        if (data.is_required !== undefined) mappedData.is_required = data.is_required;
+        if (data.display_order !== undefined) mappedData.display_order = data.display_order;
+        if (data.is_active !== undefined) mappedData.is_active = data.is_active;
+        if (data.options !== undefined) mappedData.options = data.options;
+
         const question = this.questionRepo.create({
-            ...data,
+            ...mappedData,
             jobPost,
         });
-        return this.questionRepo.save(question);
+        const saved = await this.questionRepo.save(question);
+        return this.mapQuestionToFrontend(saved);
     }
 
-    async getKnockoutQuestions(jobPostId: string): Promise<KnockoutQuestion[]> {
-        return this.questionRepo.find({
+    async getKnockoutQuestions(jobPostId: string): Promise<any[]> {
+        const list = await this.questionRepo.find({
             where: { jobPost: { id: jobPostId }, is_active: true },
             order: { display_order: 'ASC' },
         });
+        return list.map(q => this.mapQuestionToFrontend(q));
     }
 
-    async updateKnockoutQuestion(id: string, data: Partial<KnockoutQuestion>): Promise<KnockoutQuestion> {
+    async updateKnockoutQuestion(id: string, data: any): Promise<any> {
         const question = await this.questionRepo.findOne({ where: { id } });
         if (!question) throw new NotFoundException('Knockout question not found');
-        Object.assign(question, data);
-        return this.questionRepo.save(question);
+
+        const mappedData: Partial<KnockoutQuestion> = {};
+        if (data.question_text !== undefined) mappedData.question = data.question_text;
+        if (data.question !== undefined) mappedData.question = data.question;
+        if (data.expected_answer !== undefined) mappedData.acceptable_answer = data.expected_answer;
+        if (data.acceptable_answer !== undefined) mappedData.acceptable_answer = data.acceptable_answer;
+        if (data.question_type !== undefined) mappedData.type = data.question_type;
+        if (data.type !== undefined) mappedData.type = data.type;
+        
+        if (data.is_knockout !== undefined) mappedData.is_knockout = data.is_knockout;
+        if (data.points !== undefined) mappedData.points = data.points;
+        if (data.is_required !== undefined) mappedData.is_required = data.is_required;
+        if (data.display_order !== undefined) mappedData.display_order = data.display_order;
+        if (data.is_active !== undefined) mappedData.is_active = data.is_active;
+        if (data.options !== undefined) mappedData.options = data.options;
+
+        Object.assign(question, mappedData);
+        const saved = await this.questionRepo.save(question);
+        return this.mapQuestionToFrontend(saved);
     }
 
     async deleteKnockoutQuestion(id: string): Promise<void> {

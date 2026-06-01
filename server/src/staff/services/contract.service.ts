@@ -4,6 +4,7 @@ import { Repository, LessThanOrEqual, Between, Not, IsNull } from 'typeorm';
 import { StaffContract, ContractType, ContractStatus } from '../entities/staff-contract.entity';
 import { StaffContractAddendum, AddendumStatus } from '../entities/staff-contract-addendum.entity';
 import { Staff } from '../entities/staff.entity';
+import { StaffBankAccount } from '../entities/staff-bank-account.entity';
 import { JobPost } from '../../recruitment/entities/job-post.entity';
 import * as crypto from 'crypto';
 import { DocumentTemplatesService } from '../../document-templates/document-templates.service';
@@ -231,7 +232,7 @@ export class ContractService {
                 contract.contract_type,
             );
             if (tpl) {
-                const ctx = this.buildContractContext(contract);
+                const ctx = await this.buildContractContext(contract);
                 const buffer = await this.templates.renderPdfWithContext(tpl.id, ctx);
                 // Remember which template rendered this contract (for audit / reprints)
                 if (contract.template_id !== tpl.id) {
@@ -255,10 +256,27 @@ export class ContractService {
      * Build the Handlebars context for a contract template. Mirrors the
      * variable catalog declared in template-variables.ts.
      */
-    private buildContractContext(contract: StaffContract): Record<string, any> {
+    private async buildContractContext(contract: StaffContract): Promise<Record<string, any>> {
         const staff: any = contract.staff || {};
         const fullName = [staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ');
         const addressParts = [staff.address, staff.city, staff.postal_code].filter(Boolean);
+
+        let bankName = staff.bank_name;
+        let bankBranch = staff.bank_branch;
+        let bankAccountNumber = staff.bank_account_number;
+
+        if (!bankName && staff.id) {
+            const bankAccountRepo = this.contractRepo.manager.getRepository(StaffBankAccount);
+            const activePrimaryAccount = await bankAccountRepo.findOne({
+                where: { staff_id: staff.id, is_primary: true, is_active: true }
+            });
+            if (activePrimaryAccount) {
+                bankName = activePrimaryAccount.bank_name;
+                bankBranch = activePrimaryAccount.bank_branch;
+                bankAccountNumber = activePrimaryAccount.account_number;
+            }
+        }
+
         return {
             company: {
                 name: 'Kechita Capital Limited',
@@ -291,9 +309,9 @@ export class ContractService {
                     full_name: [staff.manager.first_name, staff.manager.last_name].filter(Boolean).join(' '),
                     position: { name: staff.manager.position?.name },
                 } : undefined,
-                bank_name: staff.bank_name,
-                bank_branch: staff.bank_branch,
-                bank_account_number: staff.bank_account_number,
+                bank_name: bankName,
+                bank_branch: bankBranch,
+                bank_account_number: bankAccountNumber,
                 basic_salary: staff.basic_salary,
                 salary_currency: staff.salary_currency || 'KES',
             },

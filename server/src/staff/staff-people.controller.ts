@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { StaffPeopleService } from './services/staff-people.service';
+import { BiodataService } from './services/biodata.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -13,7 +14,10 @@ import {
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class StaffPeopleController {
-    constructor(private readonly people: StaffPeopleService) {}
+    constructor(
+        private readonly people: StaffPeopleService,
+        private readonly biodataService: BiodataService,
+    ) {}
 
     // ───── Next of Kin ─────
     @Get('staff/:id/next-of-kin')
@@ -153,5 +157,92 @@ export class StaffPeopleController {
     @Roles('CEO', 'HR_MANAGER')
     deleteReview(@Param('reviewId', ParseUUIDPipe) reviewId: string) {
         return this.people.deleteProbationReview(reviewId);
+    }
+
+    // ───── Education ─────
+    @Patch('staff-people/education/:id')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    updateEducation(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.biodataService.updateEducation(id, data);
+    }
+
+    @Delete('staff-people/education/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteEducation(@Param('id', ParseUUIDPipe) id: string) {
+        return this.biodataService.removeEducation(id);
+    }
+
+    // ───── Work Experience ─────
+    @Patch('staff-people/work-experience/:id')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    updateWorkExperience(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.biodataService.updateWorkExperience(id, data);
+    }
+
+    @Delete('staff-people/work-experience/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteWorkExperience(@Param('id', ParseUUIDPipe) id: string) {
+        return this.biodataService.removeWorkExperience(id);
+    }
+
+    // ───── Skills ─────
+    @Patch('staff-people/skills/:id')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    updateSkill(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.biodataService.updateSkill(id, data);
+    }
+
+    @Delete('staff-people/skills/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteSkill(@Param('id', ParseUUIDPipe) id: string) {
+        return this.biodataService.removeSkill(id);
+    }
+
+    // ───── Languages ─────
+    @Patch('staff-people/languages/:id')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    updateLanguage(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.biodataService.updateLanguage(id, data);
+    }
+
+    @Delete('staff-people/languages/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteLanguage(@Param('id', ParseUUIDPipe) id: string) {
+        return this.biodataService.removeLanguage(id);
+    }
+
+    // ───── Assets ─────
+    @Patch('staff-people/assets/:id')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    updateAsset(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.biodataService.updateAsset(id, data);
+    }
+
+    @Delete('staff-people/assets/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteAsset(@Param('id', ParseUUIDPipe) id: string) {
+        return this.biodataService.removeAsset(id);
+    }
+
+    @Post('staff-people/assets/:id/return')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    returnAsset(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() body: { returned_to?: string },
+    ) {
+        return this.biodataService.returnAsset(id, body.returned_to);
+    }
+
+    // ───── Bank Accounts ─────
+    @Patch('staff-people/bank-accounts/:id')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    updateBankAccount(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+        return this.biodataService.updateBankAccount(id, data);
+    }
+
+    @Delete('staff-people/bank-accounts/:id')
+    @Roles('CEO', 'HR_MANAGER')
+    deleteBankAccount(@Param('id', ParseUUIDPipe) id: string) {
+        return this.biodataService.removeBankAccount(id);
     }
 }

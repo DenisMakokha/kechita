@@ -6,7 +6,7 @@ import { StaffEducation } from '../entities/staff-education.entity';
 import { StaffWorkExperience } from '../entities/staff-work-experience.entity';
 import { StaffSkill } from '../entities/staff-skill.entity';
 import { StaffLanguage } from '../entities/staff-language.entity';
-import { StaffAsset } from '../entities/staff-asset.entity';
+import { StaffAsset, AssetStatus } from '../entities/staff-asset.entity';
 import { StaffBankAccount } from '../entities/staff-bank-account.entity';
 import { NextOfKin } from '../entities/next-of-kin.entity';
 import { Dependent } from '../entities/dependent.entity';
@@ -167,7 +167,9 @@ export class BiodataService {
         const edu = await this.educationRepo.findOne({ where: { id } });
         if (!edu) throw new NotFoundException('Education record not found');
         Object.assign(edu, data);
-        return this.educationRepo.save(edu);
+        const saved = await this.educationRepo.save(edu);
+        await this.calculateCompleteness(edu.staff_id);
+        return saved;
     }
 
     async removeEducation(id: string): Promise<void> {
@@ -188,20 +190,25 @@ export class BiodataService {
 
     async createWorkExperience(staffId: string, data: Partial<StaffWorkExperience>): Promise<StaffWorkExperience> {
         const exp = this.workExpRepo.create({ staff_id: staffId, ...data });
-        return this.workExpRepo.save(exp);
+        const saved = await this.workExpRepo.save(exp);
+        await this.calculateCompleteness(staffId);
+        return saved;
     }
 
     async updateWorkExperience(id: string, data: Partial<StaffWorkExperience>): Promise<StaffWorkExperience> {
         const exp = await this.workExpRepo.findOne({ where: { id } });
         if (!exp) throw new NotFoundException('Work experience record not found');
         Object.assign(exp, data);
-        return this.workExpRepo.save(exp);
+        const saved = await this.workExpRepo.save(exp);
+        await this.calculateCompleteness(exp.staff_id);
+        return saved;
     }
 
     async removeWorkExperience(id: string): Promise<void> {
         const exp = await this.workExpRepo.findOne({ where: { id } });
         if (!exp) throw new NotFoundException('Work experience record not found');
         await this.workExpRepo.remove(exp);
+        await this.calculateCompleteness(exp.staff_id);
     }
 
     // ==================== SKILLS ====================
@@ -215,20 +222,25 @@ export class BiodataService {
 
     async createSkill(staffId: string, data: Partial<StaffSkill>): Promise<StaffSkill> {
         const skill = this.skillRepo.create({ staff_id: staffId, ...data });
-        return this.skillRepo.save(skill);
+        const saved = await this.skillRepo.save(skill);
+        await this.calculateCompleteness(staffId);
+        return saved;
     }
 
     async updateSkill(id: string, data: Partial<StaffSkill>): Promise<StaffSkill> {
         const skill = await this.skillRepo.findOne({ where: { id } });
         if (!skill) throw new NotFoundException('Skill record not found');
         Object.assign(skill, data);
-        return this.skillRepo.save(skill);
+        const saved = await this.skillRepo.save(skill);
+        await this.calculateCompleteness(skill.staff_id);
+        return saved;
     }
 
     async removeSkill(id: string): Promise<void> {
         const skill = await this.skillRepo.findOne({ where: { id } });
         if (!skill) throw new NotFoundException('Skill record not found');
         await this.skillRepo.remove(skill);
+        await this.calculateCompleteness(skill.staff_id);
     }
 
     // ==================== LANGUAGES ====================
@@ -242,20 +254,25 @@ export class BiodataService {
 
     async createLanguage(staffId: string, data: Partial<StaffLanguage>): Promise<StaffLanguage> {
         const lang = this.languageRepo.create({ staff_id: staffId, ...data });
-        return this.languageRepo.save(lang);
+        const saved = await this.languageRepo.save(lang);
+        await this.calculateCompleteness(staffId);
+        return saved;
     }
 
     async updateLanguage(id: string, data: Partial<StaffLanguage>): Promise<StaffLanguage> {
         const lang = await this.languageRepo.findOne({ where: { id } });
         if (!lang) throw new NotFoundException('Language record not found');
         Object.assign(lang, data);
-        return this.languageRepo.save(lang);
+        const saved = await this.languageRepo.save(lang);
+        await this.calculateCompleteness(lang.staff_id);
+        return saved;
     }
 
     async removeLanguage(id: string): Promise<void> {
         const lang = await this.languageRepo.findOne({ where: { id } });
         if (!lang) throw new NotFoundException('Language record not found');
         await this.languageRepo.remove(lang);
+        await this.calculateCompleteness(lang.staff_id);
     }
 
     // ==================== ASSETS ====================
@@ -269,20 +286,38 @@ export class BiodataService {
 
     async createAsset(staffId: string, data: Partial<StaffAsset>, assignedBy?: string): Promise<StaffAsset> {
         const asset = this.assetRepo.create({ staff_id: staffId, assigned_by: assignedBy, ...data });
-        return this.assetRepo.save(asset);
+        const saved = await this.assetRepo.save(asset);
+        await this.calculateCompleteness(staffId);
+        return saved;
     }
 
     async updateAsset(id: string, data: Partial<StaffAsset>): Promise<StaffAsset> {
         const asset = await this.assetRepo.findOne({ where: { id } });
         if (!asset) throw new NotFoundException('Asset record not found');
         Object.assign(asset, data);
-        return this.assetRepo.save(asset);
+        const saved = await this.assetRepo.save(asset);
+        await this.calculateCompleteness(asset.staff_id);
+        return saved;
     }
 
     async removeAsset(id: string): Promise<void> {
         const asset = await this.assetRepo.findOne({ where: { id } });
         if (!asset) throw new NotFoundException('Asset record not found');
         await this.assetRepo.remove(asset);
+        await this.calculateCompleteness(asset.staff_id);
+    }
+
+    async returnAsset(id: string, returnedTo?: string): Promise<StaffAsset> {
+        const asset = await this.assetRepo.findOne({ where: { id } });
+        if (!asset) throw new NotFoundException('Asset record not found');
+        asset.status = AssetStatus.RETURNED;
+        asset.returned_date = new Date();
+        if (returnedTo) {
+            asset.returned_to = returnedTo;
+        }
+        const saved = await this.assetRepo.save(asset);
+        await this.calculateCompleteness(asset.staff_id);
+        return saved;
     }
 
     // ==================== BANK ACCOUNTS ====================
@@ -325,7 +360,9 @@ export class BiodataService {
         }
 
         Object.assign(acc, data);
-        return this.bankAccountRepo.save(acc);
+        const saved = await this.bankAccountRepo.save(acc);
+        await this.calculateCompleteness(acc.staff_id);
+        return saved;
     }
 
     async removeBankAccount(id: string): Promise<void> {
@@ -355,7 +392,9 @@ export class BiodataService {
         const nok = await this.nextOfKinRepo.findOne({ where: { id } });
         if (!nok) throw new NotFoundException('Next of kin not found');
         Object.assign(nok, data);
-        return this.nextOfKinRepo.save(nok);
+        const saved = await this.nextOfKinRepo.save(nok);
+        await this.calculateCompleteness(nok.staff_id);
+        return saved;
     }
 
     async removeNextOfKin(id: string): Promise<void> {
@@ -385,7 +424,9 @@ export class BiodataService {
         const dep = await this.dependentRepo.findOne({ where: { id } });
         if (!dep) throw new NotFoundException('Dependent not found');
         Object.assign(dep, data);
-        return this.dependentRepo.save(dep);
+        const saved = await this.dependentRepo.save(dep);
+        await this.calculateCompleteness(dep.staff_id);
+        return saved;
     }
 
     async removeDependent(id: string): Promise<void> {
