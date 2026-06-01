@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payslip } from '../entities/payslip.entity';
 import { PayslipLine, PayslipLineKind } from '../entities/payslip-line.entity';
+import { Staff } from '../../staff/entities/staff.entity';
+import { StaffBankAccount } from '../../staff/entities/staff-bank-account.entity';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
@@ -22,6 +24,25 @@ export class PayslipPDFService {
         });
         if (!payslip) throw new Error('Payslip not found');
         const lines = await this.lineRepo.find({ where: { payslip_id: payslipId }, order: { sort_order: 'ASC' } });
+
+        const bankAccountRepo = this.payslipRepo.manager.getRepository(StaffBankAccount);
+        const activePrimary = await bankAccountRepo.findOne({
+            where: { staff_id: payslip.staff_id, is_primary: true, is_active: true }
+        });
+        let bankName = '';
+        let bankAccountNum = '';
+        if (activePrimary) {
+            bankName = activePrimary.bank_name;
+            bankAccountNum = activePrimary.account_number;
+        } else {
+            const staff = await this.payslipRepo.manager.getRepository(Staff).findOne({
+                where: { id: payslip.staff_id }
+            });
+            if (staff) {
+                bankName = staff.bank_name || '';
+                bankAccountNum = staff.bank_account_number || '';
+            }
+        }
 
         return new Promise<Buffer>((resolve, reject) => {
             const doc = new PDFDocument({ margin: 36, size: 'A4' });
@@ -49,6 +70,8 @@ export class PayslipPDFService {
             doc.text(`Name: ${payslip.full_name_snapshot}`, 36, doc.y);
             if (payslip.position_snapshot) doc.text(`Position: ${payslip.position_snapshot}`, 36, doc.y);
             if (payslip.branch_snapshot) doc.text(`Branch: ${payslip.branch_snapshot}`, 36, doc.y);
+            if (bankName) doc.text(`Bank Name: ${bankName}`, 36, doc.y);
+            if (bankAccountNum) doc.text(`Bank Account: ${bankAccountNum}`, 36, doc.y);
             const rightX = 320;
             doc.text(`KRA PIN: ${payslip.tax_pin_snapshot || '-'}`, rightX, startY);
             doc.text(`NSSF No: ${payslip.nssf_number_snapshot || '-'}`, rightX, startY + 14);

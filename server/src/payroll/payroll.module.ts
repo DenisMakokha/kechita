@@ -7,6 +7,7 @@ import { PayslipLine } from './entities/payslip-line.entity';
 import { StaffAllowance } from './entities/staff-allowance.entity';
 import { StaffRecurringDeduction } from './entities/staff-recurring-deduction.entity';
 import { Staff } from '../staff/entities/staff.entity';
+import { StaffBankAccount } from '../staff/entities/staff-bank-account.entity';
 import { StaffLoanRepayment } from '../loans/entities/staff-loan-repayment.entity';
 import { LeaveRequest } from '../leave/entities/leave-request.entity';
 import { PayrollController } from './payroll.controller';
@@ -28,6 +29,7 @@ import { AuditModule } from '../audit/audit.module';
             StaffAllowance,
             StaffRecurringDeduction,
             Staff,
+            StaffBankAccount,
             StaffLoanRepayment,
             LeaveRequest,
         ]),

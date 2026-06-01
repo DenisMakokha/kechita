@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { Payslip } from '../entities/payslip.entity';
+import { Staff } from '../../staff/entities/staff.entity';
+import { StaffBankAccount } from '../../staff/entities/staff-bank-account.entity';
 
 /**
  * Generates Kenya statutory return exports in the formats accepted by:
@@ -183,14 +185,39 @@ export class StatutoryExportService {
     async exportBankNetPay(runId: string): Promise<string> {
         const { payslips } = await this.loadRunPayslips(runId);
         const headers = ['Employee Number', 'Full Name', 'KRA PIN', 'Bank Account', 'Bank Name', 'Net Pay'];
-        const rows = payslips.map(p => [
-            p.employee_number_snapshot,
-            p.full_name_snapshot,
-            p.tax_pin_snapshot || '',
-            '', // bank_account — not snapshotted; could be added
-            '',
-            p.net_pay,
-        ]);
+
+        const bankAccountRepo = this.runRepo.manager.getRepository(StaffBankAccount);
+        const staffRepo = this.runRepo.manager.getRepository(Staff);
+        const rows: any[][] = [];
+
+        for (const p of payslips) {
+            let bankName = '';
+            let bankAccountNum = '';
+
+            const activePrimary = await bankAccountRepo.findOne({
+                where: { staff_id: p.staff_id, is_primary: true, is_active: true }
+            });
+
+            if (activePrimary) {
+                bankName = activePrimary.bank_name;
+                bankAccountNum = activePrimary.account_number;
+            } else {
+                const staff = await staffRepo.findOne({ where: { id: p.staff_id } });
+                if (staff) {
+                    bankName = staff.bank_name || '';
+                    bankAccountNum = staff.bank_account_number || '';
+                }
+            }
+
+            rows.push([
+                p.employee_number_snapshot,
+                p.full_name_snapshot,
+                p.tax_pin_snapshot || '',
+                bankAccountNum,
+                bankName,
+                p.net_pay,
+            ]);
+        }
         return toCSV(headers, rows);
     }
 }
