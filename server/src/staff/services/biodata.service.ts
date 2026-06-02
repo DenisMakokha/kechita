@@ -348,6 +348,16 @@ export class BiodataService {
         const acc = this.bankAccountRepo.create({ staff_id: staffId, ...mapped });
         const saved = await this.bankAccountRepo.save(acc);
         await this.calculateCompleteness(staffId);
+
+        if (saved.is_primary) {
+            await this.staffRepo.update(staffId, {
+                bank_name: saved.bank_name || undefined,
+                bank_branch: saved.bank_branch || undefined,
+                bank_account_number: saved.account_number || undefined,
+                bank_account_name: saved.account_name || undefined,
+            });
+        }
+
         return saved;
     }
 
@@ -370,6 +380,16 @@ export class BiodataService {
         Object.assign(acc, mapped);
         const saved = await this.bankAccountRepo.save(acc);
         await this.calculateCompleteness(acc.staff_id);
+
+        if (saved.is_primary) {
+            await this.staffRepo.update(saved.staff_id, {
+                bank_name: saved.bank_name || undefined,
+                bank_branch: saved.bank_branch || undefined,
+                bank_account_number: saved.account_number || undefined,
+                bank_account_name: saved.account_name || undefined,
+            });
+        }
+
         return saved;
     }
 
@@ -390,18 +410,42 @@ export class BiodataService {
     }
 
     async createNextOfKin(staffId: string, data: Partial<NextOfKin>): Promise<any> {
+        if (data.is_primary) {
+            await this.nextOfKinRepo.update({ staff_id: staffId, is_primary: true }, { is_primary: false });
+        }
         const nok = this.nextOfKinRepo.create({ staff_id: staffId, ...data } as any);
-        const saved = await this.nextOfKinRepo.save(nok);
+        const saved = await this.nextOfKinRepo.save(nok) as unknown as NextOfKin;
         await this.calculateCompleteness(staffId);
+
+        if (saved.is_primary) {
+            await this.staffRepo.update(staffId, {
+                emergency_contact_name: saved.full_name || undefined,
+                emergency_contact_phone: saved.phone || undefined,
+                emergency_contact_relationship: saved.relationship || undefined,
+            });
+        }
+
         return saved;
     }
 
     async updateNextOfKin(id: string, data: Partial<NextOfKin>): Promise<any> {
         const nok = await this.nextOfKinRepo.findOne({ where: { id } });
         if (!nok) throw new NotFoundException('Next of kin not found');
+        if (data.is_primary && !nok.is_primary) {
+            await this.nextOfKinRepo.update({ staff_id: nok.staff_id, is_primary: true }, { is_primary: false });
+        }
         Object.assign(nok, data);
-        const saved = await this.nextOfKinRepo.save(nok);
+        const saved = await this.nextOfKinRepo.save(nok) as unknown as NextOfKin;
         await this.calculateCompleteness(nok.staff_id);
+
+        if (saved.is_primary) {
+            await this.staffRepo.update(saved.staff_id, {
+                emergency_contact_name: saved.full_name || undefined,
+                emergency_contact_phone: saved.phone || undefined,
+                emergency_contact_relationship: saved.relationship || undefined,
+            });
+        }
+
         return saved;
     }
 

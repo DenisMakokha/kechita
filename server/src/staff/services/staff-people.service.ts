@@ -32,7 +32,16 @@ export class StaffPeopleService {
             // unset other primaries
             await this.nokRepo.update({ staff_id: staffId, is_primary: true }, { is_primary: false });
         }
-        return this.nokRepo.save(this.nokRepo.create({ ...data, staff_id: staffId }));
+        const saved = await this.nokRepo.save(this.nokRepo.create({ ...data, staff_id: staffId }));
+        
+        if (saved.is_primary) {
+            await this.staffRepo.update(staffId, {
+                emergency_contact_name: saved.full_name || undefined,
+                emergency_contact_phone: saved.phone || undefined,
+                emergency_contact_relationship: saved.relationship || undefined,
+            });
+        }
+        return saved;
     }
 
     async updateNextOfKin(id: string, data: Partial<NextOfKin>) {
@@ -42,7 +51,16 @@ export class StaffPeopleService {
             await this.nokRepo.update({ staff_id: nok.staff_id, is_primary: true }, { is_primary: false });
         }
         Object.assign(nok, data);
-        return this.nokRepo.save(nok);
+        const saved = await this.nokRepo.save(nok);
+
+        if (saved.is_primary) {
+            await this.staffRepo.update(saved.staff_id, {
+                emergency_contact_name: saved.full_name || undefined,
+                emergency_contact_phone: saved.phone || undefined,
+                emergency_contact_relationship: saved.relationship || undefined,
+            });
+        }
+        return saved;
     }
 
     async deleteNextOfKin(id: string) {

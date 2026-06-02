@@ -11,6 +11,8 @@ import { StaffSkill } from './staff-skill.entity';
 import { StaffLanguage } from './staff-language.entity';
 import { StaffAsset } from './staff-asset.entity';
 import { StaffBankAccount } from './staff-bank-account.entity';
+import { NextOfKin } from './next-of-kin.entity';
+
 
 export enum StaffStatus {
     ONBOARDING = 'onboarding',
@@ -269,6 +271,10 @@ export class Staff {
 
     @OneToMany(() => StaffBankAccount, (acc) => acc.staff)
     bankAccounts?: StaffBankAccount[];
+
+    @OneToMany(() => NextOfKin, (nok) => nok.staff)
+    nextOfKin?: NextOfKin[];
+
 
     // Profile Photo
     @Column({ nullable: true })

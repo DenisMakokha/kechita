@@ -11,6 +11,9 @@ import { Branch } from '../org/entities/branch.entity';
 import { Department } from '../org/entities/department.entity';
 import { EmploymentHistory } from './entities/employment-history.entity';
 import { StaffContract, ContractStatus } from './entities/staff-contract.entity';
+import { StaffBankAccount, BankAccountType } from './entities/staff-bank-account.entity';
+import { NextOfKin } from './entities/next-of-kin.entity';
+
 import { OnboardingService } from './services/onboarding.service';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
@@ -310,7 +313,7 @@ export class StaffService {
             relations: [
                 'user', 'user.roles', 'position', 'branch', 'region', 'department', 'manager',
                 'documents', 'documents.documentType', 'documents.document',
-                'education', 'workExperience', 'skills', 'languages', 'assets', 'bankAccounts'
+                'education', 'workExperience', 'skills', 'languages', 'assets', 'bankAccounts', 'nextOfKin'
             ],
         });
         if (!staff) throw new NotFoundException('Staff not found');
@@ -375,6 +378,67 @@ export class StaffService {
         if (dto.nssf_number !== undefined) staff.nssf_number = dto.nssf_number;
         if (dto.nhif_number !== undefined) staff.nhif_number = dto.nhif_number;
         if (dto.status) staff.status = dto.status;
+
+        // Sync to staff_bank_accounts
+        if (dto.bank_name !== undefined || dto.bank_branch !== undefined || dto.bank_account_number !== undefined || dto.bank_account_name !== undefined) {
+            const bankAccountRepo = this.dataSource.getRepository(StaffBankAccount);
+            let primaryBank = await bankAccountRepo.findOne({
+                where: { staff_id: staff.id, is_primary: true },
+            });
+            const bankName = dto.bank_name !== undefined ? dto.bank_name : staff.bank_name;
+            const bankBranch = dto.bank_branch !== undefined ? dto.bank_branch : staff.bank_branch;
+            const accountNumber = dto.bank_account_number !== undefined ? dto.bank_account_number : staff.bank_account_number;
+            const accountName = dto.bank_account_name !== undefined ? dto.bank_account_name : staff.bank_account_name;
+
+            if (bankName || accountNumber || accountName) {
+                if (!primaryBank) {
+                    primaryBank = bankAccountRepo.create({
+                        staff_id: staff.id,
+                        is_primary: true,
+                        is_active: true,
+                        account_type: BankAccountType.SALARY,
+                        bank_name: bankName || '',
+                        bank_branch: bankBranch || undefined,
+                        account_number: accountNumber || '',
+                        account_name: accountName || '',
+                    });
+                } else {
+                    if (dto.bank_name !== undefined) primaryBank.bank_name = dto.bank_name;
+                    if (dto.bank_branch !== undefined) primaryBank.bank_branch = dto.bank_branch;
+                    if (dto.bank_account_number !== undefined) primaryBank.account_number = dto.bank_account_number;
+                    if (dto.bank_account_name !== undefined) primaryBank.account_name = dto.bank_account_name;
+                }
+                await bankAccountRepo.save(primaryBank);
+            }
+        }
+
+        // Sync to staff_next_of_kin
+        if (dto.emergency_contact_name !== undefined || dto.emergency_contact_phone !== undefined || dto.emergency_contact_relationship !== undefined) {
+            const nokRepo = this.dataSource.getRepository(NextOfKin);
+            let primaryNok = await nokRepo.findOne({
+                where: { staff_id: staff.id, is_primary: true },
+            });
+            const contactName = dto.emergency_contact_name !== undefined ? dto.emergency_contact_name : staff.emergency_contact_name;
+            const contactPhone = dto.emergency_contact_phone !== undefined ? dto.emergency_contact_phone : staff.emergency_contact_phone;
+            const contactRel = dto.emergency_contact_relationship !== undefined ? dto.emergency_contact_relationship : staff.emergency_contact_relationship;
+
+            if (contactName || contactPhone || contactRel) {
+                if (!primaryNok) {
+                    primaryNok = nokRepo.create({
+                        staff_id: staff.id,
+                        is_primary: true,
+                        full_name: contactName || '',
+                        phone: contactPhone || '',
+                        relationship: contactRel || 'other',
+                    });
+                } else {
+                    if (dto.emergency_contact_name !== undefined) primaryNok.full_name = dto.emergency_contact_name;
+                    if (dto.emergency_contact_phone !== undefined) primaryNok.phone = dto.emergency_contact_phone;
+                    if (dto.emergency_contact_relationship !== undefined) primaryNok.relationship = dto.emergency_contact_relationship;
+                }
+                await nokRepo.save(primaryNok);
+            }
+        }
 
         staff.updated_by = updatedBy;
 

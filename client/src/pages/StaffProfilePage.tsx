@@ -102,7 +102,9 @@ interface StaffDetail {
     languages?: any[];
     assets?: any[];
     bankAccounts?: any[];
+    nextOfKin?: any[];
 }
+
 
 interface StaffDoc {
     id: string;
@@ -548,6 +550,9 @@ export const StaffProfilePage: React.FC = () => {
     const [showResetPwDialog, setShowResetPwDialog] = useState(false);
 
     const openEditModal = () => {
+        const primaryBank = staff?.bankAccounts?.find((b: any) => b.is_primary) || staff?.bankAccounts?.[0];
+        const primaryNok = staff?.nextOfKin?.find((n: any) => n.is_primary) || staff?.nextOfKin?.[0];
+
         setFormData({
             first_name: staff?.first_name,
             middle_name: staff?.middle_name,
@@ -569,13 +574,13 @@ export const StaffProfilePage: React.FC = () => {
             city: staff?.city,
             postal_code: staff?.postal_code,
             basic_salary: staff?.basic_salary,
-            emergency_contact_name: staff?.emergency_contact_name,
-            emergency_contact_phone: staff?.emergency_contact_phone,
-            emergency_contact_relationship: staff?.emergency_contact_relationship,
-            bank_name: staff?.bank_name,
-            bank_branch: staff?.bank_branch,
-            bank_account_number: staff?.bank_account_number,
-            bank_account_name: staff?.bank_account_name,
+            emergency_contact_name: primaryNok ? primaryNok.full_name : staff?.emergency_contact_name,
+            emergency_contact_phone: primaryNok ? primaryNok.phone : staff?.emergency_contact_phone,
+            emergency_contact_relationship: primaryNok ? primaryNok.relationship : staff?.emergency_contact_relationship,
+            bank_name: primaryBank ? primaryBank.bank_name : staff?.bank_name,
+            bank_branch: primaryBank ? primaryBank.bank_branch : staff?.bank_branch,
+            bank_account_number: primaryBank ? primaryBank.account_number : staff?.bank_account_number,
+            bank_account_name: primaryBank ? primaryBank.account_name : staff?.bank_account_name,
         });
         setShowEditModal(true);
     };
