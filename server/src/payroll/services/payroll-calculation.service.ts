@@ -115,8 +115,8 @@ export class PayrollCalculationService {
         }).catch(() => [] as LeaveRequest[]);
         let lwopDays = 0;
         for (const l of periodLeaves) {
-            const isLwop = (l as any).leaveType?.code === 'LWOP' || (l as any).leaveType?.is_paid === false;
-            if (isLwop) lwopDays += Number((l as any).days || 0);
+            const isLwop = l.leaveType?.code === 'LWOP' || l.leaveType?.is_paid === false;
+            if (isLwop) lwopDays += Number(l.total_days || 0);
         }
         const standardDays = 30;
         const daysWorked = Math.max(0, standardDays - lwopDays);

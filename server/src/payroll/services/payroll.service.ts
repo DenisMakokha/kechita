@@ -137,7 +137,8 @@ export class PayrollService {
      * Idempotent: re-running deletes previous payslips and recalculates.
      */
     async calculateRun(runId: string, userId?: string): Promise<PayrollRun> {
-        const run = await this.getRun(runId);
+        const run = await this.runRepo.findOne({ where: { id: runId }, relations: ['period'] });
+        if (!run) throw new NotFoundException('Payroll run not found');
         if (run.status === PayrollRunStatus.APPROVED || run.status === PayrollRunStatus.PAID) {
             throw new BadRequestException('Cannot recalculate an approved/paid run');
         }
@@ -244,7 +245,8 @@ export class PayrollService {
     }
 
     async approveRun(runId: string, userId?: string): Promise<PayrollRun> {
-        const run = await this.getRun(runId);
+        const run = await this.runRepo.findOne({ where: { id: runId }, relations: ['period'] });
+        if (!run) throw new NotFoundException('Payroll run not found');
         if (run.status !== PayrollRunStatus.CALCULATED) {
             throw new BadRequestException('Only calculated runs can be approved');
         }
@@ -259,7 +261,8 @@ export class PayrollService {
     }
 
     async markPaid(runId: string, userId?: string): Promise<PayrollRun> {
-        const run = await this.getRun(runId);
+        const run = await this.runRepo.findOne({ where: { id: runId }, relations: ['period'] });
+        if (!run) throw new NotFoundException('Payroll run not found');
         if (run.status !== PayrollRunStatus.APPROVED) {
             throw new BadRequestException('Only approved runs can be marked paid');
         }
@@ -273,7 +276,8 @@ export class PayrollService {
     }
 
     async cancelRun(runId: string, reason: string, userId?: string): Promise<PayrollRun> {
-        const run = await this.getRun(runId);
+        const run = await this.runRepo.findOne({ where: { id: runId }, relations: ['period'] });
+        if (!run) throw new NotFoundException('Payroll run not found');
         if (run.status === PayrollRunStatus.PAID) throw new BadRequestException('Cannot cancel a paid run');
         run.status = PayrollRunStatus.CANCELLED;
         run.notes = (run.notes ? run.notes + '\n' : '') + `[CANCELLED] ${reason}`;
