@@ -11,7 +11,7 @@ import { seedApprovalFlows } from './seed-approval-flows';
 import { ApprovalFlow } from '../approval/entities/approval-flow.entity';
 import { ApprovalFlowStep } from '../approval/entities/approval-flow-step.entity';
 import { SystemSetting } from '../auth/entities/system-setting.entity';
-import { Staff } from '../staff/entities/staff.entity';
+import { Staff, StaffStatus, ProbationStatus } from '../staff/entities/staff.entity';
 import { Region } from '../org/entities/region.entity';
 import { Branch } from '../org/entities/branch.entity';
 import { Department } from '../org/entities/department.entity';
@@ -237,6 +237,35 @@ export async function seedProductionDefaults() {
         console.log(`  Created admin user: ${adminEmail}`);
     } else {
         console.log(`  Admin user exists: ${adminEmail}`);
+    }
+
+    // Seed Staff profile for admin user (required for petty cash, payroll, etc.)
+    const staffRepo = AppDataSource.getRepository(Staff);
+    const positionRepo = AppDataSource.getRepository(Position);
+    const existingAdminStaff = await staffRepo.findOne({ where: { user: { id: adminUser.id } } });
+    if (!existingAdminStaff) {
+        // Ensure CEO position exists
+        let ceoPos = await positionRepo.findOneBy({ code: 'CEO' });
+        if (!ceoPos) {
+            ceoPos = positionRepo.create({ name: 'Chief Executive Officer', code: 'CEO' });
+            await positionRepo.save(ceoPos);
+            console.log('  Created CEO position');
+        }
+        const adminStaff = staffRepo.create({
+            user: adminUser,
+            employee_number: 'KEC250001',
+            first_name: 'System',
+            last_name: 'Admin',
+            status: StaffStatus.ACTIVE,
+            probation_status: ProbationStatus.NOT_APPLICABLE,
+            position: ceoPos,
+            hire_date: new Date(),
+            confirmation_date: new Date(),
+        });
+        await staffRepo.save(adminStaff);
+        console.log(`  Created staff profile for admin user: ${adminEmail}`);
+    } else {
+        console.log(`  Admin staff profile exists`);
     }
 
     // Seed Leave Types

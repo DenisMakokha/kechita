@@ -865,6 +865,7 @@ const AddFloatModal: React.FC<{
         maximum_limit: '',
         minimum_threshold: '',
         custodian_id: '',
+        initial_balance: '',
     });
 
     const floatRules = useMemo<ValidationRules<typeof formData>>(() => ({
@@ -919,10 +920,14 @@ const AddFloatModal: React.FC<{
         const payload: Record<string, any> = {
             branch_id: formData.branch_id,
             tier: formData.tier,
-            minimum_threshold: parseFloat(formData.minimum_threshold),
+            minimum_threshold: formData.minimum_threshold ? parseFloat(formData.minimum_threshold) : undefined,
         };
         if (formData.custodian_id) {
             payload.custodian_id = formData.custodian_id;
+        }
+        const ib = parseFloat(formData.initial_balance);
+        if (!isNaN(ib) && ib > 0) {
+            payload.initial_balance = ib;
         }
         mutation.mutate(payload);
     };
@@ -964,6 +969,11 @@ const AddFloatModal: React.FC<{
                             <input type="number" value={formData.minimum_threshold} onChange={e => { setFormData({ ...formData, minimum_threshold: e.target.value }); fv.onChange('minimum_threshold', e.target.value); }} onBlur={() => fv.onBlur('minimum_threshold', formData.minimum_threshold)} min="0" step="0.01" className={`w-full px-4 py-2.5 border rounded-lg ${fieldErrorClass(fv.getFieldError('minimum_threshold'))}`} placeholder="e.g., 10000" />
                             <FieldError error={fv.getFieldError('minimum_threshold')} />
                         </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Initial Balance (KES)</label>
+                        <input type="number" value={formData.initial_balance} onChange={e => setFormData({ ...formData, initial_balance: e.target.value })} min="0" step="0.01" className="w-full px-4 py-2.5 border border-slate-200 rounded-lg" placeholder="0.00 (Optional)" />
+                        <p className="text-xs text-slate-400 mt-0.5">Leave blank or 0 if starting with no cash on hand</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Custodian</label>

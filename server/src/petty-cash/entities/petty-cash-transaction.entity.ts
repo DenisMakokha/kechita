@@ -89,7 +89,7 @@ export class PettyCashTransaction {
     @Column({ type: 'enum', enum: TransactionStatus, default: TransactionStatus.PENDING })
     status: TransactionStatus;
 
-    @ManyToOne(() => Staff, { eager: true })
+    @ManyToOne(() => Staff, { eager: true, nullable: true })
     @JoinColumn({ name: 'created_by_id' })
     createdBy: Staff;
 
