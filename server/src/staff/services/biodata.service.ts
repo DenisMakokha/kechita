@@ -189,7 +189,8 @@ export class BiodataService {
     }
 
     async createWorkExperience(staffId: string, data: Partial<StaffWorkExperience>): Promise<StaffWorkExperience> {
-        const exp = this.workExpRepo.create({ staff_id: staffId, ...data });
+        const mapped = this.mapExperienceData(data);
+        const exp = this.workExpRepo.create({ staff_id: staffId, ...mapped });
         const saved = await this.workExpRepo.save(exp);
         await this.calculateCompleteness(staffId);
         return saved;
@@ -198,7 +199,8 @@ export class BiodataService {
     async updateWorkExperience(id: string, data: Partial<StaffWorkExperience>): Promise<StaffWorkExperience> {
         const exp = await this.workExpRepo.findOne({ where: { id } });
         if (!exp) throw new NotFoundException('Work experience record not found');
-        Object.assign(exp, data);
+        const mapped = this.mapExperienceData(data);
+        Object.assign(exp, mapped);
         const saved = await this.workExpRepo.save(exp);
         await this.calculateCompleteness(exp.staff_id);
         return saved;
@@ -221,7 +223,8 @@ export class BiodataService {
     }
 
     async createSkill(staffId: string, data: Partial<StaffSkill>): Promise<StaffSkill> {
-        const skill = this.skillRepo.create({ staff_id: staffId, ...data });
+        const mapped = this.mapSkillData(data);
+        const skill = this.skillRepo.create({ staff_id: staffId, ...mapped });
         const saved = await this.skillRepo.save(skill);
         await this.calculateCompleteness(staffId);
         return saved;
@@ -230,7 +233,8 @@ export class BiodataService {
     async updateSkill(id: string, data: Partial<StaffSkill>): Promise<StaffSkill> {
         const skill = await this.skillRepo.findOne({ where: { id } });
         if (!skill) throw new NotFoundException('Skill record not found');
-        Object.assign(skill, data);
+        const mapped = this.mapSkillData(data);
+        Object.assign(skill, mapped);
         const saved = await this.skillRepo.save(skill);
         await this.calculateCompleteness(skill.staff_id);
         return saved;
@@ -285,7 +289,8 @@ export class BiodataService {
     }
 
     async createAsset(staffId: string, data: Partial<StaffAsset>, assignedBy?: string): Promise<StaffAsset> {
-        const asset = this.assetRepo.create({ staff_id: staffId, assigned_by: assignedBy, ...data });
+        const mapped = this.mapAssetData(data);
+        const asset = this.assetRepo.create({ staff_id: staffId, assigned_by: assignedBy, ...mapped });
         const saved = await this.assetRepo.save(asset);
         await this.calculateCompleteness(staffId);
         return saved;
@@ -294,7 +299,8 @@ export class BiodataService {
     async updateAsset(id: string, data: Partial<StaffAsset>): Promise<StaffAsset> {
         const asset = await this.assetRepo.findOne({ where: { id } });
         if (!asset) throw new NotFoundException('Asset record not found');
-        Object.assign(asset, data);
+        const mapped = this.mapAssetData(data);
+        Object.assign(asset, mapped);
         const saved = await this.assetRepo.save(asset);
         await this.calculateCompleteness(asset.staff_id);
         return saved;
@@ -330,15 +336,16 @@ export class BiodataService {
     }
 
     async createBankAccount(staffId: string, data: Partial<StaffBankAccount>): Promise<StaffBankAccount> {
+        const mapped = this.mapBankAccountData(data);
         // If this is marked primary, demote existing primary
-        if (data.is_primary) {
+        if (mapped.is_primary) {
             const existing = await this.bankAccountRepo.find({ where: { staff_id: staffId, is_primary: true } });
             for (const acc of existing) {
                 acc.is_primary = false;
                 await this.bankAccountRepo.save(acc);
             }
         }
-        const acc = this.bankAccountRepo.create({ staff_id: staffId, ...data });
+        const acc = this.bankAccountRepo.create({ staff_id: staffId, ...mapped });
         const saved = await this.bankAccountRepo.save(acc);
         await this.calculateCompleteness(staffId);
         return saved;
@@ -348,8 +355,9 @@ export class BiodataService {
         const acc = await this.bankAccountRepo.findOne({ where: { id } });
         if (!acc) throw new NotFoundException('Bank account not found');
 
+        const mapped = this.mapBankAccountData(data);
         // If setting this as primary, demote others
-        if (data.is_primary && !acc.is_primary) {
+        if (mapped.is_primary && !acc.is_primary) {
             const existing = await this.bankAccountRepo.find({
                 where: { staff_id: acc.staff_id, is_primary: true },
             });
@@ -359,7 +367,7 @@ export class BiodataService {
             }
         }
 
-        Object.assign(acc, data);
+        Object.assign(acc, mapped);
         const saved = await this.bankAccountRepo.save(acc);
         await this.calculateCompleteness(acc.staff_id);
         return saved;
@@ -434,5 +442,90 @@ export class BiodataService {
         if (!dep) throw new NotFoundException('Dependent not found');
         await this.dependentRepo.remove(dep);
         await this.calculateCompleteness(dep.staff_id);
+    }
+
+    private mapExperienceData(data: any): Partial<StaffWorkExperience> {
+        const mapped = { ...data };
+        if ('reference_name' in mapped) {
+            mapped.contact_person = mapped.reference_name;
+            delete mapped.reference_name;
+        }
+        if ('reference_phone' in mapped) {
+            mapped.contact_phone = mapped.reference_phone;
+            delete mapped.reference_phone;
+        }
+        if ('reference_email' in mapped) {
+            mapped.contact_email = mapped.reference_email;
+            delete mapped.reference_email;
+        }
+        return mapped;
+    }
+
+    private mapSkillData(data: any): Partial<StaffSkill> {
+        const mapped = { ...data };
+        if ('skill_name' in mapped) {
+            mapped.name = mapped.skill_name;
+            delete mapped.skill_name;
+        }
+        if ('certification_number' in mapped) {
+            mapped.certificate_number = mapped.certification_number;
+            delete mapped.certification_number;
+        }
+        if ('issuing_body' in mapped) {
+            mapped.certification_body = mapped.issuing_body;
+            delete mapped.issuing_body;
+        }
+        if ('category' in mapped) {
+            const valid = ['technical', 'soft_skill', 'language', 'certification', 'tool', 'domain', 'other'];
+            if (!valid.includes(mapped.category)) {
+                mapped.category = 'other';
+            }
+        }
+        return mapped;
+    }
+
+    private mapAssetData(data: any): Partial<StaffAsset> {
+        const mapped = { ...data };
+        if ('date_assigned' in mapped) {
+            mapped.assigned_date = mapped.date_assigned;
+            delete mapped.date_assigned;
+        }
+        if ('asset_tag' in mapped) {
+            mapped.asset_code = mapped.asset_tag;
+            delete mapped.asset_tag;
+        }
+        if ('category' in mapped) {
+            const cat = mapped.category;
+            if (['laptop', 'phone', 'tablet', 'electronics'].includes(cat)) {
+                mapped.category = 'electronics';
+            } else if (cat === 'vehicle') {
+                mapped.category = 'vehicle';
+            } else if (cat === 'access_card') {
+                mapped.category = 'access_card';
+            } else if (cat === 'equipment') {
+                mapped.category = 'tool';
+            } else {
+                mapped.category = 'other';
+            }
+        }
+        if (!mapped.asset_name) {
+            mapped.asset_name = mapped.description || [mapped.brand, mapped.model].filter(Boolean).join(' ') || (mapped.category ? String(mapped.category).toUpperCase() : 'ASSET');
+        }
+        return mapped;
+    }
+
+    private mapBankAccountData(data: any): Partial<StaffBankAccount> {
+        const mapped = { ...data };
+        if ('account_type' in mapped) {
+            const type = mapped.account_type;
+            if (['current', 'savings', 'salary'].includes(type)) {
+                mapped.account_type = 'salary';
+            } else if (['reimbursement', 'bonus', 'other'].includes(type)) {
+                mapped.account_type = type;
+            } else {
+                mapped.account_type = 'other';
+            }
+        }
+        return mapped;
     }
 }

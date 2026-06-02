@@ -15,6 +15,7 @@ import {
     FileCheck, Plus, RotateCcw, Ban, Play, Heart,
     KeyRound, Lock, Unlock, UserCog, Link2Off, ShieldCheck, ShieldOff, Loader2, MoreHorizontal,
     PenTool, Eye, Calendar, Target, GraduationCap, UserCircle, FileSignature, FolderOpen,
+    Wrench, Languages, Package,
 } from 'lucide-react';
 import StaffPeopleTab from '../components/staff/StaffPeopleTab';
 
@@ -95,6 +96,12 @@ interface StaffDetail {
     department?: { id: string; name: string };
     manager?: { id: string; first_name: string; last_name: string };
     user?: { id: string; email: string; is_active: boolean };
+    education?: any[];
+    workExperience?: any[];
+    skills?: any[];
+    languages?: any[];
+    assets?: any[];
+    bankAccounts?: any[];
 }
 
 interface StaffDoc {
@@ -946,27 +953,177 @@ export const StaffProfilePage: React.FC = () => {
                             </div>
 
                             {/* Bank Information - Bold Amber */}
-                            <div className="bg-gradient-to-br from-white to-amber-50/50 rounded-2xl border-2 border-amber-200 shadow-lg shadow-amber-100/50 overflow-hidden md:col-span-2">
-                                <div className="px-6 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                                        <CreditCard size={20} className="text-white" />
+                            {(() => {
+                                const primaryBank = staff.bankAccounts?.find(b => b.is_primary && b.is_active) || staff.bankAccounts?.find(b => b.is_primary) || staff.bankAccounts?.[0];
+                                const bankName = primaryBank?.bank_name || staff.bank_name;
+                                const bankBranch = primaryBank?.bank_branch || staff.bank_branch;
+                                const bankAccountNumber = primaryBank?.account_number || staff.bank_account_number;
+                                const bankAccountName = primaryBank?.account_name || staff.bank_account_name;
+                                return (
+                                    <div className="bg-gradient-to-br from-white to-amber-50/50 rounded-2xl border-2 border-amber-200 shadow-lg shadow-amber-100/50 overflow-hidden md:col-span-2">
+                                        <div className="px-6 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                                <CreditCard size={20} className="text-white" />
+                                            </div>
+                                            <h3 className="font-bold text-lg">Bank Information</h3>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                {[
+                                                    { label: 'Bank Name', value: bankName },
+                                                    { label: 'Branch', value: bankBranch },
+                                                    { label: 'Account Number', value: bankAccountNumber, mono: true },
+                                                    { label: 'Account Name', value: bankAccountName },
+                                                ].map((item, idx) => (
+                                                    <div key={idx} className="bg-white rounded-xl p-4 border-2 border-amber-100 shadow-sm">
+                                                        <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">{item.label}</p>
+                                                        <p className={`text-base font-bold text-slate-800 ${item.mono ? 'font-mono' : ''}`}>{item.value || '-'}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <h3 className="font-bold text-lg">Bank Information</h3>
+                                );
+                            })()}
+
+                            {/* Education Preview Card */}
+                            <div className="bg-gradient-to-br from-white to-indigo-50/30 rounded-2xl border-2 border-indigo-200 shadow-lg shadow-indigo-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <GraduationCap size={20} className="text-white" />
+                                    </div>
+                                    <h3 className="font-bold text-lg">Education & Qualifications</h3>
+                                </div>
+                                <div className="p-6 space-y-4 max-h-[350px] overflow-y-auto">
+                                    {!staff.education || staff.education.length === 0 ? (
+                                        <p className="text-sm text-slate-500 italic text-center py-6">No education records added yet</p>
+                                    ) : (
+                                        staff.education.map((edu: any) => (
+                                            <div key={edu.id} className="border-b border-indigo-100 last:border-0 pb-3 last:pb-0">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-900 text-sm">{edu.qualification}</h4>
+                                                        <p className="text-xs text-[#0066B3] font-semibold">{edu.institution}</p>
+                                                        <p className="text-xs text-slate-500 capitalize">{edu.level} • {edu.field_of_study}</p>
+                                                    </div>
+                                                    {edu.is_completed && (
+                                                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-100 text-emerald-700 font-semibold uppercase">Completed</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Work Experience Preview Card */}
+                            <div className="bg-gradient-to-br from-white to-slate-50/30 rounded-2xl border-2 border-slate-200 shadow-lg shadow-slate-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-slate-600 to-slate-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Briefcase size={20} className="text-white" />
+                                    </div>
+                                    <h3 className="font-bold text-lg">Work Experience History</h3>
+                                </div>
+                                <div className="p-6 space-y-4 max-h-[350px] overflow-y-auto">
+                                    {!staff.workExperience || staff.workExperience.length === 0 ? (
+                                        <p className="text-sm text-slate-500 italic text-center py-6">No previous work experience recorded</p>
+                                    ) : (
+                                        staff.workExperience.map((exp: any) => (
+                                            <div key={exp.id} className="border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-900 text-sm">{exp.job_title}</h4>
+                                                        <p className="text-xs text-slate-700 font-medium">{exp.employer_name}</p>
+                                                        <p className="text-xs text-slate-500">{exp.start_date?.slice(0,7)} — {exp.end_date?.slice(0,7) || 'Present'}</p>
+                                                    </div>
+                                                    {exp.is_current && (
+                                                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-semibold uppercase">Current</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Skills Preview Card */}
+                            <div className="bg-gradient-to-br from-white to-emerald-50/30 rounded-2xl border-2 border-emerald-200 shadow-lg shadow-emerald-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Wrench size={20} className="text-white" />
+                                    </div>
+                                    <h3 className="font-bold text-lg">Skills & Proficiencies</h3>
+                                </div>
+                                <div className="p-6 max-h-[350px] overflow-y-auto">
+                                    {!staff.skills || staff.skills.length === 0 ? (
+                                        <p className="text-sm text-slate-500 italic text-center py-6">No skills recorded yet</p>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {staff.skills.map((skill: any) => (
+                                                <div key={skill.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg shadow-sm">
+                                                    <span className="font-bold text-slate-800 text-xs">{skill.name}</span>
+                                                    <span className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-100 text-emerald-700 uppercase font-bold">{skill.proficiency}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Assigned Assets Preview Card */}
+                            <div className="bg-gradient-to-br from-white to-amber-50/30 rounded-2xl border-2 border-amber-200 shadow-lg shadow-amber-100/50 overflow-hidden">
+                                <div className="px-6 py-5 bg-gradient-to-r from-amber-500 to-amber-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Package size={20} className="text-white" />
+                                    </div>
+                                    <h3 className="font-bold text-lg">Assigned Assets</h3>
+                                </div>
+                                <div className="p-6 space-y-4 max-h-[350px] overflow-y-auto">
+                                    {!staff.assets || staff.assets.length === 0 ? (
+                                        <p className="text-sm text-slate-500 italic text-center py-6">No assets assigned yet</p>
+                                    ) : (
+                                        staff.assets.map((asset: any) => (
+                                            <div key={asset.id} className="border-b border-amber-100 last:border-0 pb-3 last:pb-0">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-900 text-sm">{asset.asset_name}</h4>
+                                                        <p className="text-xs text-slate-500">Tag: {asset.asset_code || '—'} • S/N: {asset.serial_number || '—'}</p>
+                                                        <p className="text-xs text-slate-400">Assigned: {asset.assigned_date}</p>
+                                                    </div>
+                                                    <span className={`px-1.5 py-0.5 text-[10px] rounded font-semibold uppercase ${asset.status === 'assigned' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{asset.status}</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Languages Preview Card */}
+                            <div className="bg-gradient-to-br from-white to-violet-50/30 rounded-2xl border-2 border-violet-200 shadow-lg shadow-violet-100/50 overflow-hidden md:col-span-2">
+                                <div className="px-6 py-5 bg-gradient-to-r from-violet-600 to-purple-500 text-white flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                        <Languages size={20} className="text-white" />
+                                    </div>
+                                    <h3 className="font-bold text-lg">Languages</h3>
                                 </div>
                                 <div className="p-6">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        {[
-                                            { label: 'Bank Name', value: staff.bank_name },
-                                            { label: 'Branch', value: staff.bank_branch },
-                                            { label: 'Account Number', value: staff.bank_account_number, mono: true },
-                                            { label: 'Account Name', value: staff.bank_account_name },
-                                        ].map((item, idx) => (
-                                            <div key={idx} className="bg-white rounded-xl p-4 border-2 border-amber-100 shadow-sm">
-                                                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">{item.label}</p>
-                                                <p className={`text-base font-bold text-slate-800 ${item.mono ? 'font-mono' : ''}`}>{item.value || '-'}</p>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {!staff.languages || staff.languages.length === 0 ? (
+                                        <p className="text-sm text-slate-500 italic text-center py-6">No languages recorded yet</p>
+                                    ) : (
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            {staff.languages.map((lang: any) => (
+                                                <div key={lang.id} className="bg-white rounded-xl p-4 border-2 border-violet-100 shadow-sm flex flex-col justify-between">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-bold text-slate-800 text-sm">{lang.language}</span>
+                                                        {lang.is_primary && (
+                                                            <span className="px-1.5 py-0.5 text-[9px] rounded bg-violet-100 text-violet-700 uppercase font-bold">Primary</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs text-slate-500 capitalize">Proficiency: {lang.proficiency}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

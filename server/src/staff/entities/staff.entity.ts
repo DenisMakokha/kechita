@@ -5,6 +5,12 @@ import { Branch } from '../../org/entities/branch.entity';
 import { Department } from '../../org/entities/department.entity';
 import { Position } from '../../org/entities/position.entity';
 import { StaffDocument } from './staff-document.entity';
+import { StaffEducation } from './staff-education.entity';
+import { StaffWorkExperience } from './staff-work-experience.entity';
+import { StaffSkill } from './staff-skill.entity';
+import { StaffLanguage } from './staff-language.entity';
+import { StaffAsset } from './staff-asset.entity';
+import { StaffBankAccount } from './staff-bank-account.entity';
 
 export enum StaffStatus {
     ONBOARDING = 'onboarding',
@@ -245,6 +251,24 @@ export class Staff {
     // Documents
     @OneToMany(() => StaffDocument, (doc) => doc.staff)
     documents?: StaffDocument[];
+
+    @OneToMany(() => StaffEducation, (edu) => edu.staff)
+    education?: StaffEducation[];
+
+    @OneToMany(() => StaffWorkExperience, (exp) => exp.staff)
+    workExperience?: StaffWorkExperience[];
+
+    @OneToMany(() => StaffSkill, (skill) => skill.staff)
+    skills?: StaffSkill[];
+
+    @OneToMany(() => StaffLanguage, (lang) => lang.staff)
+    languages?: StaffLanguage[];
+
+    @OneToMany(() => StaffAsset, (asset) => asset.staff)
+    assets?: StaffAsset[];
+
+    @OneToMany(() => StaffBankAccount, (acc) => acc.staff)
+    bankAccounts?: StaffBankAccount[];
 
     // Profile Photo
     @Column({ nullable: true })

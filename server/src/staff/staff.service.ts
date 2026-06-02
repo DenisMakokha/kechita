@@ -307,7 +307,11 @@ export class StaffService {
     async findOne(id: string): Promise<Staff> {
         const staff = await this.staffRepo.findOne({
             where: { id },
-            relations: ['user', 'user.roles', 'position', 'branch', 'region', 'department', 'manager', 'documents', 'documents.documentType', 'documents.document'],
+            relations: [
+                'user', 'user.roles', 'position', 'branch', 'region', 'department', 'manager',
+                'documents', 'documents.documentType', 'documents.document',
+                'education', 'workExperience', 'skills', 'languages', 'assets', 'bankAccounts'
+            ],
         });
         if (!staff) throw new NotFoundException('Staff not found');
         return staff;
