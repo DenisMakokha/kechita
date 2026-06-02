@@ -57,7 +57,7 @@ export class LoansController {
     // ==================== ADMIN/HR/ACCOUNTANT ====================
 
     @Get()
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'REGIONAL_ADMIN')
     findAll(
         @Query('status') status?: LoanStatus,
         @Query('loanType') loanType?: LoanType,
@@ -68,19 +68,19 @@ export class LoansController {
     }
 
     @Get('pending-approval')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'REGIONAL_ADMIN')
     findPendingApproval() {
         return this.loansService.findPendingApproval();
     }
 
     @Get('overdue')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     findOverdueLoans() {
         return this.loansService.findOverdueLoans();
     }
 
     @Get('stats')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     getStats(@Query('staffId') staffId?: string, @Query('year') year?: string) {
         return this.loansService.getLoanStats({
             staffId,
@@ -92,7 +92,7 @@ export class LoansController {
     // Note: These routes MUST be defined before :id routes to avoid conflicts
 
     @Get('payroll/export')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     getPayrollExport(@Query('month') month: string) {
         if (!month || !/^\d{4}-\d{2}$/.test(month)) {
             throw new BadRequestException('Month must be in YYYY-MM format');
@@ -101,7 +101,7 @@ export class LoansController {
     }
 
     @Get('payroll/summary-by-branch')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     getPayrollSummaryByBranch(@Query('month') month: string) {
         if (!month || !/^\d{4}-\d{2}$/.test(month)) {
             throw new BadRequestException('Month must be in YYYY-MM format');
@@ -110,7 +110,7 @@ export class LoansController {
     }
 
     @Post('payroll/process')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     processPayrollDeductions(@Body() dto: ProcessPayrollDto) {
         return this.loansService.processPayrollDeductions(dto.month, dto.payroll_reference);
     }
@@ -128,7 +128,7 @@ export class LoansController {
     // ==================== DISBURSEMENT ====================
 
     @Patch(':id/disburse')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     disburseLoan(
         @Param('id', ParseUUIDPipe) id: string,
         @Req() req: AuthenticatedRequest,
@@ -148,7 +148,7 @@ export class LoansController {
     // ==================== PAYMENTS ====================
 
     @Patch(':id/payment')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     recordPayment(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: RecordPaymentDto,
@@ -157,7 +157,7 @@ export class LoansController {
     }
 
     @Patch(':id/payroll-deduction')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     recordPayrollDeduction(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: RecordPayrollDeductionDto,
@@ -173,7 +173,7 @@ export class LoansController {
     // ==================== REGENERATE SCHEDULE ====================
 
     @Post(':id/regenerate-schedule')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     regenerateSchedule(@Param('id', ParseUUIDPipe) id: string) {
         return this.loansService.generateRepaymentSchedule(id);
     }
@@ -191,7 +191,7 @@ export class LoansController {
     // ==================== APPROVE LOAN ====================
 
     @Patch(':id/approve')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     approveLoan(
         @Param('id', ParseUUIDPipe) id: string,
         @Req() req: AuthenticatedRequest,
@@ -205,7 +205,7 @@ export class LoansController {
     // ==================== REJECT LOAN ====================
 
     @Patch(':id/reject')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     rejectLoan(
         @Param('id', ParseUUIDPipe) id: string,
         @Req() req: AuthenticatedRequest,
@@ -220,7 +220,7 @@ export class LoansController {
     // ==================== WRITE-OFF / DEFAULT ====================
 
     @Patch(':id/write-off')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     writeOffLoan(
         @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason: string,
@@ -230,7 +230,7 @@ export class LoansController {
     }
 
     @Patch(':id/mark-defaulted')
-    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT', 'REGIONAL_ADMIN')
     markAsDefaulted(
         @Param('id', ParseUUIDPipe) id: string,
         @Body('reason') reason?: string,
@@ -241,7 +241,7 @@ export class LoansController {
     // ==================== TEAM LOANS ====================
 
     @Get('team')
-    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'REGIONAL_ADMIN')
     getTeamLoans(
         @Req() req: AuthenticatedRequest,
         @Query('status') status?: LoanStatus,
@@ -252,7 +252,7 @@ export class LoansController {
     }
 
     @Get('team/pending')
-    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER')
+    @Roles('CEO', 'HR_MANAGER', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'REGIONAL_ADMIN')
     getPendingTeamLoans(@Req() req: AuthenticatedRequest) {
         const staffId = req.user?.staff_id;
         if (!staffId) throw new BadRequestException('Staff ID not found in token');

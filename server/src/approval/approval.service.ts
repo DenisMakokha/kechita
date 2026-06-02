@@ -719,6 +719,11 @@ export class ApprovalService {
     ): Promise<void> {
         const approverRoles = approver.user?.roles?.map(r => r.code) || [];
 
+        // CEO and REGIONAL_ADMIN can approve any step of the workflow
+        if (approverRoles.includes('CEO') || approverRoles.includes('REGIONAL_ADMIN')) {
+            return;
+        }
+
         switch (step.approver_type) {
             case ApproverType.ROLE:
                 if (!step.approver_role_code || !approverRoles.includes(step.approver_role_code)) {

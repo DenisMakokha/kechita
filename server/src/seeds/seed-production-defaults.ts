@@ -37,13 +37,8 @@ const AppDataSource = new DataSource({
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    entities: [
-        Role, User, Permission, LeaveType, ClaimType, ApprovalFlow, ApprovalFlowStep, SystemSetting,
-        Staff, Region, Branch, Department, Position, Document, DocumentType, StaffDocument,
-        EmploymentHistory, OnboardingTemplate, OnboardingTask, OnboardingInstance, OnboardingTaskStatus, StaffContract, PublicHoliday,
-        EmailTemplateEntity,
-    ],
-    synchronize: true,
+    entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+    synchronize: false,
 });
 
 const ROLES = [

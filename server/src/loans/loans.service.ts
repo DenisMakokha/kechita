@@ -310,6 +310,7 @@ export class LoansService {
         loan.approval_date = new Date();
         loan.approvedBy = approver || undefined;
         loan.approval_comment = comment;
+        loan.repayments = undefined as any;
 
         await this.loanRepo.save(loan);
     }
@@ -321,6 +322,7 @@ export class LoansService {
         loan.status = LoanStatus.REJECTED;
         loan.rejectedBy = rejecter || undefined;
         loan.rejection_reason = reason;
+        loan.repayments = undefined as any;
 
         await this.loanRepo.save(loan);
     }
@@ -353,14 +355,17 @@ export class LoansService {
         maturityDate.setMonth(maturityDate.getMonth() + loan.term_months);
         loan.maturity_date = maturityDate;
 
+        loan.repayments = undefined as any;
         await this.loanRepo.save(loan);
 
         // Generate repayment schedule
         await this.generateRepaymentSchedule(loanId);
 
         // Update status to active
-        loan.status = LoanStatus.ACTIVE;
-        const result = await this.loanRepo.save(loan);
+        const activeLoan = await this.findById(loanId);
+        activeLoan.status = LoanStatus.ACTIVE;
+        activeLoan.repayments = undefined as any;
+        const result = await this.loanRepo.save(activeLoan);
 
         this.auditService.logAction(undefined, AuditAction.UPDATE, 'StaffLoan', loanId, `Loan ${loan.loan_number} disbursed: KES ${loan.principal}`, { disburserId, disbursementReference, disbursementMethod, principal: loan.principal, loanType: loan.loan_type }).catch(() => {});
 
@@ -421,6 +426,7 @@ export class LoansService {
             loan.outstanding_balance = 0;
         }
 
+        loan.repayments = undefined as any;
         return this.loanRepo.save(loan);
     }
 
@@ -814,6 +820,7 @@ export class LoansService {
 
         loan.status = LoanStatus.WRITTEN_OFF;
         loan.remarks = `Written off: ${reason}. Outstanding balance at write-off: ${loan.outstanding_balance}`;
+        loan.repayments = undefined as any;
 
         return this.loanRepo.save(loan);
     }
@@ -835,6 +842,7 @@ export class LoansService {
         if (reason) {
             loan.remarks = loan.remarks ? `${loan.remarks}\nDefaulted: ${reason}` : `Defaulted: ${reason}`;
         }
+        loan.repayments = undefined as any;
 
         return this.loanRepo.save(loan);
     }
