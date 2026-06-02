@@ -103,6 +103,7 @@ interface StaffDetail {
     assets?: any[];
     bankAccounts?: any[];
     nextOfKin?: any[];
+    completeness_score?: number;
 }
 
 
@@ -758,7 +759,14 @@ export const StaffProfilePage: React.FC = () => {
                             <p className="text-2xl font-bold text-slate-900">{directReports.length}</p>
                             <p className="text-xs text-slate-500">Reports</p>
                         </div>
+                        {staff.completeness_score !== undefined && (
+                            <div className="text-center px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                <p className="text-2xl font-bold text-emerald-600 font-mono">{staff.completeness_score}%</p>
+                                <p className="text-xs text-emerald-500 font-medium">Complete</p>
+                            </div>
+                        )}
                     </div>
+
                 </div>
             </div>
 
@@ -787,6 +795,31 @@ export const StaffProfilePage: React.FC = () => {
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
+                        {staff.completeness_score !== undefined && (
+                            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-1">
+                                    <h3 className="text-xl font-bold flex items-center gap-2">
+                                        <CheckCircle2 className="w-6 h-6 animate-pulse" />
+                                        Profile Completeness
+                                    </h3>
+                                    <p className="text-blue-100 text-sm max-w-lg">
+                                        Keep this profile updated with statutory documents, qualifications, experience, and assets to ensure 100% data compliance.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-4 w-full md:w-auto max-w-xs md:max-w-none flex-1 md:flex-initial">
+                                    <div className="flex-1 md:w-60 bg-white/20 rounded-full h-4 overflow-hidden backdrop-blur-sm border border-white/10">
+                                        <div 
+                                            className="bg-white h-full rounded-full transition-all duration-1000 ease-out" 
+                                            style={{ width: `${staff.completeness_score}%` }} 
+                                        />
+                                    </div>
+                                    <span className="text-2xl font-black tracking-wider whitespace-nowrap">
+                                        {staff.completeness_score}%
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Info Cards Grid - Bold Design */}
                         <div className="grid gap-6 md:grid-cols-2">
                             {/* Personal Information - Vibrant Blue */}
