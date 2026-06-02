@@ -1,5 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { SystemSetting } from '../auth/entities/system-setting.entity';
 
 export type SmsProvider = 'africastalking' | 'mobulk' | 'custom';
 
@@ -31,14 +34,18 @@ export interface SendSmsOptions {
 }
 
 @Injectable()
-export class SmsService {
+export class SmsService implements OnModuleInit {
     private readonly logger = new Logger(SmsService.name);
     private config: SmsConfig;
 
     private static readonly MOBULK_SMS_URL = 'https://api.onfonmedia.co.ke/v1/sms/SendBulkSMS';
     private static readonly MOBULK_BALANCE_URL = 'https://api.onfonmedia.co.ke/v1/sms/Balance';
 
-    constructor(private readonly configService: ConfigService) {
+    constructor(
+        private readonly configService: ConfigService,
+        @InjectRepository(SystemSetting)
+        private readonly settingRepo: Repository<SystemSetting>,
+    ) {
         this.config = {
             enabled: this.configService.get<string>('SMS_ENABLED') === 'true',
             provider: (this.configService.get<string>('SMS_PROVIDER') || 'africastalking') as SmsProvider,
@@ -56,6 +63,42 @@ export class SmsService {
             custom_headers: this.configService.get<string>('SMS_CUSTOM_HEADERS') || '{}',
             custom_body_template: this.configService.get<string>('SMS_CUSTOM_BODY_TEMPLATE') || '{"to":"{{to}}","message":"{{message}}"}',
         };
+    }
+
+    /**
+     * Load saved SMS settings from the database on startup.
+     * DB settings override .env defaults so credentials saved via the
+     * Settings UI survive server restarts.
+     */
+    async onModuleInit() {
+        try {
+            const rows = await this.settingRepo.find({ where: { category: 'sms' } });
+            if (rows.length > 0) {
+                const db: Record<string, string> = {};
+                for (const r of rows) db[r.key] = r.value;
+
+                this.config = {
+                    enabled: db['sms_enabled'] ? db['sms_enabled'] === 'true' : this.config.enabled,
+                    provider: (db['sms_provider'] || this.config.provider) as SmsProvider,
+                    at_username: db['at_username'] || this.config.at_username,
+                    at_api_key: db['at_api_key'] || this.config.at_api_key,
+                    at_from: db['at_from'] || this.config.at_from,
+                    at_endpoint: db['at_endpoint'] || this.config.at_endpoint,
+                    mobulk_access_key: db['mobulk_access_key'] || this.config.mobulk_access_key,
+                    mobulk_api_key: db['mobulk_api_key'] || this.config.mobulk_api_key,
+                    mobulk_client_id: db['mobulk_client_id'] || this.config.mobulk_client_id,
+                    mobulk_sender_id: db['mobulk_sender_id'] || this.config.mobulk_sender_id,
+                    custom_endpoint: db['custom_endpoint'] || this.config.custom_endpoint,
+                    custom_api_key: db['custom_api_key'] || this.config.custom_api_key,
+                    custom_method: db['custom_method'] || this.config.custom_method,
+                    custom_headers: db['custom_headers'] || this.config.custom_headers,
+                    custom_body_template: db['custom_body_template'] || this.config.custom_body_template,
+                };
+                this.logger.log(`SMS settings loaded from database (provider=${this.config.provider}, enabled=${this.config.enabled})`);
+            }
+        } catch (e: any) {
+            this.logger.warn(`Could not load SMS settings from DB: ${e.message}`);
+        }
 
         if (this.config.enabled) {
             this.logger.log(`SMS enabled via ${this.config.provider}`);

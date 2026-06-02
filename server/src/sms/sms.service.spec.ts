@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { SmsService } from './sms.service';
+import { SystemSetting } from '../auth/entities/system-setting.entity';
 
 describe('SmsService', () => {
     let service: SmsService;
@@ -11,14 +13,20 @@ describe('SmsService', () => {
             get: jest.fn(),
         };
 
+        const mockSettingRepo = {
+            find: jest.fn().mockResolvedValue([]),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 SmsService,
                 { provide: ConfigService, useValue: mockConfigService },
+                { provide: getRepositoryToken(SystemSetting), useValue: mockSettingRepo },
             ],
         }).compile();
 
         service = module.get<SmsService>(SmsService);
+        await service.onModuleInit();
     });
 
     describe('isEnabled', () => {
