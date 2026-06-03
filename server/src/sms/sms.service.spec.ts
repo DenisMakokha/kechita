@@ -7,14 +7,15 @@ import { SystemSetting } from '../auth/entities/system-setting.entity';
 describe('SmsService', () => {
     let service: SmsService;
     let mockConfigService: { get: jest.Mock };
+    let mockSettingRepo: { find: jest.Mock };
 
-    beforeEach(async () => {
+    async function setupService(configValues: Record<string, string> = {}, dbSettings: any[] = []) {
         mockConfigService = {
-            get: jest.fn(),
+            get: jest.fn((key: string) => configValues[key]),
         };
 
-        const mockSettingRepo = {
-            find: jest.fn().mockResolvedValue([]),
+        mockSettingRepo = {
+            find: jest.fn().mockResolvedValue(dbSettings),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -27,31 +28,28 @@ describe('SmsService', () => {
 
         service = module.get<SmsService>(SmsService);
         await service.onModuleInit();
-    });
+    }
 
     describe('isEnabled', () => {
-        it('should return true when SMS_ENABLED is true', () => {
-            mockConfigService.get.mockReturnValue('true');
-
+        it('should return true when SMS_ENABLED is true', async () => {
+            await setupService({ SMS_ENABLED: 'true' });
             expect(service.isEnabled()).toBe(true);
         });
 
-        it('should return false when SMS_ENABLED is not true', () => {
-            mockConfigService.get.mockReturnValue('false');
-
+        it('should return false when SMS_ENABLED is not true', async () => {
+            await setupService({ SMS_ENABLED: 'false' });
             expect(service.isEnabled()).toBe(false);
         });
 
-        it('should return false when SMS_ENABLED is undefined', () => {
-            mockConfigService.get.mockReturnValue(undefined);
-
+        it('should return false when SMS_ENABLED is undefined', async () => {
+            await setupService({});
             expect(service.isEnabled()).toBe(false);
         });
     });
 
     describe('sendSms', () => {
         it('should return error when SMS is disabled', async () => {
-            mockConfigService.get.mockReturnValue(undefined);
+            await setupService({});
 
             const result = await service.sendSms({
                 to: '+254700000000',
@@ -63,10 +61,7 @@ describe('SmsService', () => {
         });
 
         it('should return error when credentials are missing', async () => {
-            mockConfigService.get.mockImplementation((key: string) => {
-                if (key === 'SMS_ENABLED') return 'true';
-                return undefined;
-            });
+            await setupService({ SMS_ENABLED: 'true' });
 
             const result = await service.sendSms({
                 to: '+254700000000',
@@ -74,19 +69,17 @@ describe('SmsService', () => {
             });
 
             expect(result.success).toBe(false);
-            expect(result.error).toContain('Missing Africa\'s Talking credentials');
+            expect(result.error).toContain('Missing credentials for provider');
         });
 
         it('should send SMS when properly configured', async () => {
-            mockConfigService.get.mockImplementation((key: string) => {
-                const config: Record<string, string> = {
-                    SMS_ENABLED: 'true',
-                    AT_USERNAME: 'sandbox',
-                    AT_API_KEY: 'test-api-key',
-                    AT_SMS_ENDPOINT: 'https://api.sandbox.africastalking.com/version1/messaging',
-                    AT_FROM: 'KECHITA',
-                };
-                return config[key];
+            await setupService({
+                SMS_ENABLED: 'true',
+                SMS_PROVIDER: 'africastalking',
+                AT_USERNAME: 'sandbox',
+                AT_API_KEY: 'test-api-key',
+                AT_SMS_ENDPOINT: 'https://api.sandbox.africastalking.com/version1/messaging',
+                AT_FROM: 'KECHITA',
             });
 
             // Mock fetch
@@ -102,23 +95,24 @@ describe('SmsService', () => {
             global.fetch = mockFetch;
 
             const result = await service.sendSms({
-                to: '+254700000000',
+                to: '0700000000', // Unnormalized
                 message: 'Test message',
             });
 
             expect(result.success).toBe(true);
             expect(mockFetch).toHaveBeenCalled();
+            const callArgs = mockFetch.mock.calls[0];
+            // Expect to contain the + sign prepended for AT, and formatted to international 254
+            expect(callArgs[1].body.get('to')).toBe('+254700000000');
         });
 
         it('should handle API errors gracefully', async () => {
-            mockConfigService.get.mockImplementation((key: string) => {
-                const config: Record<string, string> = {
-                    SMS_ENABLED: 'true',
-                    AT_USERNAME: 'sandbox',
-                    AT_API_KEY: 'invalid-key',
-                    AT_SMS_ENDPOINT: 'https://api.sandbox.africastalking.com/version1/messaging',
-                };
-                return config[key];
+            await setupService({
+                SMS_ENABLED: 'true',
+                SMS_PROVIDER: 'africastalking',
+                AT_USERNAME: 'sandbox',
+                AT_API_KEY: 'invalid-key',
+                AT_SMS_ENDPOINT: 'https://api.sandbox.africastalking.com/version1/messaging',
             });
 
             const mockFetch = jest.fn().mockResolvedValue({
@@ -134,17 +128,15 @@ describe('SmsService', () => {
             });
 
             expect(result.success).toBe(false);
-            expect(result.error).toContain('SMS provider error');
+            expect(result.error).toContain('Provider error');
         });
 
         it('should handle network errors', async () => {
-            mockConfigService.get.mockImplementation((key: string) => {
-                const config: Record<string, string> = {
-                    SMS_ENABLED: 'true',
-                    AT_USERNAME: 'sandbox',
-                    AT_API_KEY: 'test-key',
-                };
-                return config[key];
+            await setupService({
+                SMS_ENABLED: 'true',
+                SMS_PROVIDER: 'africastalking',
+                AT_USERNAME: 'sandbox',
+                AT_API_KEY: 'test-key',
             });
 
             const mockFetch = jest.fn().mockRejectedValue(new Error('Network error'));
@@ -160,13 +152,11 @@ describe('SmsService', () => {
         });
 
         it('should use custom from number when provided', async () => {
-            mockConfigService.get.mockImplementation((key: string) => {
-                const config: Record<string, string> = {
-                    SMS_ENABLED: 'true',
-                    AT_USERNAME: 'sandbox',
-                    AT_API_KEY: 'test-key',
-                };
-                return config[key];
+            await setupService({
+                SMS_ENABLED: 'true',
+                SMS_PROVIDER: 'africastalking',
+                AT_USERNAME: 'sandbox',
+                AT_API_KEY: 'test-key',
             });
 
             const mockFetch = jest.fn().mockResolvedValue({

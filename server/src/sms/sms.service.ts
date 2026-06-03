@@ -130,6 +130,22 @@ export class SmsService implements OnModuleInit {
         }
     }
 
+    private normalizePhoneNumber(phone: string): string {
+        // Strip everything except digits
+        let cleaned = phone.replace(/\D/g, '');
+
+        // If it starts with 07... or 01... (10 digits), replace the leading 0 with 254
+        if (cleaned.startsWith('0') && cleaned.length === 10) {
+            cleaned = '254' + cleaned.substring(1);
+        }
+        // If it is 9 digits (starts with 7... or 1...), prepend 254
+        else if (cleaned.length === 9 && (cleaned.startsWith('7') || cleaned.startsWith('1'))) {
+            cleaned = '254' + cleaned;
+        }
+
+        return cleaned;
+    }
+
     async sendSms(options: SendSmsOptions): Promise<{ success: boolean; error?: string; providerResponse?: any }> {
         if (!this.config.enabled) {
             this.logger.log(`[SMS - DISABLED] To: ${options.to}, Message: ${options.message.substring(0, 50)}...`);
@@ -140,10 +156,13 @@ export class SmsService implements OnModuleInit {
             return { success: false, error: `Missing credentials for provider: ${this.config.provider}` };
         }
 
+        const normalizedTo = this.normalizePhoneNumber(options.to);
+        const normalizedOptions = { ...options, to: normalizedTo };
+
         switch (this.config.provider) {
-            case 'africastalking': return this.sendViaAfricasTalking(options);
-            case 'mobulk': return this.sendViaMobulk(options);
-            case 'custom': return this.sendViaCustom(options);
+            case 'africastalking': return this.sendViaAfricasTalking(normalizedOptions);
+            case 'mobulk': return this.sendViaMobulk(normalizedOptions);
+            case 'custom': return this.sendViaCustom(normalizedOptions);
             default: return { success: false, error: `Unknown provider: ${this.config.provider}` };
         }
     }
@@ -192,7 +211,7 @@ export class SmsService implements OnModuleInit {
 
         const body = new URLSearchParams();
         body.set('username', at_username!);
-        body.set('to', options.to);
+        body.set('to', options.to.startsWith('+') ? options.to : '+' + options.to);
         body.set('message', options.message);
         if (from) body.set('from', from);
 
