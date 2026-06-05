@@ -737,6 +737,56 @@ export class StaffService {
         return saved;
     }
 
+    async reinstateStaff(id: string, reinstatementDate?: Date, actorUserId?: string): Promise<Staff> {
+        const staff = await this.findOne(id);
+
+        if (staff.status !== StaffStatus.TERMINATED) {
+            throw new BadRequestException('Only terminated staff members can be reinstated.');
+        }
+
+        const effectiveDate = reinstatementDate || new Date();
+
+        staff.status = StaffStatus.ACTIVE;
+        staff.termination_date = null as any;
+        staff.termination_reason = null as any;
+
+        if (staff.user) {
+            staff.user.is_active = true;
+            await this.userRepo.save(staff.user);
+        }
+
+        // Create new employment history record for the reinstatement
+        const newHistory = this.employmentHistoryRepo.create({
+            staff: staff,
+            position: staff.position,
+            branch: staff.branch,
+            region: staff.region,
+            department: staff.department,
+            employment_type: 'full-time',
+            change_type: 'reinstatement',
+            salary: staff.basic_salary,
+            start_date: effectiveDate,
+            change_reason: 'Staff reinstated into active employment.',
+        });
+        await this.employmentHistoryRepo.save(newHistory);
+
+        const saved = await this.staffRepo.save(staff);
+
+        await this.audit({
+            userId: actorUserId,
+            staffId: id,
+            action: AuditAction.ACTIVATE,
+            entityType: 'Staff',
+            entityId: id,
+            entityName: `${staff.first_name} ${staff.last_name} (${staff.employee_number})`,
+            description: `Staff reinstated into active service`,
+            metadata: { reinstatement_date: effectiveDate },
+            isSuccessful: true,
+        });
+
+        return saved;
+    }
+
     // ==================== TEAM/HIERARCHY ====================
 
     async getDirectReports(managerId: string): Promise<Staff[]> {

@@ -256,6 +256,20 @@ export class StaffController {
         );
     }
 
+    @Patch(':id/reinstate')
+    @Roles('CEO', 'HR_MANAGER')
+    reinstate(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Req() req: AuthenticatedRequest,
+        @Body('reinstatementDate') reinstatementDate?: string,
+    ) {
+        return this.staffService.reinstateStaff(
+            id,
+            reinstatementDate ? new Date(reinstatementDate) : undefined,
+            req.user.id
+        );
+    }
+
     @Patch(':id/probation')
     @Roles('CEO', 'HR_MANAGER')
     updateProbation(

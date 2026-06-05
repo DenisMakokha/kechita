@@ -32,6 +32,7 @@ interface StaffRowActionsProps {
     restoreStaffMutation: { mutate: (id: string) => void };
     setPermanentDeleteTarget: (s: any) => void;
     setPermanentDeleteConfirm: (v: string) => void;
+    setReinstateTarget?: (s: any) => void;
 }
 
 export const StaffRowActions: React.FC<StaffRowActionsProps> = ({
@@ -42,6 +43,7 @@ export const StaffRowActions: React.FC<StaffRowActionsProps> = ({
     resendWelcomeMutation, activateStaffMutation, setShowDeactivateConfirm,
     setTerminateTarget, setTerminateForm, setArchiveTarget,
     restoreStaffMutation, setPermanentDeleteTarget, setPermanentDeleteConfirm,
+    setReinstateTarget,
 }) => {
     const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -65,6 +67,9 @@ export const StaffRowActions: React.FC<StaffRowActionsProps> = ({
                         ) : isActive ? (
                             <button onClick={() => { setSelectedStaff(m); setShowDeactivateConfirm(true); onClose(); }} className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><UserX size={16} />Suspend</button>
                         ) : null}
+                        {m.status === 'terminated' && setReinstateTarget && (
+                            <button onClick={() => { setReinstateTarget(m); onClose(); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"><UserCheck size={16} />Reinstate Staff</button>
+                        )}
                         {canTerminate && (
                             <button onClick={() => { setTerminateTarget(m); setTerminateForm({ reason: '', terminationDate: new Date().toISOString().split('T')[0], force: false }); onClose(); }} className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"><Ban size={16} />Terminate Employment</button>
                         )}

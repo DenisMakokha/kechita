@@ -243,6 +243,8 @@ export const StaffManagementPage: React.FC = () => {
     const [terminateForm, setTerminateForm] = useState<{ reason: string; terminationDate: string; force: boolean }>({
         reason: '', terminationDate: new Date().toISOString().split('T')[0], force: false,
     });
+    const [reinstateTarget, setReinstateTarget] = useState<any | null>(null);
+    const [reinstatementDate, setReinstatementDate] = useState(new Date().toISOString().split('T')[0]);
     const { data: terminateBlockers } = useQuery<{ active_assets: number; pending_documents: number }>({
         queryKey: ['staff-termination-blockers', terminateTarget?.id],
         queryFn: async () => (await api.get(`/staff/${terminateTarget.id}/termination-blockers`)).data,
@@ -258,6 +260,22 @@ export const StaffManagementPage: React.FC = () => {
             showToast('Employment terminated');
         },
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to terminate', 'error'),
+    });
+
+    const reinstateStaffMutation = useMutation({
+        mutationFn: async ({ id, reinstatementDate }: { id: string; reinstatementDate?: string }) => {
+            return (await api.patch(`/staff/${id}/reinstate`, { reinstatementDate })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-stats'] });
+            setReinstateTarget(null);
+            setReinstatementDate(new Date().toISOString().split('T')[0]);
+            showToast('Staff member reinstated successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to reinstate staff member', 'error');
+        }
     });
     const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any | null>(null);
     const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState('');
@@ -814,6 +832,7 @@ export const StaffManagementPage: React.FC = () => {
                                                         restoreStaffMutation={restoreStaffMutation}
                                                         setPermanentDeleteTarget={setPermanentDeleteTarget}
                                                         setPermanentDeleteConfirm={setPermanentDeleteConfirm}
+                                                        setReinstateTarget={setReinstateTarget}
                                                     />
                                                 </div>
                                             </td>
@@ -3691,6 +3710,59 @@ export const StaffManagementPage: React.FC = () => {
                                 </div>
                             </label>
                         )}
+                    </div>
+                )}
+            </Modal>
+
+            {/* Reinstate Staff Modal */}
+            <Modal
+                isOpen={!!reinstateTarget}
+                onClose={() => setReinstateTarget(null)}
+                title="Reinstate Staff Member"
+                icon={UserCheck}
+                tone="success"
+                size="md"
+                footer={reinstateTarget && (
+                    <>
+                        <ModalCancelButton onClick={() => setReinstateTarget(null)} />
+                        <ModalPrimaryButton
+                            onClick={() => reinstateStaffMutation.mutate({
+                                id: reinstateTarget.id,
+                                reinstatementDate: reinstatementDate || undefined
+                            })}
+                            loading={reinstateStaffMutation.isPending}
+                            tone="success"
+                            icon={UserCheck}
+                        >
+                            Reinstate
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {reinstateTarget && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-700">
+                            You are about to reinstate <strong>{reinstateTarget.first_name} {reinstateTarget.last_name}</strong> ({reinstateTarget.employee_number}) back into active employment.
+                        </p>
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+                            <p className="font-semibold mb-1 flex items-center gap-1.5"><CheckCircle size={14} />What this does:</p>
+                            <ul className="list-disc ml-4 space-y-0.5">
+                                <li>Resets staff status to <strong>Active</strong>.</li>
+                                <li>Reactivates the portal login account so they can sign in.</li>
+                                <li>Clears termination date and termination reason fields.</li>
+                                <li>Creates a new employment history entry representing reinstatement.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Reinstatement Effective Date</label>
+                            <input
+                                type="date"
+                                value={reinstatementDate}
+                                onChange={(e) => setReinstatementDate(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                required
+                            />
+                        </div>
                     </div>
                 )}
             </Modal>
