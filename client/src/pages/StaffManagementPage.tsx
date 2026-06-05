@@ -18,10 +18,10 @@ import {
     Building, Loader2, RefreshCw, AlertTriangle, UserPlus,
     Upload, Download, FileSpreadsheet, SlidersHorizontal, Save,
     Copy, Link2, Link2Off, LayoutList, LayoutGrid, GitCompare, Lock, Unlock,
-    Archive, Ban
+    Archive, Ban, FileClock, FileSignature
 } from 'lucide-react';
 
-type Tab = 'directory' | 'users' | 'roles';
+type Tab = 'directory' | 'users' | 'roles' | 'probation' | 'contracts';
 
 interface Staff { id: string; first_name: string; last_name: string; employee_number: string; status: string; phone?: string; position?: { id: string; name: string }; branch?: { id: string; name: string }; region?: { id: string; name: string }; department?: { id: string; name: string }; user?: { email: string }; }
 interface User { id: string; email: string; is_active: boolean; two_factor_enabled: boolean; last_login_at?: string; roles: { id: string; code: string; name: string }[]; staff?: { id: string; first_name: string; last_name: string; employee_number: string; branch?: { name: string }; }; }
@@ -74,6 +74,31 @@ export const StaffManagementPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('directory');
     const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
     const showToast = (text: string, type: 'success' | 'error' = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
+
+    // Probation management state
+    const [probationSearch, setProbationSearch] = useState('');
+    const debouncedProbationSearch = useDebounce(probationSearch, 250);
+    const [probationFilter, setProbationFilter] = useState<'on_probation' | 'all' | 'expiring' | 'overdue'>('on_probation');
+    const [showProbationConfirmModal, setShowProbationConfirmModal] = useState(false);
+    const [showProbationExtendModal, setShowProbationExtendModal] = useState(false);
+    const [showProbationTerminateModal, setShowProbationTerminateModal] = useState(false);
+    const [probationActionStaff, setProbationActionStaff] = useState<any | null>(null);
+    const [probationNotes, setProbationNotes] = useState('');
+    const [probationNewEndDate, setProbationNewEndDate] = useState('');
+
+    // Contract management state
+    const [contractSearch, setContractSearch] = useState('');
+    const debouncedContractSearch = useDebounce(contractSearch, 250);
+    const [contractFilter, setContractFilter] = useState<'active' | 'history' | 'expiring' | 'expired' | 'compliance'>('active');
+    const [showContractExtendModal, setShowContractExtendModal] = useState(false);
+    const [showContractRenewModal, setShowContractRenewModal] = useState(false);
+    const [showContractTerminateModal, setShowContractTerminateModal] = useState(false);
+    const [contractActionContract, setContractActionContract] = useState<any | null>(null);
+    const [contractNewEndDate, setContractNewEndDate] = useState('');
+    const [contractNewSalary, setContractNewSalary] = useState('');
+    const [contractNewTerms, setContractNewTerms] = useState('');
+    const [contractReason, setContractReason] = useState('');
+    const [contractTerminateDate, setContractTerminateDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Staff state
     const [staffSearch, setStaffSearch] = useState('');
@@ -259,6 +284,118 @@ export const StaffManagementPage: React.FC = () => {
             }
         },
     });
+
+    // Probation management queries & mutations
+    const { data: probationers = [], isLoading: probationersLoading } = useQuery<any[]>({
+        queryKey: ['staff-probationers'],
+        queryFn: async () => {
+            const res = (await api.get('/staff?isProbationary=true&limit=10000')).data;
+            return Array.isArray(res) ? res : (res?.data ?? []);
+        },
+        enabled: activeTab === 'probation',
+    });
+
+    const updateProbationStatusMutation = useMutation({
+        mutationFn: async ({ id, status, notes, extendedUntil }: { id: string; status: string; notes?: string; extendedUntil?: string }) => {
+            return (await api.patch(`/staff/${id}/probation`, { status, notes, extendedUntil })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-probationers'] });
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-stats'] });
+            setShowProbationConfirmModal(false);
+            setShowProbationExtendModal(false);
+            setShowProbationTerminateModal(false);
+            setProbationActionStaff(null);
+            setProbationNotes('');
+            setProbationNewEndDate('');
+            showToast('Probation status updated successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to update probation status', 'error');
+        }
+    });
+
+    // Contract management queries & mutations
+    const { data: contracts = [], isLoading: contractsLoading } = useQuery<any[]>({
+        queryKey: ['staff-contracts-all'],
+        queryFn: async () => {
+            const res = (await api.get('/staff/contracts/all')).data;
+            return Array.isArray(res) ? res : [];
+        },
+        enabled: activeTab === 'contracts',
+    });
+
+    const extendContractMutation = useMutation({
+        mutationFn: async ({ contractId, new_end_date, reason }: { contractId: string; new_end_date: string; reason?: string }) => {
+            return (await api.patch(`/staff/contracts/${contractId}/extend`, { new_end_date, reason })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-contracts-all'] });
+            setShowContractExtendModal(false);
+            setContractActionContract(null);
+            setContractNewEndDate('');
+            setContractReason('');
+            showToast('Contract extended successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to extend contract', 'error');
+        }
+    });
+
+    const renewContractMutation = useMutation({
+        mutationFn: async ({ contractId, new_end_date, new_salary, new_terms }: { contractId: string; new_end_date: string; new_salary?: number; new_terms?: string }) => {
+            return (await api.post(`/staff/contracts/${contractId}/renew`, { new_end_date, new_salary, new_terms })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-contracts-all'] });
+            setShowContractRenewModal(false);
+            setContractActionContract(null);
+            setContractNewEndDate('');
+            setContractNewSalary('');
+            setContractNewTerms('');
+            showToast('Contract renewed successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to renew contract', 'error');
+        }
+    });
+
+    const createContractMutation = useMutation({
+        mutationFn: async ({ staffId, data }: { staffId: string; data: any }) => {
+            return (await api.post(`/staff/${staffId}/contracts`, data)).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-contracts-all'] });
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            setShowContractRenewModal(false);
+            setContractActionContract(null);
+            setContractNewEndDate('');
+            setContractNewSalary('');
+            setContractNewTerms('');
+            showToast('Contract created successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to create contract', 'error');
+        }
+    });
+
+    const terminateContractMutation = useMutation({
+        mutationFn: async ({ contractId, reason, termination_date }: { contractId: string; reason: string; termination_date?: string }) => {
+            return (await api.patch(`/staff/contracts/${contractId}/terminate`, { reason, termination_date })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-contracts-all'] });
+            setShowContractTerminateModal(false);
+            setContractActionContract(null);
+            setContractReason('');
+            setContractTerminateDate(new Date().toISOString().split('T')[0]);
+            showToast('Contract terminated successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to terminate contract', 'error');
+        }
+    });
     const [selectedArchivedIds, setSelectedArchivedIds] = useState<Set<string>>(new Set());
     const [showBulkForceDeleteConfirm, setShowBulkForceDeleteConfirm] = useState(false);
     const [bulkForceDeleteProgress, setBulkForceDeleteProgress] = useState<{ done: number; total: number; errors: string[] } | null>(null);
@@ -417,6 +554,23 @@ export const StaffManagementPage: React.FC = () => {
     const filteredRoles = roles.filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase()) || r.code.toLowerCase().includes(roleSearch.toLowerCase()));
     const uniqueStatuses = useMemo(() => Array.from(new Set(staff.map((s: Staff) => s.status))) as string[], [staff]);
 
+    const activeStaffIdsWithActiveContracts = useMemo(() => {
+        return new Set(
+            contracts
+                .filter((c: any) => c.status === 'active' && c.staff?.id)
+                .map((c: any) => c.staff.id)
+        );
+    }, [contracts]);
+
+    const complianceStaff = useMemo(() => {
+        return (staff as Staff[]).filter((s: any) => {
+            const hasActiveContract = activeStaffIdsWithActiveContracts.has(s.id);
+            const isOnProbation = s.probation_status === 'in_progress' || s.probation_status === 'extended';
+            const isEmployeeActiveOrOnboarding = s.status === 'active' || s.status === 'onboarding' || s.status === 'probation';
+            return isEmployeeActiveOrOnboarding && !hasActiveContract && !isOnProbation;
+        });
+    }, [staff, activeStaffIdsWithActiveContracts]);
+
     const getRoleColor = (code: string) => ({ CEO: 'from-purple-500 to-indigo-600', HR_MANAGER: 'from-pink-500 to-rose-600', REGIONAL_MANAGER: 'from-blue-500 to-cyan-600', BRANCH_MANAGER: 'from-emerald-500 to-teal-600', ACCOUNTANT: 'from-amber-500 to-orange-600' }[code] || 'from-slate-500 to-slate-600');
     const handleUserToggleStatus = (u: User) => { if (u.is_active) deactivateUserMutation.mutate(u.id); else activateUserMutation.mutate(u.id); setUserActionMenu(null); };
     const handleResetPassword = (userId: string) => { setResetPwUserId(userId); setUserActionMenu(null); };
@@ -429,7 +583,13 @@ export const StaffManagementPage: React.FC = () => {
     const getRoleColor2 = (code: string): string => ({ CEO: 'bg-purple-100 text-purple-700', HR_MANAGER: 'bg-pink-100 text-pink-700', REGIONAL_MANAGER: 'bg-blue-100 text-blue-700', BRANCH_MANAGER: 'bg-emerald-100 text-emerald-700', ACCOUNTANT: 'bg-amber-100 text-amber-700', HR_ASSISTANT: 'bg-indigo-100 text-indigo-700', BDM: 'bg-teal-100 text-teal-700', RELATIONSHIP_OFFICER: 'bg-cyan-100 text-cyan-700' }[code] || 'bg-slate-100 text-slate-700');
     const formatRelTime = (dateStr?: string) => { if (!dateStr) return 'Never'; const diff = Date.now() - new Date(dateStr).getTime(); if (diff < 60000) return 'Just now'; if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`; if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`; return `${Math.floor(diff/86400000)}d ago`; };
 
-    const tabs = [{ id: 'directory' as Tab, label: 'Staff Directory', icon: Users, count: staff.length }, { id: 'users' as Tab, label: 'System Accounts', icon: UserPlus, count: usersTotal }, { id: 'roles' as Tab, label: 'Roles', icon: Shield, count: roles.length }];
+    const tabs = [
+        { id: 'directory' as Tab, label: 'Staff Directory', icon: Users, count: staff.length },
+        { id: 'users' as Tab, label: 'System Accounts', icon: UserPlus, count: usersTotal },
+        { id: 'roles' as Tab, label: 'Roles', icon: Shield, count: roles.length },
+        { id: 'probation' as Tab, label: 'Probation', icon: FileClock, count: probationers.length },
+        { id: 'contracts' as Tab, label: 'Contracts', icon: FileSignature, count: contracts.length },
+    ];
 
     return (
         <div className="space-y-6">
@@ -982,7 +1142,961 @@ export const StaffManagementPage: React.FC = () => {
                 )}
             </>)}
 
-            {/* MODALS */}
+            {/* PROBATION MANAGEMENT */}
+            {activeTab === 'probation' && (
+                <>
+                    {/* Summary stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100">
+                                <Users size={20} className="text-[#0066B3]" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {probationers.filter(p => p.probation_status === 'in_progress' || p.probation_status === 'extended').length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">On Active Probation</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100">
+                                <FileClock size={20} className="text-amber-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {probationers.filter(p => {
+                                        if (!p.probation_end_date) return false;
+                                        const diff = Math.ceil((new Date(p.probation_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                        return diff >= 0 && diff <= 60;
+                                    }).length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">Expiring within 60 Days</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center border border-red-100">
+                                <AlertCircle size={20} className="text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {probationers.filter(p => {
+                                        if (!p.probation_end_date) return false;
+                                        return new Date(p.probation_end_date) < new Date() && (p.probation_status === 'in_progress' || p.probation_status === 'extended');
+                                    }).length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">Overdue Reviews</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Filter panel */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setProbationFilter('on_probation')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${probationFilter === 'on_probation' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    On Probation
+                                </button>
+                                <button
+                                    onClick={() => setProbationFilter('all')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${probationFilter === 'all' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    All Staff Statuses
+                                </button>
+                                <button
+                                    onClick={() => setProbationFilter('expiring')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${probationFilter === 'expiring' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    Expiring (60d)
+                                </button>
+                                <button
+                                    onClick={() => setProbationFilter('overdue')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${probationFilter === 'overdue' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    Overdue Reviews
+                                </button>
+                            </div>
+                            <div className="w-full md:w-72 relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or employee number…"
+                                    value={probationSearch}
+                                    onChange={(e) => setProbationSearch(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 text-xs font-semibold uppercase">
+                                    <th className="px-6 py-4">Employee</th>
+                                    <th className="px-6 py-4">Position / Dept</th>
+                                    <th className="px-6 py-4">Probation Start</th>
+                                    <th className="px-6 py-4">Probation End</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                                {probationersLoading ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <Loader2 className="animate-spin text-[#0066B3]" size={20} />
+                                                <span>Loading probationers…</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (() => {
+                                    const sourceData = probationFilter === 'all' ? staff : probationers;
+                                    const filtered = sourceData.filter((s: any) => {
+                                        const q = debouncedProbationSearch.toLowerCase();
+                                        const matchesSearch = q === '' ||
+                                            `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+                                            s.employee_number?.toLowerCase().includes(q);
+
+                                        if (!matchesSearch) return false;
+
+                                        if (probationFilter === 'on_probation') {
+                                            return s.probation_status === 'in_progress' || s.probation_status === 'extended';
+                                        }
+                                        if (probationFilter === 'expiring') {
+                                            if (!s.probation_end_date) return false;
+                                            const diff = Math.ceil((new Date(s.probation_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                            return (s.probation_status === 'in_progress' || s.probation_status === 'extended') && diff >= 0 && diff <= 60;
+                                        }
+                                        if (probationFilter === 'overdue') {
+                                            if (!s.probation_end_date) return false;
+                                            return (s.probation_status === 'in_progress' || s.probation_status === 'extended') && new Date(s.probation_end_date) < new Date();
+                                        }
+                                        return true;
+                                    });
+
+                                    if (filtered.length === 0) {
+                                        return (
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                                    No probation records found matching filters.
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
+                                    return filtered.map((s: any) => {
+                                        const isOverdue = s.probation_end_date && new Date(s.probation_end_date) < new Date() && (s.probation_status === 'in_progress' || s.probation_status === 'extended');
+                                        return (
+                                            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {s.photo_url ? (
+                                                            <img src={s.photo_url} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200" />
+                                                        ) : (
+                                                            <div className="w-9 h-9 rounded-full bg-[#0066B3]/10 flex items-center justify-center text-[#0066B3] font-semibold text-sm">
+                                                                {s.first_name[0]}{s.last_name[0]}
+                                                            </div>
+                                                        )}
+                                                        <div>
+                                                            <p className="font-semibold text-slate-900 leading-tight">
+                                                                {s.first_name} {s.last_name}
+                                                            </p>
+                                                            <p className="text-xs text-slate-400 font-mono mt-0.5">{s.employee_number || 'No Emp No'}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <p className="font-medium text-slate-800 leading-tight">{s.position?.name || 'N/A'}</p>
+                                                    <p className="text-xs text-slate-400 mt-0.5">{s.department?.name || 'N/A'}</p>
+                                                </td>
+                                                <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                                                    {s.probation_start_date ? new Date(s.probation_start_date).toLocaleDateString('en-GB') : 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4 font-mono text-xs">
+                                                    {s.probation_end_date ? (
+                                                        <span className={isOverdue ? "text-red-600 font-semibold flex items-center gap-1" : "text-slate-500"}>
+                                                            {isOverdue && <AlertTriangle size={12} />}
+                                                            {new Date(s.probation_end_date).toLocaleDateString('en-GB')}
+                                                        </span>
+                                                    ) : 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                                                        s.probation_status === 'passed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                                        s.probation_status === 'failed' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                                        s.probation_status === 'extended' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                                                        s.probation_status === 'in_progress' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                        'bg-slate-50 text-slate-600 border border-slate-200'
+                                                    }`}>
+                                                        {s.probation_status?.replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {(s.probation_status === 'in_progress' || s.probation_status === 'extended') && (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setProbationActionStaff(s);
+                                                                    setProbationNotes('');
+                                                                    setShowProbationConfirmModal(true);
+                                                                }}
+                                                                className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200"
+                                                            >
+                                                                Confirm
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setProbationActionStaff(s);
+                                                                    setProbationNotes('');
+                                                                    setProbationNewEndDate(s.probation_end_date ? new Date(s.probation_end_date).toISOString().split('T')[0] : '');
+                                                                    setShowProbationExtendModal(true);
+                                                                }}
+                                                                className="px-2.5 py-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors border border-indigo-200"
+                                                            >
+                                                                Extend
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setProbationActionStaff(s);
+                                                                    setProbationNotes('');
+                                                                    setShowProbationTerminateModal(true);
+                                                                }}
+                                                                className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors border border-red-200"
+                                                            >
+                                                                Terminate
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    });
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+
+            {/* CONTRACT MANAGEMENT */}
+            {activeTab === 'contracts' && (
+                <>
+                    {/* Summary stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100">
+                                <FileSignature size={20} className="text-emerald-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {contracts.filter(c => c.status === 'active').length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">Active Contracts</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100">
+                                <FileClock size={20} className="text-amber-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {contracts.filter(c => {
+                                        if (c.status !== 'active' || !c.end_date) return false;
+                                        const diff = Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                        return diff >= 0 && diff <= 60;
+                                    }).length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">Expiring (60d)</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center border border-red-100">
+                                <AlertTriangle size={20} className="text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {contracts.filter(c => c.status === 'expired').length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">Expired Contracts</p>
+                            </div>
+                        </div>
+                        <div className={`rounded-xl border p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all ${complianceStaff.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'}`}>
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${complianceStaff.length > 0 ? 'bg-orange-100 border-orange-200' : 'bg-slate-50 border-slate-100'}`}>
+                                <Ban size={20} className={complianceStaff.length > 0 ? 'text-orange-600 animate-pulse' : 'text-slate-500'} />
+                            </div>
+                            <div>
+                                <p className={`text-2xl font-bold ${complianceStaff.length > 0 ? 'text-orange-700' : 'text-slate-900'}`}>
+                                    {complianceStaff.length}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium">Missing Contracts</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Filter panel */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setContractFilter('active')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${contractFilter === 'active' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    Active Contracts
+                                </button>
+                                <button
+                                    onClick={() => setContractFilter('history')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${contractFilter === 'history' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    All Contracts History
+                                </button>
+                                <button
+                                    onClick={() => setContractFilter('expiring')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${contractFilter === 'expiring' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    Expiring (60d)
+                                </button>
+                                <button
+                                    onClick={() => setContractFilter('expired')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${contractFilter === 'expired' ? 'bg-[#0066B3] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    Expired
+                                </button>
+                                <button
+                                    onClick={() => setContractFilter('compliance')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${contractFilter === 'compliance' ? 'bg-orange-600 text-white shadow-sm' : 'text-orange-600 hover:bg-orange-50 font-semibold border border-orange-200'}`}
+                                >
+                                    Compliance Check ({complianceStaff.length})
+                                </button>
+                            </div>
+                            <div className="w-full md:w-72 relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or contract number…"
+                                    value={contractSearch}
+                                    onChange={(e) => setContractSearch(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Table / List */}
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        {contractFilter === 'compliance' ? (
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 text-xs font-semibold uppercase">
+                                        <th className="px-6 py-4">Employee</th>
+                                        <th className="px-6 py-4">Position / Dept</th>
+                                        <th className="px-6 py-4">Branch / Location</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4">Probation Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                                    {complianceStaff.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-emerald-600 font-semibold bg-emerald-50/50">
+                                                All active staff are covered by active contracts or are on probation. Perfect compliance!
+                                            </td>
+                                        </tr>
+                                    ) : (() => {
+                                        const q = debouncedContractSearch.toLowerCase();
+                                        const filtered = complianceStaff.filter((s: any) =>
+                                            q === '' ||
+                                            `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+                                            s.employee_number?.toLowerCase().includes(q)
+                                        );
+
+                                        if (filtered.length === 0) {
+                                            return (
+                                                <tr>
+                                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                                        No employees found matching search filter.
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+
+                                        return filtered.map((s: any) => (
+                                            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {s.photo_url ? (
+                                                            <img src={s.photo_url} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200" />
+                                                        ) : (
+                                                            <div className="w-9 h-9 rounded-full bg-[#0066B3]/10 flex items-center justify-center text-[#0066B3] font-semibold text-sm">
+                                                                {s.first_name[0]}{s.last_name[0]}
+                                                            </div>
+                                                        )}
+                                                        <div>
+                                                            <p className="font-semibold text-slate-900 leading-tight">
+                                                                {s.first_name} {s.last_name}
+                                                            </p>
+                                                            <p className="text-xs text-slate-400 font-mono mt-0.5">{s.employee_number || 'No Emp No'}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <p className="font-medium text-slate-800 leading-tight">{s.position?.name || 'N/A'}</p>
+                                                    <p className="text-xs text-slate-400 mt-0.5">{s.department?.name || 'N/A'}</p>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {s.branch?.name || 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <StatusBadge status={s.status} />
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-500 font-medium">
+                                                    {s.probation_status?.replace(/_/g, ' ')}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedStaff(s);
+                                                            setContractNewEndDate('');
+                                                            setContractNewSalary(s.basic_salary ? String(s.basic_salary) : '');
+                                                            setContractNewTerms('');
+                                                            setContractActionContract({ staff: s, contract_type: 'permanent' });
+                                                            setShowContractRenewModal(true);
+                                                        }}
+                                                        className="px-3 py-1.5 text-xs font-semibold bg-[#0066B3] hover:bg-[#005299] text-white rounded-lg transition-colors shadow-sm"
+                                                    >
+                                                        Add Contract
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ));
+                                    })()}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 text-xs font-semibold uppercase">
+                                        <th className="px-6 py-4">Employee</th>
+                                        <th className="px-6 py-4">Contract Number</th>
+                                        <th className="px-6 py-4">Type</th>
+                                        <th className="px-6 py-4">Start Date</th>
+                                        <th className="px-6 py-4">End Date</th>
+                                        <th className="px-6 py-4">Salary</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                                    {contractsLoading ? (
+                                        <tr>
+                                            <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Loader2 className="animate-spin text-[#0066B3]" size={20} />
+                                                    <span>Loading contracts…</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (() => {
+                                        const q = debouncedContractSearch.toLowerCase();
+                                        const filtered = contracts.filter((c: any) => {
+                                            const matchesSearch = q === '' ||
+                                                `${c.staff?.first_name} ${c.staff?.last_name}`.toLowerCase().includes(q) ||
+                                                c.contract_number?.toLowerCase().includes(q);
+
+                                            if (!matchesSearch) return false;
+
+                                            if (contractFilter === 'active') return c.status === 'active';
+                                            if (contractFilter === 'expired') return c.status === 'expired';
+                                            if (contractFilter === 'expiring') {
+                                                if (c.status !== 'active' || !c.end_date) return false;
+                                                const diff = Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                                return diff >= 0 && diff <= 60;
+                                            }
+                                            return true;
+                                        });
+
+                                        if (filtered.length === 0) {
+                                            return (
+                                                <tr>
+                                                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
+                                                        No contracts found matching filter.
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+
+                                        return filtered.map((c: any) => {
+                                            const isExpiringSoon = c.status === 'active' && c.end_date && Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 60;
+                                            return (
+                                                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            {c.staff?.photo_url ? (
+                                                                <img src={c.staff.photo_url} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200" />
+                                                            ) : (
+                                                                <div className="w-9 h-9 rounded-full bg-[#0066B3]/10 flex items-center justify-center text-[#0066B3] font-semibold text-sm">
+                                                                    {c.staff?.first_name?.[0] || '?'}{c.staff?.last_name?.[0] || '?'}
+                                                                </div>
+                                                            )}
+                                                            <div>
+                                                                <p className="font-semibold text-slate-900 leading-tight">
+                                                                    {c.staff?.first_name} {c.staff?.last_name}
+                                                                </p>
+                                                                <p className="text-xs text-slate-400 font-mono mt-0.5">{c.staff?.employee_number || 'No Emp No'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-mono text-xs font-semibold text-slate-800">
+                                                        {c.contract_number}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-slate-600 capitalize">
+                                                        {c.contract_type?.replace(/_/g, ' ')}
+                                                    </td>
+                                                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                                                        {c.start_date ? new Date(c.start_date).toLocaleDateString('en-GB') : 'N/A'}
+                                                    </td>
+                                                    <td className="px-6 py-4 font-mono text-xs">
+                                                        {c.end_date ? (
+                                                            <span className={isExpiringSoon ? "text-amber-600 font-semibold flex items-center gap-1" : "text-slate-500"}>
+                                                                {isExpiringSoon && <AlertTriangle size={12} />}
+                                                                {new Date(c.end_date).toLocaleDateString('en-GB')}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-400 font-medium">Permanent</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 font-mono text-xs font-semibold text-slate-800">
+                                                        {c.salary ? `${c.salary_currency || 'KES'} ${Number(c.salary).toLocaleString()}` : 'N/A'}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                                                            c.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                                            c.status === 'expired' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                                            c.status === 'terminated' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                                                            c.status === 'renewed' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                                            'bg-slate-50 text-slate-600 border border-slate-200'
+                                                        }`}>
+                                                            {c.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {c.status === 'active' && (
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setContractActionContract(c);
+                                                                        setContractNewEndDate(c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '');
+                                                                        setContractReason('');
+                                                                        setShowContractExtendModal(true);
+                                                                    }}
+                                                                    className="px-2.5 py-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors border border-indigo-200"
+                                                                >
+                                                                    Extend
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setContractActionContract(c);
+                                                                        setContractNewEndDate(c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '');
+                                                                        setContractNewSalary(c.salary ? String(c.salary) : '');
+                                                                        setContractNewTerms(c.terms || '');
+                                                                        setShowContractRenewModal(true);
+                                                                    }}
+                                                                    className="px-2.5 py-1 text-xs font-semibold bg-[#0066B3]/10 hover:bg-[#0066B3]/25 text-[#0066B3] rounded-lg transition-colors border border-[#0066B3]/20"
+                                                                >
+                                                                    Renew
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setContractActionContract(c);
+                                                                        setContractReason('');
+                                                                        setContractTerminateDate(new Date().toISOString().split('T')[0]);
+                                                                        setShowContractTerminateModal(true);
+                                                                    }}
+                                                                    className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors border border-red-200"
+                                                                >
+                                                                    Terminate
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })()}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* CONFIRM PROBATION MODAL */}
+            <Modal
+                isOpen={showProbationConfirmModal && !!probationActionStaff}
+                onClose={() => { setShowProbationConfirmModal(false); setProbationActionStaff(null); }}
+                title="Confirm Employment"
+                icon={CheckCircle}
+                tone="success"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowProbationConfirmModal(false); setProbationActionStaff(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => updateProbationStatusMutation.mutate({
+                                id: probationActionStaff.id,
+                                status: 'passed',
+                                notes: probationNotes
+                            })}
+                            loading={updateProbationStatusMutation.isPending}
+                            tone="success"
+                            icon={CheckCircle}
+                        >
+                            Confirm Employee
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {probationActionStaff && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            Are you sure you want to confirm the employment of <strong>{probationActionStaff.first_name} {probationActionStaff.last_name}</strong>? This will transition their status to <strong>Active</strong>.
+                        </p>
+                        <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-500 uppercase">Review Notes / Comments</label>
+                            <textarea
+                                value={probationNotes}
+                                onChange={(e) => setProbationNotes(e.target.value)}
+                                placeholder="Enter evaluation comments or notes..."
+                                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-24 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                            />
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* EXTEND PROBATION MODAL */}
+            <Modal
+                isOpen={showProbationExtendModal && !!probationActionStaff}
+                onClose={() => { setShowProbationExtendModal(false); setProbationActionStaff(null); }}
+                title="Extend Probation Period"
+                icon={FileClock}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowProbationExtendModal(false); setProbationActionStaff(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => updateProbationStatusMutation.mutate({
+                                id: probationActionStaff.id,
+                                status: 'extended',
+                                notes: probationNotes,
+                                extendedUntil: probationNewEndDate
+                            })}
+                            loading={updateProbationStatusMutation.isPending}
+                            tone="primary"
+                            icon={FileClock}
+                        >
+                            Extend Probation
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {probationActionStaff && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            Extend the probationary period for <strong>{probationActionStaff.first_name} {probationActionStaff.last_name}</strong>.
+                        </p>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">New End Date</label>
+                                <input
+                                    type="date"
+                                    value={probationNewEndDate}
+                                    onChange={(e) => setProbationNewEndDate(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Extension Notes / Justification</label>
+                                <textarea
+                                    value={probationNotes}
+                                    onChange={(e) => setProbationNotes(e.target.value)}
+                                    placeholder="Provide reasons for the probation extension..."
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-24 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* TERMINATE PROBATION MODAL */}
+            <Modal
+                isOpen={showProbationTerminateModal && !!probationActionStaff}
+                onClose={() => { setShowProbationTerminateModal(false); setProbationActionStaff(null); }}
+                title="Terminate Probation"
+                icon={UserX}
+                tone="danger"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowProbationTerminateModal(false); setProbationActionStaff(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => updateProbationStatusMutation.mutate({
+                                id: probationActionStaff.id,
+                                status: 'failed',
+                                notes: probationNotes
+                            })}
+                            loading={updateProbationStatusMutation.isPending}
+                            tone="danger"
+                            icon={UserX}
+                        >
+                            Terminate Employment
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {probationActionStaff && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            Are you sure you want to terminate employment for <strong>{probationActionStaff.first_name} {probationActionStaff.last_name}</strong> due to unsuccessful probation? This will set their status to <strong>Terminated</strong>.
+                        </p>
+                        <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-500 uppercase">Termination Notes / Comments</label>
+                            <textarea
+                                value={probationNotes}
+                                onChange={(e) => setProbationNotes(e.target.value)}
+                                placeholder="State the reasons for the probation failure..."
+                                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-24 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                required
+                            />
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* EXTEND CONTRACT MODAL */}
+            <Modal
+                isOpen={showContractExtendModal && !!contractActionContract}
+                onClose={() => { setShowContractExtendModal(false); setContractActionContract(null); }}
+                title="Extend Contract"
+                icon={FileClock}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowContractExtendModal(false); setContractActionContract(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => extendContractMutation.mutate({
+                                contractId: contractActionContract.id,
+                                new_end_date: contractNewEndDate,
+                                reason: contractReason
+                            })}
+                            loading={extendContractMutation.isPending}
+                            tone="primary"
+                            icon={FileClock}
+                        >
+                            Extend Contract
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {contractActionContract && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            Extend the active contract for <strong>{contractActionContract.staff?.first_name} {contractActionContract.staff?.last_name}</strong> ({contractActionContract.contract_number}).
+                        </p>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">New End Date</label>
+                                <input
+                                    type="date"
+                                    value={contractNewEndDate}
+                                    onChange={(e) => setContractNewEndDate(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Reason for Extension</label>
+                                <textarea
+                                    value={contractReason}
+                                    onChange={(e) => setContractReason(e.target.value)}
+                                    placeholder="State the reason for this extension..."
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-24 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* RENEW / CREATE CONTRACT MODAL */}
+            <Modal
+                isOpen={showContractRenewModal && !!contractActionContract}
+                onClose={() => { setShowContractRenewModal(false); setContractActionContract(null); }}
+                title={contractActionContract?.id ? "Renew Contract" : "Create Contract"}
+                icon={FileSignature}
+                tone="info"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowContractRenewModal(false); setContractActionContract(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => {
+                                if (contractActionContract.id) {
+                                    renewContractMutation.mutate({
+                                        contractId: contractActionContract.id,
+                                        new_end_date: contractNewEndDate,
+                                        new_salary: contractNewSalary ? Number(contractNewSalary) : undefined,
+                                        new_terms: contractNewTerms
+                                    });
+                                } else {
+                                    createContractMutation.mutate({
+                                        staffId: contractActionContract.staff.id,
+                                        data: {
+                                            contract_type: contractActionContract.contract_type || 'permanent',
+                                            start_date: new Date().toISOString().split('T')[0],
+                                            end_date: contractNewEndDate || undefined,
+                                            salary: contractNewSalary ? Number(contractNewSalary) : undefined,
+                                            terms: contractNewTerms
+                                        }
+                                    });
+                                }
+                            }}
+                            loading={renewContractMutation.isPending || createContractMutation.isPending}
+                            tone="primary"
+                            icon={FileSignature}
+                        >
+                            {contractActionContract?.id ? "Renew" : "Create Contract"}
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {contractActionContract && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            {contractActionContract.id ? (
+                                <>Renew the contract for <strong>{contractActionContract.staff?.first_name} {contractActionContract.staff?.last_name}</strong> ({contractActionContract.contract_number}). The current contract will be set to Renewed.</>
+                            ) : (
+                                <>Create a new contract for <strong>{contractActionContract.staff?.first_name} {contractActionContract.staff?.last_name}</strong>.</>
+                            )}
+                        </p>
+                        <div className="grid grid-cols-1 gap-4">
+                            {!contractActionContract.id && (
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Contract Type</label>
+                                    <select
+                                        value={contractActionContract.contract_type || 'permanent'}
+                                        onChange={(e) => setContractActionContract({ ...contractActionContract, contract_type: e.target.value })}
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    >
+                                        <option value="permanent">Permanent</option>
+                                        <option value="fixed_term">Fixed-Term</option>
+                                        <option value="probation">Probationary</option>
+                                        <option value="casual">Casual</option>
+                                        <option value="internship">Internship</option>
+                                        <option value="consultancy">Consultancy</option>
+                                    </select>
+                                </div>
+                            )}
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">End Date (Leave blank for Permanent)</label>
+                                <input
+                                    type="date"
+                                    value={contractNewEndDate}
+                                    onChange={(e) => setContractNewEndDate(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Gross Salary (KES)</label>
+                                <input
+                                    type="number"
+                                    value={contractNewSalary}
+                                    onChange={(e) => setContractNewSalary(e.target.value)}
+                                    placeholder="Enter monthly salary..."
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">New Terms / Special Conditions</label>
+                                <textarea
+                                    value={contractNewTerms}
+                                    onChange={(e) => setContractNewTerms(e.target.value)}
+                                    placeholder="Specify new terms or special instructions..."
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-24 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* TERMINATE CONTRACT MODAL */}
+            <Modal
+                isOpen={showContractTerminateModal && !!contractActionContract}
+                onClose={() => { setShowContractTerminateModal(false); setContractActionContract(null); }}
+                title="Terminate Contract"
+                icon={Ban}
+                tone="danger"
+                size="md"
+                footer={(
+                    <>
+                        <ModalCancelButton onClick={() => { setShowContractTerminateModal(false); setContractActionContract(null); }} />
+                        <ModalPrimaryButton
+                            onClick={() => terminateContractMutation.mutate({
+                                contractId: contractActionContract.id,
+                                reason: contractReason,
+                                termination_date: contractTerminateDate
+                            })}
+                            loading={terminateContractMutation.isPending}
+                            tone="danger"
+                            icon={Ban}
+                        >
+                            Terminate Contract
+                        </ModalPrimaryButton>
+                    </>
+                )}
+            >
+                {contractActionContract && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            Terminate the active contract for <strong>{contractActionContract.staff?.first_name} {contractActionContract.staff?.last_name}</strong> ({contractActionContract.contract_number}).
+                        </p>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Termination Date</label>
+                                <input
+                                    type="date"
+                                    value={contractTerminateDate}
+                                    onChange={(e) => setContractTerminateDate(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Reason for Termination</label>
+                                <textarea
+                                    value={contractReason}
+                                    onChange={(e) => setContractReason(e.target.value)}
+                                    placeholder="Please provide details/reason for termination..."
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-24 focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
             {/* SUSPEND STAFF CONFIRMATION */}
             <Modal
                 isOpen={showDeactivateConfirm && !!selectedStaff}

@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { StaffStatus, ProbationStatus } from './entities/staff.entity';
-import { ContractType } from './entities/staff-contract.entity';
+import { ContractType, ContractStatus } from './entities/staff-contract.entity';
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('staff')
@@ -786,6 +786,12 @@ export class StaffController {
         return this.contractService.getExpiringContracts(days ? parseInt(days) : 30);
     }
 
+    @Get('contracts/all')
+    @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
+    getAllContracts(@Query('status') status?: ContractStatus) {
+        return this.contractService.findAll(status ? { status } : undefined);
+    }
+
     @Get(':staffId/contracts')
     @Roles('CEO', 'HR_MANAGER', 'HR_ASSISTANT')
     getStaffContracts(@Param('staffId', ParseUUIDPipe) staffId: string) {
@@ -826,6 +832,23 @@ export class StaffController {
         if (data.start_date) updateData.start_date = new Date(data.start_date);
         if (data.end_date) updateData.end_date = new Date(data.end_date);
         return this.contractService.update(contractId, updateData);
+    }
+
+    @Patch('contracts/:contractId/extend')
+    @Roles('CEO', 'HR_MANAGER')
+    extendContract(
+        @Param('contractId', ParseUUIDPipe) contractId: string,
+        @Body() data: { new_end_date: string; reason?: string },
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.contractService.extend(
+            contractId,
+            {
+                new_end_date: new Date(data.new_end_date),
+                reason: data.reason,
+            },
+            req.user.id,
+        );
     }
 
     @Patch('contracts/:contractId/activate')

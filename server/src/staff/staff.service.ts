@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, LessThanOrEqual, Between } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -20,12 +20,16 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
 import { generateTempPassword as generateTempPasswordSecure } from '../common/id-utils';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationType, NotificationPriority } from '../notifications/entities/notification.entity';
 
 // Re-export for convenience
 export { CreateStaffDto, UpdateStaffDto, StaffFilterDto } from './dto/staff.dto';
 
 @Injectable()
 export class StaffService {
+    private readonly logger = new Logger(StaffService.name);
+
     constructor(
         private dataSource: DataSource,
         @InjectRepository(Staff)
@@ -49,6 +53,7 @@ export class StaffService {
         private onboardingService: OnboardingService,
         private authService: AuthService,
         private auditService: AuditService,
+        private notifications: NotificationService,
     ) { }
 
     /** Small helper to keep audit calls non-blocking and never break a write path. */
@@ -504,7 +509,12 @@ export class StaffService {
         notes?: string,
         extendedUntil?: Date,
     ): Promise<Staff> {
-        const staff = await this.findOne(id);
+        const staff = await this.staffRepo.findOne({
+            where: { id },
+            relations: ['user', 'manager', 'manager.user'],
+        });
+        if (!staff) throw new NotFoundException('Staff not found');
+
         staff.probation_status = status;
         staff.probation_notes = notes;
 
@@ -524,7 +534,80 @@ export class StaffService {
             staff.termination_reason = 'Failed probation';
         }
 
-        return this.staffRepo.save(staff);
+        const saved = await this.staffRepo.save(staff);
+
+        // Send notifications
+        const fullName = `${saved.first_name} ${saved.last_name}`;
+        
+        let title = '';
+        let body = '';
+        let type = NotificationType.REMINDER;
+        
+        if (status === ProbationStatus.PASSED) {
+            title = 'Probation Passed / Confirmed';
+            body = `Congratulations! Your employment has been confirmed as active starting from ${new Date().toLocaleDateString('en-GB')}.`;
+            type = NotificationType.WELCOME_NEW_STAFF;
+        } else if (status === ProbationStatus.EXTENDED && extendedUntil) {
+            title = 'Probation Period Extended';
+            body = `Your probation period has been extended until ${new Date(extendedUntil).toLocaleDateString('en-GB')}.`;
+            type = NotificationType.REMINDER;
+        } else if (status === ProbationStatus.FAILED) {
+            title = 'Probation Review Unsuccessful';
+            body = `Your probation review was unsuccessful and employment is terminated.`;
+            type = NotificationType.REMINDER;
+        }
+
+        if (title && body) {
+            // Notify employee (in-app)
+            if (saved.user?.id) {
+                try {
+                    await this.notifications.create({
+                        userId: saved.user.id,
+                        type,
+                        title,
+                        body,
+                        priority: NotificationPriority.HIGH,
+                        referenceType: 'staff',
+                        referenceId: saved.id,
+                    });
+                } catch (e: any) {
+                    this.logger.warn(`Failed to notify employee of probation update: ${e.message}`);
+                }
+            }
+
+            // Notify manager (in-app)
+            if (saved.manager?.user?.id) {
+                try {
+                    await this.notifications.create({
+                        userId: saved.manager.user.id,
+                        type: NotificationType.REMINDER,
+                        title: `Probation Status Update: ${fullName}`,
+                        body: `${fullName}'s probation status was updated to ${status.toUpperCase()}${status === ProbationStatus.EXTENDED ? ` until ${new Date(extendedUntil!).toLocaleDateString('en-GB')}` : ''}.`,
+                        priority: NotificationPriority.MEDIUM,
+                        referenceType: 'staff',
+                        referenceId: saved.id,
+                    });
+                } catch (e: any) {
+                    this.logger.warn(`Failed to notify manager of probation update: ${e.message}`);
+                }
+            }
+
+            // Notify HR (in-app)
+            try {
+                await this.notifications.notifyByRole('HR_MANAGER', {
+                    type: NotificationType.REMINDER,
+                    title: `Probation Status Update: ${fullName}`,
+                    body: `${fullName}'s probation status was updated to ${status.toUpperCase()}${status === ProbationStatus.EXTENDED ? ` until ${new Date(extendedUntil!).toLocaleDateString('en-GB')}` : ''}.`,
+                    priority: NotificationPriority.MEDIUM,
+                    referenceType: 'staff',
+                    referenceId: saved.id,
+                });
+            } catch (e: any) {
+                this.logger.warn(`Failed to notify HR of probation update: ${e.message}`);
+            }
+        }
+
+        return saved;
     }
 
     async getUpcomingProbationReviews(daysAhead: number = 30): Promise<Staff[]> {

@@ -43,7 +43,7 @@ export class ContractExpiryScheduler {
     }
 
     private async notifyUpcomingExpiries(): Promise<void> {
-        const milestones = [60, 30, 7, 0];
+        const milestones = [60, 30, 14, 7, 1, 0];
         const today = new Date();
 
         for (const days of milestones) {
@@ -69,7 +69,7 @@ export class ContractExpiryScheduler {
                 const label = days === 0 ? 'today' : `in ${days} days`;
                 const fullName = [staff.first_name, staff.last_name].filter(Boolean).join(' ');
 
-                // ---- In-app notification to manager (+ HR fallback) ----
+                // ---- 1. In-app notification to manager ----
                 const managerUserId = staff.manager?.user?.id;
                 if (managerUserId) {
                     try {
@@ -87,10 +87,40 @@ export class ContractExpiryScheduler {
                     }
                 }
 
-                // ---- Courtesy email to the employee (only at 30 and 7 day marks
-                //      to avoid notification fatigue) ----
-                if (days === 30 || days === 7) {
-                    const to = staff.work_email || staff.personal_email;
+                // ---- 2. In-app notification to employee ----
+                if (staff.user?.id) {
+                    try {
+                        await this.notifications.create({
+                            userId: staff.user.id,
+                            type: NotificationType.REMINDER,
+                            title: `Contract Expiry Due ${label}`,
+                            body: `Your employment contract (${c.contract_number || c.id}) is scheduled to end ${label} on ${new Date(c.end_date!).toLocaleDateString('en-GB')}.`,
+                            priority: days <= 7 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+                            referenceType: 'staff_contract',
+                            referenceId: c.id,
+                        });
+                    } catch (err: any) {
+                        this.logger.warn(`Failed to notify employee in-app for contract ${c.id}: ${err?.message}`);
+                    }
+                }
+
+                // ---- 3. In-app notification to HR ----
+                try {
+                    await this.notifications.notifyByRole('HR_MANAGER', {
+                        type: NotificationType.REMINDER,
+                        title: `Contract expiring ${label}: ${fullName}`,
+                        body: `${fullName} (${staff.employee_number || 'N/A'}) employment contract (${c.contract_number || c.id}) ends on ${new Date(c.end_date!).toLocaleDateString('en-GB')}.`,
+                        priority: days <= 7 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+                        referenceType: 'staff_contract',
+                        referenceId: c.id,
+                    });
+                } catch (err: any) {
+                    this.logger.warn(`Failed to notify HR for contract ${c.id}: ${err?.message}`);
+                }
+
+                // ---- 4. Courtesy email to the employee (at all milestones > 0) ----
+                if (days > 0) {
+                    const to = staff.user?.email || staff.personal_email;
                     if (to) {
                         try {
                             await this.emailService.sendEmail({

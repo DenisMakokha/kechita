@@ -12,6 +12,8 @@ import {
     DocumentTemplateKind, DocumentTemplateScope,
 } from '../../document-templates/entities/document-template.entity';
 import { EmailService } from '../../email/email.service';
+import { NotificationService } from '../../notifications/notification.service';
+import { NotificationType, NotificationPriority } from '../../notifications/entities/notification.entity';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
@@ -31,6 +33,7 @@ export class ContractService {
         private addendumRepo: Repository<StaffContractAddendum>,
         private readonly templates: DocumentTemplatesService,
         private readonly emailService: EmailService,
+        private readonly notifications: NotificationService,
     ) {}
 
     async create(
@@ -113,6 +116,100 @@ export class ContractService {
         }
         Object.assign(contract, data);
         return this.contractRepo.save(contract);
+    }
+
+    async findAll(filter?: { status?: ContractStatus }): Promise<StaffContract[]> {
+        const where: any = {};
+        if (filter?.status) {
+            where.status = filter.status;
+        }
+        return this.contractRepo.find({
+            where,
+            relations: ['staff', 'staff.user', 'staff.position', 'staff.branch', 'staff.department'],
+            order: { end_date: 'DESC' },
+        });
+    }
+
+    async extend(
+        id: string,
+        data: { new_end_date: Date; reason?: string },
+        actorUserId?: string,
+    ): Promise<StaffContract> {
+        const contract = await this.contractRepo.findOne({
+            where: { id },
+            relations: ['staff', 'staff.user', 'staff.manager', 'staff.manager.user'],
+        });
+        if (!contract) throw new NotFoundException('Contract not found');
+
+        if (contract.status !== ContractStatus.ACTIVE) {
+            throw new BadRequestException('Only active contracts can be extended');
+        }
+        if (new Date(data.new_end_date) <= new Date(contract.end_date || 0)) {
+            throw new BadRequestException('New end date must be after the current end date');
+        }
+
+        contract.end_date = data.new_end_date;
+        if (data.reason) {
+            contract.special_conditions = `${contract.special_conditions || ''}\n[Extended to ${new Date(data.new_end_date).toLocaleDateString('en-GB')}]: ${data.reason}`.trim();
+        }
+
+        const saved = await this.contractRepo.save(contract);
+
+        // Notify the employee, their manager, and HR about the extension
+        const staff = contract.staff;
+        if (staff) {
+            const fullName = [staff.first_name, staff.last_name].filter(Boolean).join(' ');
+
+            // Notify staff
+            if (staff.user?.id) {
+                try {
+                    await this.notifications.create({
+                        userId: staff.user.id,
+                        type: NotificationType.REMINDER,
+                        title: 'Contract Extended',
+                        body: `Your employment contract (${contract.contract_number}) has been extended until ${new Date(data.new_end_date).toLocaleDateString('en-GB')}.`,
+                        priority: NotificationPriority.MEDIUM,
+                        referenceType: 'staff_contract',
+                        referenceId: contract.id,
+                    });
+                } catch (e: any) {
+                    this.logger.warn(`Failed to send contract extension notification to employee: ${e.message}`);
+                }
+            }
+
+            // Notify manager
+            if (staff.manager?.user?.id) {
+                try {
+                    await this.notifications.create({
+                        userId: staff.manager.user.id,
+                        type: NotificationType.REMINDER,
+                        title: `Contract Extended: ${fullName}`,
+                        body: `${fullName}'s employment contract (${contract.contract_number}) has been extended until ${new Date(data.new_end_date).toLocaleDateString('en-GB')}.`,
+                        priority: NotificationPriority.MEDIUM,
+                        referenceType: 'staff_contract',
+                        referenceId: contract.id,
+                    });
+                } catch (e: any) {
+                    this.logger.warn(`Failed to send contract extension notification to manager: ${e.message}`);
+                }
+            }
+
+            // Notify HR
+            try {
+                await this.notifications.notifyByRole('HR_MANAGER', {
+                    type: NotificationType.REMINDER,
+                    title: `Contract Extended: ${fullName}`,
+                    body: `${fullName}'s employment contract (${contract.contract_number}) was extended until ${new Date(data.new_end_date).toLocaleDateString('en-GB')}.`,
+                    priority: NotificationPriority.MEDIUM,
+                    referenceType: 'staff_contract',
+                    referenceId: contract.id,
+                });
+            } catch (e: any) {
+                this.logger.warn(`Failed to send contract extension notification to HR: ${e.message}`);
+            }
+        }
+
+        return saved;
     }
 
     async activate(id: string): Promise<StaffContract> {
