@@ -1912,72 +1912,188 @@ const SettingsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
                         <Settings className="text-[#0066B3]" size={28} />
                         System Settings
                     </h1>
-                    <p className="text-slate-500">Configure system-wide settings and policies</p>
+                    <p className="text-slate-500 text-sm">Configure system-wide settings, structures, and business policies</p>
                 </div>
-                {showAddButton && (
-                    <button
-                        onClick={() => openModal(activeTab)}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] transition-all shadow-lg"
-                    >
-                        <Plus size={20} />
-                        {getAddButtonLabel()}
-                    </button>
-                )}
             </div>
 
-            {/* Settings tab search */}
-            <div className="flex items-center gap-3">
-                <div className="relative max-w-md flex-1">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="text"
-                        value={tabSearch}
-                        onChange={(e) => setTabSearch(e.target.value)}
-                        placeholder="Filter settings…"
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
-                        aria-label="Filter settings tabs"
-                    />
-                </div>
-                <button
-                    onClick={() => { setShowPalette(true); setPaletteQuery(''); setPaletteIdx(0); }}
-                    className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-[#0066B3] hover:text-[#0066B3] transition-colors"
-                    title="Open command palette" aria-label="Open command palette"
-                >
-                    <Search size={14} />
-                    Quick jump
-                    <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono text-slate-500">⌘K</kbd>
-                </button>
-            </div>
-
-            {/* Main Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
-                {mainTabs.filter(t => !tabSearch || t.label.toLowerCase().includes(tabSearch.toLowerCase())).map((tab) => {
-                    const Icon = tab.icon;
-                    return (
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
+                {/* Left Sidebar */}
+                <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4">
+                    {/* Search / filter box */}
+                    <div className="relative">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            value={tabSearch}
+                            onChange={(e) => setTabSearch(e.target.value)}
+                            placeholder="Search settings…"
+                            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3] focus:border-transparent transition-all"
+                            aria-label="Filter settings tabs"
+                        />
                         <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all ${activeTab === tab.key
-                                ? 'bg-[#0066B3] text-white shadow-lg'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-[#0066B3]'
-                                }`}
+                            onClick={() => { setShowPalette(true); setPaletteQuery(''); setPaletteIdx(0); }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-0.5 px-1 py-0.5 text-[9px] font-mono text-slate-400 bg-slate-50 border border-slate-200 rounded hover:border-[#0066B3] hover:text-[#0066B3] transition-colors"
+                            title="Command palette (⌘K)"
                         >
-                            <Icon size={18} />
-                            {tab.label}
+                            ⌘K
                         </button>
-                    );
-                })}
-            </div>
+                    </div>
 
-            {/* Content */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                {renderTabContent()}
+                    {/* Vertical grouped tabs on Desktop, horizontal flat scroll on Mobile */}
+                    {/* Desktop Sidebar */}
+                    <div className="hidden lg:flex flex-col gap-5 w-full bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                        {(() => {
+                            const groupedTabs = [
+                                {
+                                    title: 'General & Org',
+                                    items: ['org-settings', 'holidays'] as Tab[],
+                                },
+                                {
+                                    title: 'Types & Structs',
+                                    items: ['leave-types', 'claim-types'] as Tab[],
+                                },
+                                {
+                                    title: 'Workflows & Rules',
+                                    items: ['approval-flows', 'approvals-settings'] as Tab[],
+                                },
+                                {
+                                    title: 'Policies',
+                                    items: [
+                                        'hr-settings',
+                                        'leave-settings',
+                                        'claims-settings',
+                                        'loan-settings',
+                                        'petty-cash-settings',
+                                        'recruitment-settings',
+                                        'onboarding-settings',
+                                        'reports-settings',
+                                    ] as Tab[],
+                                },
+                                {
+                                    title: 'Integrations',
+                                    items: ['email-settings', 'sms-settings'] as Tab[],
+                                },
+                            ];
+
+                            const filteredGroups = groupedTabs.map(group => {
+                                const matchingItems = mainTabs.filter(tab => 
+                                    group.items.includes(tab.key) && 
+                                    (!tabSearch || tab.label.toLowerCase().includes(tabSearch.toLowerCase()))
+                                );
+                                return { ...group, matchingItems };
+                            }).filter(group => group.matchingItems.length > 0);
+
+                            if (filteredGroups.length === 0) {
+                                return (
+                                    <div className="text-center py-6 text-slate-400 text-xs">
+                                        No settings match your search.
+                                    </div>
+                                );
+                            }
+
+                            return filteredGroups.map((group) => (
+                                <div key={group.title} className="space-y-1.5">
+                                    <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        {group.title}
+                                    </h3>
+                                    <div className="flex flex-col gap-0.5">
+                                        {group.matchingItems.map((tab) => {
+                                            const Icon = tab.icon;
+                                            const isActive = activeTab === tab.key;
+                                            return (
+                                                <button
+                                                    key={tab.key}
+                                                    onClick={() => setActiveTab(tab.key)}
+                                                    className={`group flex items-center justify-between w-full px-3 py-2 text-left rounded-lg text-sm font-medium transition-all ${
+                                                        isActive
+                                                            ? 'bg-[#0066B3]/10 text-[#0066B3] font-semibold'
+                                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2.5">
+                                                        <Icon size={16} className={isActive ? 'text-[#0066B3]' : 'text-slate-400 group-hover:text-slate-600 transition-colors'} />
+                                                        <span>{tab.label}</span>
+                                                    </div>
+                                                    {isActive && (
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-[#0066B3]" />
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ));
+                        })()}
+                    </div>
+
+                    {/* Mobile Tabs (Horizontal Scroll) */}
+                    <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                        {mainTabs.filter(t => !tabSearch || t.label.toLowerCase().includes(tabSearch.toLowerCase())).map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.key;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                                        isActive
+                                            ? 'bg-[#0066B3] text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-[#0066B3]'
+                                    }`}
+                                >
+                                    <Icon size={16} />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Right Content */}
+                <div className="flex-1 w-full min-w-0">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
+                        {/* Dynamic Header inside Content Box */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    {(() => {
+                                        const currentTabObj = mainTabs.find(t => t.key === activeTab);
+                                        const TabIcon = currentTabObj?.icon || Settings;
+                                        return (
+                                            <>
+                                                <TabIcon size={20} className="text-[#0066B3]" />
+                                                {currentTabObj?.label}
+                                            </>
+                                        );
+                                    })()}
+                                </h2>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    System configuration policies for {mainTabs.find(t => t.key === activeTab)?.label.toLowerCase()}
+                                </p>
+                            </div>
+                            {showAddButton && (
+                                <button
+                                    onClick={() => openModal(activeTab)}
+                                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#0066B3] text-white text-xs font-semibold rounded-lg hover:bg-[#005299] transition-all shadow-sm self-start sm:self-auto"
+                                >
+                                    <Plus size={14} />
+                                    {getAddButtonLabel()}
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Content Body */}
+                        <div className="p-6 flex-1">
+                            {renderTabContent()}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Modal for Add/Edit */}
