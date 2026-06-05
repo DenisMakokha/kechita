@@ -106,6 +106,14 @@ export class ApprovalService {
     }
 
     async removeStep(stepId: string): Promise<void> {
+        // First set any referencing approval_actions step_id to NULL
+        await this.dataSource
+            .createQueryBuilder()
+            .update(ApprovalAction)
+            .set({ step: null as any })
+            .where('step_id = :stepId', { stepId })
+            .execute();
+
         await this.stepRepo.delete(stepId);
     }
 

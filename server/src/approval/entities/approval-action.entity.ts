@@ -21,7 +21,7 @@ export class ApprovalAction {
     @JoinColumn({ name: 'instance_id' })
     instance: ApprovalInstance;
 
-    @ManyToOne(() => ApprovalFlowStep, { nullable: true })
+    @ManyToOne(() => ApprovalFlowStep, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'step_id' })
     step?: ApprovalFlowStep;
 
