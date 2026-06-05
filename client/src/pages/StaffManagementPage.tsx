@@ -662,43 +662,114 @@ export const StaffManagementPage: React.FC = () => {
         <div className="space-y-6">
             {toast && <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2"><div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'}`}>{toast.type === 'success' ? <CheckCircle size={18} className="text-emerald-400" /> : <AlertTriangle size={18} />}<span className="font-medium">{toast.text}</span></div></div>}
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div><h1 className="text-2xl font-bold text-slate-900">Staff Management</h1><p className="text-slate-500">Manage staff, user accounts, and roles</p></div>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => refetchStaff()} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><RefreshCw size={20} /></button>
-                    {activeTab === 'directory' && <div className="flex items-center gap-2">
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const params = new URLSearchParams();
-                                    if (statusFilter !== 'all') params.set('status', statusFilter);
-                                    if (branchFilter !== 'all') params.set('branchId', branchFilter);
-                                    if (staffSearch) params.set('search', staffSearch);
-                                    const response = await api.get(`/staff/export.csv?${params}`, { responseType: 'blob' });
-                                    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `staff-export-${new Date().toISOString().split('T')[0]}.csv`;
-                                    document.body.appendChild(a); a.click(); a.remove();
-                                    window.URL.revokeObjectURL(url);
-                                    showToast('CSV downloaded');
-                                } catch { showToast('Export failed', 'error'); }
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50">
-                            <Download size={18} />Export CSV
-                        </button>
-                        <button onClick={() => { setBulkImportFile(null); setBulkImportResult(null); setShowBulkImportModal(true); }} className="flex items-center gap-2 px-4 py-2 border border-emerald-600 text-emerald-700 rounded-lg font-medium hover:bg-emerald-50"><FileSpreadsheet size={18} />Bulk Import</button>
-                        <button onClick={() => { setStaffFormData({ create_onboarding: true, send_welcome_email: true }); setShowAddStaffModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add Staff</button>
-                        <button onClick={() => navigate('/recruitment')} className="flex items-center gap-2 px-4 py-2 border border-[#0066B3] text-[#0066B3] rounded-lg font-medium hover:bg-blue-50"><UserPlus size={20} />Hire via Recruitment</button>
-                    </div>}
-                    {activeTab === 'users' && isAdmin && <button onClick={() => { setSelectedUser(null); setUserFormData({ is_active: true, role_code: '' }); setShowUserModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Add User</button>}
-                    {activeTab === 'roles' && isAdmin && <button onClick={() => { setSelectedRole(null); setRoleFormData({ is_active: true }); setShowRoleModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299]"><Plus size={20} />Create Role</button>}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                        <Users className="text-[#0066B3]" size={28} />
+                        Staff Management
+                    </h1>
+                    <p className="text-slate-500 text-sm">Manage staff, user accounts, roles, contracts, and probations</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => refetchStaff()} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg" title="Refresh data"><RefreshCw size={20} /></button>
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 p-1.5 inline-flex gap-1">
-                {tabs.map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${activeTab === tab.id ? 'bg-[#0066B3] text-white shadow-lg shadow-blue-500/25' : 'text-slate-600 hover:bg-slate-100'}`}><tab.icon size={18} />{tab.label}<span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-white/20' : 'bg-slate-100'}`}>{tab.count}</span></button>))}
+            {/* Horizontal Tabs Navigation */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-1.5 flex flex-wrap items-center gap-1.5 shadow-sm">
+                {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                                isActive
+                                    ? 'bg-gradient-to-r from-[#0066B3] to-[#0088cc] text-white shadow-md shadow-blue-500/15'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                        >
+                            <Icon size={16} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600 transition-colors'} />
+                            <span>{tab.label}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}`}>
+                                {tab.count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
+
+            {/* Main Content Card Container */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden flex flex-col min-h-[500px]">
+                {/* Dynamic Header inside Content Box */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            {(() => {
+                                const currentTabObj = tabs.find(t => t.id === activeTab);
+                                const TabIcon = currentTabObj?.icon || Users;
+                                return (
+                                    <>
+                                        <TabIcon size={20} className="text-[#0066B3]" />
+                                        {currentTabObj?.label}
+                                    </>
+                                );
+                            })()}
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            {(() => {
+                                if (activeTab === 'directory') return 'View and manage all organization staff records, contact details, status, and linked accounts';
+                                if (activeTab === 'users') return 'Manage system logins, account activation, assign system access roles, and 2FA settings';
+                                if (activeTab === 'roles') return 'Define role privileges, module permissions, view active user counts, and custom roles';
+                                if (activeTab === 'probation') return 'Monitor staff probation periods, evaluations, extensions, and employment confirmation decisions';
+                                if (activeTab === 'contracts') return 'Track employee contracts, salary terms, expiration warning compliance, renewals, and signing status';
+                                return 'Staff management tools';
+                            })()}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        {activeTab === 'directory' && (
+                            <>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const params = new URLSearchParams();
+                                            if (statusFilter !== 'all') params.set('status', statusFilter);
+                                            if (branchFilter !== 'all') params.set('branchId', branchFilter);
+                                            if (staffSearch) params.set('search', staffSearch);
+                                            const response = await api.get(`/staff/export.csv?${params}`, { responseType: 'blob' });
+                                            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `staff-export-${new Date().toISOString().split('T')[0]}.csv`;
+                                            document.body.appendChild(a); a.click(); a.remove();
+                                            window.URL.revokeObjectURL(url);
+                                            showToast('CSV downloaded');
+                                        } catch { showToast('Export failed', 'error'); }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50"
+                                >
+                                    <Download size={14} />Export CSV
+                                </button>
+                                <button onClick={() => { setBulkImportFile(null); setBulkImportResult(null); setShowBulkImportModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-emerald-600 text-emerald-700 rounded-lg font-semibold hover:bg-emerald-50"><FileSpreadsheet size={14} />Bulk Import</button>
+                                <button onClick={() => { setStaffFormData({ create_onboarding: true, send_welcome_email: true }); setShowAddStaffModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#0066B3] text-white rounded-lg font-semibold hover:bg-[#005299] shadow-sm"><Plus size={14} />Add Staff</button>
+                                <button onClick={() => navigate('/recruitment')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[#0066B3] text-[#0066B3] rounded-lg font-semibold hover:bg-blue-50"><UserPlus size={14} />Hire via Recruitment</button>
+                            </>
+                        )}
+                        {activeTab === 'users' && isAdmin && (
+                            <button onClick={() => { setSelectedUser(null); setUserFormData({ is_active: true, role_code: '' }); setShowUserModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#0066B3] text-white rounded-lg font-semibold hover:bg-[#005299] shadow-sm"><Plus size={14} />Add User</button>
+                        )}
+                        {activeTab === 'roles' && isAdmin && (
+                            <button onClick={() => { setSelectedRole(null); setRoleFormData({ is_active: true }); setShowRoleModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#0066B3] text-white rounded-lg font-semibold hover:bg-[#005299] shadow-sm"><Plus size={14} />Create Role</button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Content Body */}
+                <div className="p-6 flex-1 space-y-6">
+
+
 
             {/* STAFF DIRECTORY */}
             {activeTab === 'directory' && (<>
@@ -1840,6 +1911,9 @@ export const StaffManagementPage: React.FC = () => {
                     </div>
                 </>
             )}
+
+                </div>
+            </div>
 
             {/* CONFIRM PROBATION MODAL */}
             <Modal
