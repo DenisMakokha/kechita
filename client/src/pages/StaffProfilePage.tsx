@@ -8,7 +8,7 @@ import { InputDialog } from '../components/ui/InputDialog';
 import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
 import {
     ArrowLeft, Edit, Mail, Phone, Building2, MapPin,
-    Briefcase, FileText, Clock, CheckCircle, CheckCircle2, XCircle,
+    Briefcase, FileText, Clock, CheckCircle, CheckCircle2, XCircle, X,
     Upload, Download, Trash2, AlertTriangle, User, Users,
     CreditCard, Shield, History, Camera, RefreshCw,
     ChevronRight, AlertCircle, TrendingUp, DollarSign,

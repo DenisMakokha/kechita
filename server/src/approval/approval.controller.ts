@@ -37,6 +37,24 @@ export class ApprovalController {
         return this.approvalService.createFlow(dto);
     }
 
+    @Put('flows/steps/:stepId')
+    @Roles('CEO', 'HR_MANAGER')
+    updateStep(
+        @Param('stepId', ParseUUIDPipe) stepId: string,
+        @Body() dto: Partial<CreateApprovalStepDto>,
+    ) {
+        return this.approvalService.updateStep(stepId, dto);
+    }
+
+    @Post('flows/:id/reorder-steps')
+    @Roles('CEO', 'HR_MANAGER')
+    reorderSteps(
+        @Param('id', ParseUUIDPipe) flowId: string,
+        @Body() data: { steps: { stepId: string; order: number }[] },
+    ) {
+        return this.approvalService.reorderSteps(flowId, data.steps);
+    }
+
     @Put('flows/:id')
     @Roles('CEO', 'HR_MANAGER')
     updateFlow(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateApprovalFlowDto) {
@@ -218,25 +236,7 @@ export class ApprovalController {
         return this.approvalService.deleteFlow(id);
     }
 
-    // ==================== STEP MANAGEMENT ====================
 
-    @Put('flows/steps/:stepId')
-    @Roles('CEO', 'HR_MANAGER')
-    updateStep(
-        @Param('stepId', ParseUUIDPipe) stepId: string,
-        @Body() dto: Partial<CreateApprovalStepDto>,
-    ) {
-        return this.approvalService.updateStep(stepId, dto);
-    }
-
-    @Post('flows/:id/reorder-steps')
-    @Roles('CEO', 'HR_MANAGER')
-    reorderSteps(
-        @Param('id', ParseUUIDPipe) flowId: string,
-        @Body() data: { steps: { stepId: string; order: number }[] },
-    ) {
-        return this.approvalService.reorderSteps(flowId, data.steps);
-    }
 
     // ==================== DELEGATE / RETURN ====================
 

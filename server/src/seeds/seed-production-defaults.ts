@@ -242,7 +242,12 @@ export async function seedProductionDefaults() {
     // Seed Staff profile for admin user (required for petty cash, payroll, etc.)
     const staffRepo = AppDataSource.getRepository(Staff);
     const positionRepo = AppDataSource.getRepository(Position);
-    const existingAdminStaff = await staffRepo.findOne({ where: { user: { id: adminUser.id } } });
+    const existingAdminStaff = await staffRepo.findOne({
+        where: [
+            { user: { id: adminUser.id } },
+            { employee_number: 'KEC250001' }
+        ]
+    });
     if (!existingAdminStaff) {
         // Ensure CEO position exists
         let ceoPos = await positionRepo.findOneBy({ code: 'CEO' });
@@ -265,7 +270,13 @@ export async function seedProductionDefaults() {
         await staffRepo.save(adminStaff);
         console.log(`  Created staff profile for admin user: ${adminEmail}`);
     } else {
-        console.log(`  Admin staff profile exists`);
+        if (!existingAdminStaff.user) {
+            existingAdminStaff.user = adminUser;
+            await staffRepo.save(existingAdminStaff);
+            console.log(`  Linked existing staff profile KEC250001 to user: ${adminEmail}`);
+        } else {
+            console.log(`  Admin staff profile exists`);
+        }
     }
 
     // Seed Leave Types

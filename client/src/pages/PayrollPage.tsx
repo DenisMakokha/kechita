@@ -8,7 +8,7 @@ import {
     Calendar, Plus, Calculator, CheckCircle, DollarSign, Lock, FileText,
     Download, Eye, X, Loader2, AlertTriangle, RefreshCw,
     TrendingUp, FileSpreadsheet, Banknote, Receipt, Ban, Edit, Trash2,
-    AlertCircle, Sparkles, Info, Search, Users, Filter,
+    AlertCircle, Sparkles, Info, Search, Filter,
 } from 'lucide-react';
 
 type Tab = 'periods' | 'runs' | 'rates' | 'deductions';

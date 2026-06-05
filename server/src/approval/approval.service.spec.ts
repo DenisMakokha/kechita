@@ -9,6 +9,7 @@ import { ApprovalInstance, ApprovalInstanceStatus } from './entities/approval-in
 import { ApprovalAction, ApprovalActionType } from './entities/approval-action.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
 
 describe('ApprovalService', () => {
     let service: ApprovalService;
@@ -132,6 +133,12 @@ describe('ApprovalService', () => {
                     provide: EventEmitter2,
                     useValue: {
                         emit: jest.fn(),
+                    },
+                },
+                {
+                    provide: AuditService,
+                    useValue: {
+                        logAction: jest.fn().mockResolvedValue(null),
                     },
                 },
             ],

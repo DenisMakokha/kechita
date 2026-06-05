@@ -38,6 +38,28 @@ const getHighestRank = (roles: { code: string }[]): number => {
     return Math.min(...roles.map(r => ROLE_HIERARCHY[r.code] ?? 999));
 };
 
+const formatModuleName = (moduleName: string): string => {
+    const mapping: Record<string, string> = {
+        staff: 'Staff Management',
+        leave: 'Leave Management',
+        claims: 'Claims Management',
+        loans: 'Loans & Advances',
+        petty_cash: 'Float Management',
+        recruitment: 'Recruitment',
+        org: 'Organization',
+        users: 'User Management',
+        roles: 'Roles & Permissions',
+        approvals: 'Approval Workflows',
+        announcements: 'Announcements',
+        reports: 'Reports & Analytics',
+        audit: 'Audit Logs',
+        notifications: 'Notifications',
+        settings: 'System Settings',
+        security: 'Security & Sessions',
+    };
+    return mapping[moduleName.toLowerCase()] || moduleName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     const colors: Record<string, string> = {
         active: 'bg-emerald-100 text-emerald-700',
@@ -3018,7 +3040,7 @@ export const StaffManagementPage: React.FC = () => {
                                                                     onClick={e => e.stopPropagation()}
                                                                     className="w-4 h-4 text-[#0066B3] rounded"
                                                                 />
-                                                                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{module}</span>
+                                                                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{formatModuleName(module)}</span>
                                                                 <span className={"text-xs px-1.5 py-0.5 rounded font-medium " + (allChecked ? "bg-blue-200 text-blue-800" : someChecked ? "bg-amber-200 text-amber-800" : "bg-slate-200 text-slate-600")}>{modulePerms.filter(p => pendingPermIds.has(p.id)).length}/{modulePerms.length}</span>
                                                             </div>
                                                             <span className="text-slate-400 text-xs">{collapsed ? '▶' : '▼'}</span>
@@ -3124,7 +3146,7 @@ export const StaffManagementPage: React.FC = () => {
                     <>
                         {Object.entries(allPermissions.reduce((acc: Record<string, Permission[]>, p) => { (acc[p.module] = acc[p.module] || []).push(p); return acc; }, {})).map(([module, perms]) => (
                             <div key={module} className="mb-6">
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{module}</h3>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{formatModuleName(module)}</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {(perms as Permission[]).map((perm) => {
                                         const hasIt = rolePermissions.some((rp) => rp.id === perm.id);
@@ -3453,7 +3475,7 @@ export const StaffManagementPage: React.FC = () => {
                                             {Object.entries(allPermissions.reduce((acc: Record<string, Permission[]>, p) => { (acc[p.module] = acc[p.module] || []).push(p); return acc; }, {})).map(([module, perms]) => (
                                                 <div key={module} className="border border-slate-200 rounded-xl overflow-hidden">
                                                     <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{module}</span>
+                                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{formatModuleName(module)}</span>
                                                     </div>
                                                     <div className="divide-y divide-slate-100">
                                                         {(perms as Permission[]).map((perm) => {
