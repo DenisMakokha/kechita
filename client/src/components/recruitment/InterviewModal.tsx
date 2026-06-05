@@ -22,10 +22,11 @@ export const InterviewModal: React.FC<InterviewModalProps> = ({ applicationId, c
     });
 
     // Fetch potential interviewers (HR + Management)
-    const { data: staffMembers } = useQuery({
+    const { data: staffRaw } = useQuery({
         queryKey: ['staff', 'interviewers'],
-        queryFn: async () => (await api.get('/staff?role=HR_MANAGER,HR_ASSISTANT,CEO,REGIONAL_MANAGER,BRANCH_MANAGER')).data,
+        queryFn: async () => (await api.get('/staff?role=HR_MANAGER,HR_ASSISTANT,CEO,REGIONAL_MANAGER,BRANCH_MANAGER&limit=10000')).data,
     });
+    const staffMembers = Array.isArray(staffRaw) ? staffRaw : (staffRaw as any)?.data ?? [];
 
     const scheduleMutation = useMutation({
         mutationFn: async (data: any) => {

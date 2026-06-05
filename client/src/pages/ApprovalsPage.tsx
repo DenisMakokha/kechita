@@ -104,8 +104,9 @@ const ApprovalsPage: React.FC = () => {
     const { data: staffList } = useQuery<{ id: string; first_name: string; last_name: string }[]>({
         queryKey: ['staff-list-for-delegation'],
         queryFn: async () => {
-            const response = await api.get('/staff');
-            return (response.data || []).map((s: any) => ({ id: s.id, first_name: s.first_name, last_name: s.last_name }));
+            const res = (await api.get('/staff?limit=10000')).data;
+            const list = Array.isArray(res) ? res : (res?.data ?? []);
+            return list.map((s: any) => ({ id: s.id, first_name: s.first_name, last_name: s.last_name }));
         },
         enabled: isApprover,
     });

@@ -174,7 +174,10 @@ const PayrollPage: React.FC = () => {
     // Staff list for global deduction staff picker
     const { data: staffList = [] } = useQuery<any[]>({
         queryKey: ['staff-list-for-deductions'],
-        queryFn: async () => (await api.get('/staff')).data,
+        queryFn: async () => {
+            const res = (await api.get('/staff?limit=10000')).data;
+            return Array.isArray(res) ? res : (res?.data ?? []);
+        },
         enabled: tab === 'deductions' && showAddGlobalDeduction,
     });
 
