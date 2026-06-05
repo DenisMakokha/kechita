@@ -396,6 +396,33 @@ export const StaffManagementPage: React.FC = () => {
             showToast(err.response?.data?.message || 'Failed to terminate contract', 'error');
         }
     });
+
+    const activateContractMutation = useMutation({
+        mutationFn: async (contractId: string) => {
+            return (await api.patch(`/staff/contracts/${contractId}/activate`)).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-contracts-all'] });
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            showToast('Contract activated successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to activate contract', 'error');
+        }
+    });
+
+    const sendContractForSignatureMutation = useMutation({
+        mutationFn: async (contractId: string) => {
+            return (await api.post(`/staff/contracts/${contractId}/send-for-signature`, {})).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-contracts-all'] });
+            showToast('Signing link sent to employee successfully');
+        },
+        onError: (err: any) => {
+            showToast(err.response?.data?.message || 'Failed to send contract for signing', 'error');
+        }
+    });
     const [selectedArchivedIds, setSelectedArchivedIds] = useState<Set<string>>(new Set());
     const [showBulkForceDeleteConfirm, setShowBulkForceDeleteConfirm] = useState(false);
     const [bulkForceDeleteProgress, setBulkForceDeleteProgress] = useState<{ done: number; total: number; errors: string[] } | null>(null);
@@ -1685,44 +1712,82 @@ export const StaffManagementPage: React.FC = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        {c.status === 'active' && (
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setContractActionContract(c);
-                                                                        setContractNewEndDate(c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '');
-                                                                        setContractReason('');
-                                                                        setShowContractExtendModal(true);
-                                                                    }}
-                                                                    className="px-2.5 py-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors border border-indigo-200"
-                                                                >
-                                                                    Extend
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setContractActionContract(c);
-                                                                        setContractNewEndDate(c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '');
-                                                                        setContractNewSalary(c.salary ? String(c.salary) : '');
-                                                                        setContractNewTerms(c.terms || '');
-                                                                        setShowContractRenewModal(true);
-                                                                    }}
-                                                                    className="px-2.5 py-1 text-xs font-semibold bg-[#0066B3]/10 hover:bg-[#0066B3]/25 text-[#0066B3] rounded-lg transition-colors border border-[#0066B3]/20"
-                                                                >
-                                                                    Renew
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setContractActionContract(c);
-                                                                        setContractReason('');
-                                                                        setContractTerminateDate(new Date().toISOString().split('T')[0]);
-                                                                        setShowContractTerminateModal(true);
-                                                                    }}
-                                                                    className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors border border-red-200"
-                                                                >
-                                                                    Terminate
-                                                                </button>
-                                                            </div>
-                                                        )}
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            {c.status === 'active' && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setContractActionContract(c);
+                                                                            setContractNewEndDate(c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '');
+                                                                            setContractReason('');
+                                                                            setShowContractExtendModal(true);
+                                                                        }}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors border border-indigo-200"
+                                                                    >
+                                                                        Extend
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setContractActionContract(c);
+                                                                            setContractNewEndDate(c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '');
+                                                                            setContractNewSalary(c.salary ? String(c.salary) : '');
+                                                                            setContractNewTerms(c.terms || '');
+                                                                            setShowContractRenewModal(true);
+                                                                        }}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-[#0066B3]/10 hover:bg-[#0066B3]/25 text-[#0066B3] rounded-lg transition-colors border border-[#0066B3]/20"
+                                                                    >
+                                                                        Renew
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setContractActionContract(c);
+                                                                            setContractReason('');
+                                                                            setContractTerminateDate(new Date().toISOString().split('T')[0]);
+                                                                            setShowContractTerminateModal(true);
+                                                                        }}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors border border-red-200"
+                                                                    >
+                                                                        Terminate
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {c.status === 'draft' && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => sendContractForSignatureMutation.mutate(c.id)}
+                                                                        disabled={sendContractForSignatureMutation.isPending}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-colors border border-amber-200 disabled:opacity-50"
+                                                                    >
+                                                                        Send for Signing
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => activateContractMutation.mutate(c.id)}
+                                                                        disabled={activateContractMutation.isPending}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200 disabled:opacity-50"
+                                                                    >
+                                                                        Activate
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {c.status === 'pending_signature' && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => sendContractForSignatureMutation.mutate(c.id)}
+                                                                        disabled={sendContractForSignatureMutation.isPending}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-colors border border-amber-200 disabled:opacity-50"
+                                                                    >
+                                                                        Resend Link
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => activateContractMutation.mutate(c.id)}
+                                                                        disabled={activateContractMutation.isPending}
+                                                                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200 disabled:opacity-50"
+                                                                    >
+                                                                        Activate
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
