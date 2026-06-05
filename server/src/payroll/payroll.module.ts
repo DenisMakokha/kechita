@@ -17,6 +17,7 @@ import { KenyaStatutoryService } from './services/kenya-statutory.service';
 import { StaffCompService } from './services/staff-comp.service';
 import { StatutoryExportService } from './services/statutory-export.service';
 import { PayslipPDFService } from './services/payslip-pdf.service';
+import { SystemSetting } from '../auth/entities/system-setting.entity';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { AuditModule } from '../audit/audit.module';
             StaffBankAccount,
             StaffLoanRepayment,
             LeaveRequest,
+            SystemSetting,
         ]),
         AuditModule,
     ],

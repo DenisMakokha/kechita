@@ -1,4 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { SystemSetting } from '../../auth/entities/system-setting.entity';
+import { AuditService } from '../../audit/audit.service';
+import { AuditAction } from '../../audit/entities/audit-log.entity';
 
 /**
  * Kenya Statutory Calculations
@@ -106,12 +111,92 @@ export interface StatutoryCalcResult {
 export class KenyaStatutoryService {
     private rates: StatutoryRates = DEFAULT_KENYA_RATES_2026;
 
+    constructor(
+        @InjectRepository(SystemSetting)
+        private readonly settingRepo: Repository<SystemSetting>,
+        private readonly auditService: AuditService,
+    ) {}
+
     /** Allow rates to be overridden at runtime (loaded from settings) */
     setRates(rates: Partial<StatutoryRates>): void {
         this.rates = { ...this.rates, ...rates } as StatutoryRates;
     }
 
     getRates(): StatutoryRates {
+        return this.rates;
+    }
+
+    private mergeRates(defaults: StatutoryRates, overrides: any): StatutoryRates {
+        return {
+            paye: {
+                ...defaults.paye,
+                ...(overrides.paye || {}),
+                bands: overrides.paye?.bands || defaults.paye.bands,
+            },
+            nssf: {
+                ...defaults.nssf,
+                ...(overrides.nssf || {}),
+            },
+            shif: {
+                ...defaults.shif,
+                ...(overrides.shif || {}),
+            },
+            housingLevy: {
+                ...defaults.housingLevy,
+                ...(overrides.housingLevy || {}),
+            },
+            nita: {
+                ...defaults.nita,
+                ...(overrides.nita || {}),
+            },
+        };
+    }
+
+    /** Load dynamic rates from database setting 'payroll.statutory_rates' */
+    async loadRates(): Promise<StatutoryRates> {
+        try {
+            const setting = await this.settingRepo.findOne({ where: { key: 'payroll.statutory_rates' } });
+            if (setting && setting.value) {
+                this.rates = this.mergeRates(DEFAULT_KENYA_RATES_2026, setting.value);
+            } else {
+                this.rates = DEFAULT_KENYA_RATES_2026;
+            }
+        } catch (e) {
+            this.rates = DEFAULT_KENYA_RATES_2026;
+        }
+        return this.rates;
+    }
+
+    /** Update settings in database and write audit log */
+    async updateRates(newRates: StatutoryRates, userId?: string): Promise<StatutoryRates> {
+        let setting = await this.settingRepo.findOne({ where: { key: 'payroll.statutory_rates' } });
+        const oldRates = setting ? setting.value : DEFAULT_KENYA_RATES_2026;
+        if (setting) {
+            setting.value = newRates;
+        } else {
+            setting = this.settingRepo.create({
+                key: 'payroll.statutory_rates',
+                value: newRates,
+                category: 'payroll',
+                description: 'Kenyan Payroll Statutory Rates (PAYE, NSSF, SHIF, Housing Levy)',
+            });
+        }
+        const saved = await this.settingRepo.save(setting);
+        this.rates = this.mergeRates(DEFAULT_KENYA_RATES_2026, newRates);
+
+        await this.auditService.log({
+            action: AuditAction.UPDATE,
+            entityType: 'SystemSetting',
+            entityId: saved.id || 'payroll.statutory_rates',
+            description: 'Updated Kenyan payroll statutory rates configuration',
+            userId,
+            metadata: {
+                key: 'payroll.statutory_rates',
+                oldRates,
+                newRates,
+            },
+        }).catch(() => {});
+
         return this.rates;
     }
 

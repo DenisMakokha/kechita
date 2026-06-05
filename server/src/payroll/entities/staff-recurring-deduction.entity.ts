@@ -8,6 +8,10 @@ export enum DeductionType {
     UNION = 'union',
     WELFARE = 'welfare',
     GARNISHMENT = 'garnishment',
+    HELB = 'helb',
+    CAR_LOAN = 'car_loan',
+    STAFF_LOAN = 'staff_loan',
+    SALARY_ADVANCE = 'salary_advance',
     OTHER = 'other',
 }
 

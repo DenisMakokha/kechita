@@ -29,11 +29,17 @@ export class PayrollController {
         private readonly rates: KenyaStatutoryService,
     ) {}
 
-    // ─────────── Statutory rates (read) ───────────
+    // ─────────── Statutory rates ───────────
     @Get('statutory/rates')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     getRates() {
         return this.rates.getRates();
+    }
+
+    @Patch('statutory/rates')
+    @Roles('CEO', 'HR_MANAGER')
+    async updateRates(@Body() newRates: any, @Req() req: AuthenticatedRequest) {
+        return this.rates.updateRates(newRates, req.user?.sub);
     }
 
     // ─────────── Periods ───────────

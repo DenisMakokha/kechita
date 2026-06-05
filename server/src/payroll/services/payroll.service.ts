@@ -143,19 +143,45 @@ export class PayrollService {
             throw new BadRequestException('Cannot recalculate an approved/paid run');
         }
 
-        // Find eligible staff
-        const where: any = { status: StaffStatus.ACTIVE };
-        if (run.branch_id) where.branch = { id: run.branch_id };
-        const staffList = await this.staffRepo.find({
-            where,
+        const period = await this.getPeriod(run.period_id);
+        const periodStart = period.start_date;
+        const periodEnd = period.end_date;
+
+        // Find eligible staff (active, probation, suspended, or exited during this period)
+        const allStaff = await this.staffRepo.find({
+            where: [
+                {
+                    status: In([StaffStatus.ACTIVE, StaffStatus.PROBATION, StaffStatus.SUSPENDED]),
+                    ...(run.branch_id ? { branch: { id: run.branch_id } } : {}),
+                },
+                {
+                    status: In([StaffStatus.TERMINATED, StaffStatus.RESIGNED, StaffStatus.EX_STAFF]),
+                    ...(run.branch_id ? { branch: { id: run.branch_id } } : {}),
+                }
+            ],
             relations: ['branch', 'position'],
+        });
+
+        const staffList = allStaff.filter(staff => {
+            // Must be hired on or before periodEnd
+            if (staff.hire_date) {
+                const hire = toISODate(new Date(staff.hire_date));
+                if (hire > periodEnd) return false;
+            }
+            // If terminated/resigned/ex-staff, they must have been terminated on or after periodStart
+            const isExit = [StaffStatus.TERMINATED, StaffStatus.RESIGNED, StaffStatus.EX_STAFF].includes(staff.status);
+            if (isExit) {
+                if (!staff.termination_date) return false;
+                const term = toISODate(new Date(staff.termination_date));
+                if (term < periodStart) return false;
+            }
+            return true;
         });
 
         // Delete prior payslips for this run (cascade lines)
         await this.payslipRepo.delete({ run_id: runId });
 
         let totalGross = 0, totalPaye = 0, totalNssf = 0, totalShif = 0, totalHousing = 0, totalNita = 0, totalLoan = 0, totalOther = 0, totalNet = 0;
-        const period = await this.getPeriod(run.period_id);
         let processed = 0;
 
         for (const staff of staffList) {

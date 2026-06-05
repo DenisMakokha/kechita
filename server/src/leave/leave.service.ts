@@ -371,6 +371,7 @@ export class LeaveService {
         departmentId?: string;
         startDate?: string;
         endDate?: string;
+        staffId?: string;
     }): Promise<LeaveRequest[]> {
         const qb = this.leaveRequestRepo.createQueryBuilder('leave')
             .leftJoinAndSelect('leave.staff', 'staff')
@@ -381,6 +382,9 @@ export class LeaveService {
 
         if (filters?.status) {
             qb.andWhere('leave.status = :status', { status: filters.status });
+        }
+        if (filters?.staffId) {
+            qb.andWhere('staff.id = :staffId', { staffId: filters.staffId });
         }
         if (filters?.branchId) {
             qb.andWhere('branch.id = :branchId', { branchId: filters.branchId });

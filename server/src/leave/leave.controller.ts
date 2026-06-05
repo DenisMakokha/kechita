@@ -74,8 +74,9 @@ export class LeaveController {
         @Query('departmentId') departmentId?: string,
         @Query('startDate') startDate?: string,
         @Query('endDate') endDate?: string,
+        @Query('staffId') staffId?: string,
     ) {
-        return this.leaveService.findAllRequests({ status, branchId, departmentId, startDate, endDate });
+        return this.leaveService.findAllRequests({ status, branchId, departmentId, startDate, endDate, staffId });
     }
 
     @Get('requests/:id')

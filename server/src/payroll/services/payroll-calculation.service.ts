@@ -71,9 +71,41 @@ export class PayrollCalculationService {
             throw new BadRequestException(`Staff ${staff.employee_number || staff.id} has no basic salary configured`);
         }
 
+        // Load custom database rates
+        await this.statutory.loadRates();
+
         const basicSalary = Number(staff.basic_salary);
         const periodStart = ctx.period.start_date;
         const periodEnd = ctx.period.end_date;
+
+        const periodStartMs = dateStringToMs(periodStart);
+        const periodEndMs = dateStringToMs(periodEnd);
+        const totalDays = Math.round((periodEndMs - periodStartMs) / (1000 * 3600 * 24)) + 1;
+
+        let activeStartMs = periodStartMs;
+        if (staff.hire_date) {
+            const hireMs = dateStringToMs(staff.hire_date);
+            if (hireMs > periodStartMs) {
+                activeStartMs = hireMs;
+            }
+        }
+
+        let activeEndMs = periodEndMs;
+        if (staff.termination_date) {
+            const termMs = dateStringToMs(staff.termination_date);
+            if (termMs < periodEndMs) {
+                activeEndMs = termMs;
+            }
+        }
+
+        let activeDays = Math.round((activeEndMs - activeStartMs) / (1000 * 3600 * 24)) + 1;
+        if (activeDays < 0) activeDays = 0;
+        if (activeDays > totalDays) activeDays = totalDays;
+
+        const isProrated = activeDays < totalDays;
+        const prorationFactor = activeDays / totalDays;
+        const proratedBasic = isProrated ? round2(basicSalary * prorationFactor) : basicSalary;
+
         const lines: Array<Partial<PayslipLine>> = [];
         let sortOrder = 0;
 
@@ -81,8 +113,8 @@ export class PayrollCalculationService {
         lines.push({
             kind: PayslipLineKind.EARNING,
             category: PayslipLineCategory.BASIC,
-            label: 'Basic Salary',
-            amount: basicSalary,
+            label: isProrated ? `Basic Salary (Prorated: ${activeDays}/${totalDays} days)` : 'Basic Salary',
+            amount: proratedBasic,
             taxable: true,
             sort_order: sortOrder++,
         });
@@ -118,9 +150,9 @@ export class PayrollCalculationService {
             const isLwop = l.leaveType?.code === 'LWOP' || l.leaveType?.is_paid === false;
             if (isLwop) lwopDays += Number(l.total_days || 0);
         }
-        const standardDays = 30;
-        const daysWorked = Math.max(0, standardDays - lwopDays);
-        const lwopDeduction = lwopDays > 0 ? round2((basicSalary / standardDays) * lwopDays) : 0;
+
+        const daysWorked = Math.max(0, activeDays - lwopDays);
+        const lwopDeduction = lwopDays > 0 ? round2((basicSalary / totalDays) * lwopDays) : 0;
         if (lwopDeduction > 0) {
             lines.push({
                 kind: PayslipLineKind.DEDUCTION,
@@ -133,7 +165,7 @@ export class PayrollCalculationService {
         }
 
         // ── Gross & taxable ──
-        const grossPay = round2(basicSalary + totalAllowances - lwopDeduction);
+        const grossPay = round2(proratedBasic + totalAllowances - lwopDeduction);
         const taxablePay = round2(grossPay - nonTaxableAllowances);
 
         // ── Recurring deductions (pension contributes to relief) ──
@@ -141,16 +173,51 @@ export class PayrollCalculationService {
             where: { staff_id: staff.id, is_active: true, effective_from: LessThanOrEqual(periodEnd) },
         });
         const recurring = allRecurring.filter(d => !d.effective_to || d.effective_to >= periodStart);
+        
         let pensionContribution = 0;
         let insurancePremiums = 0;
-        let saccoTotal = 0;
+        let recurringLoanDeductions = 0;
+        let advanceDeductions = 0;
         let otherDeductions = 0;
+
+        const recurringLines: Array<Partial<PayslipLine>> = [];
+
         for (const d of recurring) {
             const amt = Number(d.amount);
-            if (d.tax_relievable && d.type === 'pension' as any) pensionContribution += amt;
-            if (d.type === 'insurance' as any) insurancePremiums += amt;
-            if (d.type === 'sacco' as any) saccoTotal += amt;
-            else if (d.type !== 'pension' as any && d.type !== 'insurance' as any) otherDeductions += amt;
+            if (amt <= 0) continue;
+
+            let category = PayslipLineCategory.OTHER;
+            if (d.type === 'pension' as any) {
+                category = PayslipLineCategory.PENSION;
+                if (d.tax_relievable) pensionContribution += amt;
+            } else if (d.type === 'insurance' as any) {
+                category = PayslipLineCategory.INSURANCE;
+                insurancePremiums += amt;
+            } else if (d.type === 'sacco' as any) {
+                category = PayslipLineCategory.SACCO;
+                otherDeductions += amt;
+            } else if (d.type === 'car_loan' as any || d.type === 'staff_loan' as any) {
+                category = PayslipLineCategory.LOAN;
+                recurringLoanDeductions += amt;
+            } else if (d.type === 'salary_advance' as any) {
+                category = PayslipLineCategory.ADVANCE;
+                advanceDeductions += amt;
+            } else if (d.type === 'helb' as any) {
+                category = PayslipLineCategory.OTHER;
+                otherDeductions += amt;
+            } else {
+                category = PayslipLineCategory.OTHER;
+                otherDeductions += amt;
+            }
+
+            recurringLines.push({
+                kind: PayslipLineKind.DEDUCTION,
+                category,
+                label: d.label,
+                amount: amt,
+                taxable: false,
+                sort_order: 0, // Assigned below
+            });
         }
 
         // ── Statutory ──
@@ -170,10 +237,10 @@ export class PayrollCalculationService {
             },
             relations: ['loan'],
         }).catch(() => [] as StaffLoanRepayment[]);
-        let loanDeductions = 0;
+        let scheduledLoanDeductions = 0;
         for (const r of repayments) {
             const outstanding = Number(r.total_amount || 0) - Number(r.paid_amount || 0) - Number(r.waived_amount || 0);
-            if (outstanding > 0) loanDeductions += outstanding;
+            if (outstanding > 0) scheduledLoanDeductions += outstanding;
         }
 
         // ── Build deduction lines ──
@@ -181,11 +248,16 @@ export class PayrollCalculationService {
         if (stat.nssfEmployee > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.NSSF, label: 'NSSF', amount: stat.nssfEmployee, taxable: false, sort_order: sortOrder++ });
         if (stat.shif > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.SHIF, label: 'SHIF', amount: stat.shif, taxable: false, sort_order: sortOrder++ });
         if (stat.housingLevyEmployee > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.HOUSING_LEVY, label: 'Housing Levy', amount: stat.housingLevyEmployee, taxable: false, sort_order: sortOrder++ });
-        if (loanDeductions > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.LOAN, label: 'Loan Repayments', amount: loanDeductions, taxable: false, sort_order: sortOrder++ });
-        if (saccoTotal > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.SACCO, label: 'SACCO', amount: saccoTotal, taxable: false, sort_order: sortOrder++ });
-        if (pensionContribution > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.PENSION, label: 'Pension Contribution', amount: pensionContribution, taxable: false, sort_order: sortOrder++ });
-        if (insurancePremiums > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.INSURANCE, label: 'Insurance Premiums', amount: insurancePremiums, taxable: false, sort_order: sortOrder++ });
-        if (otherDeductions > 0) lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.OTHER, label: 'Other Deductions', amount: otherDeductions, taxable: false, sort_order: sortOrder++ });
+        
+        if (scheduledLoanDeductions > 0) {
+            lines.push({ kind: PayslipLineKind.DEDUCTION, category: PayslipLineCategory.LOAN, label: 'Loan Repayments', amount: scheduledLoanDeductions, taxable: false, sort_order: sortOrder++ });
+        }
+
+        // Add the recurring deduction lines
+        for (const rl of recurringLines) {
+            rl.sort_order = sortOrder++;
+            lines.push(rl);
+        }
 
         // Employer contributions (informational only)
         if (stat.nssfEmployer > 0) lines.push({ kind: PayslipLineKind.EMPLOYER_CONTRIBUTION, category: PayslipLineCategory.NSSF, label: 'NSSF (Employer)', amount: stat.nssfEmployer, taxable: false, sort_order: sortOrder++ });
@@ -195,7 +267,7 @@ export class PayrollCalculationService {
         // ── Totals ──
         const totalDeductions = round2(
             stat.paye + stat.nssfEmployee + stat.shif + stat.housingLevyEmployee +
-            loanDeductions + saccoTotal + pensionContribution + insurancePremiums + otherDeductions,
+            scheduledLoanDeductions + recurringLoanDeductions + advanceDeductions + otherDeductions + pensionContribution + insurancePremiums
         );
         const netPay = round2(grossPay - totalDeductions);
 
@@ -208,7 +280,7 @@ export class PayrollCalculationService {
             tax_pin_snapshot: (staff as any).tax_pin,
             nssf_number_snapshot: (staff as any).nssf_number,
             shif_number_snapshot: (staff as any).nhif_number, // SHIF replaces NHIF — same identifier in transition
-            basic_salary: basicSalary,
+            basic_salary: proratedBasic, // Store the prorated basic salary as calculated
             total_allowances: round2(totalAllowances),
             gross_pay: grossPay,
             taxable_pay: taxablePay,
@@ -222,9 +294,9 @@ export class PayrollCalculationService {
             personal_relief: stat.personalRelief,
             insurance_relief: stat.insuranceRelief,
             pension_relief: stat.pensionRelief,
-            loan_deductions: loanDeductions,
-            advance_deductions: 0,
-            other_deductions: round2(saccoTotal + otherDeductions),
+            loan_deductions: scheduledLoanDeductions + recurringLoanDeductions,
+            advance_deductions: advanceDeductions,
+            other_deductions: round2(otherDeductions + pensionContribution + insurancePremiums),
             total_deductions: totalDeductions,
             net_pay: netPay,
             days_worked: daysWorked,
@@ -236,4 +308,26 @@ export class PayrollCalculationService {
 
 function round2(n: number): number {
     return Math.round(n * 100) / 100;
+}
+
+function dateStringToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    let str = '';
+    if (dateVal instanceof Date) {
+        const y = dateVal.getFullYear();
+        const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+        const d = String(dateVal.getDate()).padStart(2, '0');
+        str = `${y}-${m}-${d}`;
+    } else {
+        str = String(dateVal);
+    }
+    const parts = str.split('-');
+    if (parts.length >= 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        return Date.UTC(y, m, d);
+    }
+    const parsed = new Date(dateVal);
+    return Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
 }
