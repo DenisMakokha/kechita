@@ -218,6 +218,19 @@ export const StaffProfilePage: React.FC = () => {
     const [renewEndDate, setRenewEndDate] = useState('');
     const [renewSalary, setRenewSalary] = useState('');
 
+    // Manage Deductions Drawer
+    const [showManageDeductions, setShowManageDeductions] = useState(false);
+    const [profileDeductionForm, setProfileDeductionForm] = useState({
+        label: '',
+        type: 'other',
+        amount: '',
+        tax_relievable: false,
+        effective_from: new Date().toISOString().slice(0, 10),
+        effective_to: '',
+        notes: '',
+    });
+    const [showAddProfileDeduction, setShowAddProfileDeduction] = useState(false);
+
     // Fetch staff details
     const { data: staff, isLoading } = useQuery<StaffDetail>({
         queryKey: ['staff', id],
@@ -293,6 +306,41 @@ export const StaffProfilePage: React.FC = () => {
     const { data: departments } = useQuery({
         queryKey: ['departments'],
         queryFn: async () => (await api.get('/org/departments')).data,
+    });
+
+    // Staff Deductions (for Manage Deductions drawer)
+    const { data: profileDeductions = [], refetch: refetchProfileDeductions } = useQuery<any[]>({
+        queryKey: ['profile-deductions', id],
+        queryFn: async () => (await api.get(`/payroll/staff/${id}/deductions`)).data,
+        enabled: !!id && showManageDeductions,
+    });
+
+    const addProfileDeductionMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/payroll/deductions', data)).data,
+        onSuccess: () => {
+            refetchProfileDeductions();
+            setShowAddProfileDeduction(false);
+            setProfileDeductionForm({
+                label: '',
+                type: 'other',
+                amount: '',
+                tax_relievable: false,
+                effective_from: new Date().toISOString().slice(0, 10),
+                effective_to: '',
+                notes: '',
+            });
+            showToast('Deduction added successfully');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to add deduction', 'error'),
+    });
+
+    const deleteProfileDeductionMutation = useMutation({
+        mutationFn: async (deductionId: string) => (await api.delete(`/payroll/deductions/${deductionId}`)).data,
+        onSuccess: () => {
+            refetchProfileDeductions();
+            showToast('Deduction deleted');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete deduction', 'error'),
     });
 
     // Photo upload mutation
@@ -657,6 +705,14 @@ export const StaffProfilePage: React.FC = () => {
                     >
                         <Edit size={18} />
                         Edit Profile
+                    </button>
+                    <button
+                        onClick={() => setShowManageDeductions(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg font-medium text-slate-700 shadow-sm"
+                        title="Manage payroll deductions for this staff member"
+                    >
+                        <DollarSign size={18} className="text-[#0066B3]" />
+                        <span className="hidden sm:inline">Manage Deductions</span>
                     </button>
                     <div className="relative">
                         <button
@@ -2906,6 +2962,191 @@ export const StaffProfilePage: React.FC = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* ─── Manage Deductions Drawer ─── */}
+            {showManageDeductions && staff && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={(e) => { if (e.target === e.currentTarget) setShowManageDeductions(false); }}>
+                    <div className="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col overflow-hidden" style={{ animation: 'slideInRight 0.25s ease-out' }}>
+                        {/* Drawer Header */}
+                        <div className="px-6 py-5 bg-gradient-to-r from-[#0066B3] to-[#004d88] text-white">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-sm font-bold ring-2 ring-white/30">
+                                        {staff.first_name?.[0]}{staff.last_name?.[0]}
+                                    </div>
+                                    <div>
+                                        <h2 className="font-bold text-lg">{staff.first_name} {staff.last_name}</h2>
+                                        <p className="text-xs text-blue-100">{staff.employee_number} · Manage Deductions</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowManageDeductions(false)} className="p-2 hover:bg-white/20 rounded-lg"><X size={20} /></button>
+                            </div>
+                        </div>
+
+                        {/* Add button */}
+                        <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                            <p className="text-sm text-slate-600 font-medium">{profileDeductions.length} deduction{profileDeductions.length === 1 ? '' : 's'}</p>
+                            <button
+                                onClick={() => setShowAddProfileDeduction(!showAddProfileDeduction)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0066B3] text-white rounded-lg text-xs font-semibold hover:bg-[#005299]"
+                            >
+                                <Plus size={14} />{showAddProfileDeduction ? 'Cancel' : 'Add Deduction'}
+                            </button>
+                        </div>
+
+                        {/* Add form (inline) */}
+                        {showAddProfileDeduction && (
+                            <div className="px-6 py-4 border-b border-slate-200 bg-blue-50/50 space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Label *</label>
+                                        <input
+                                            type="text"
+                                            value={profileDeductionForm.label}
+                                            onChange={(e) => setProfileDeductionForm({ ...profileDeductionForm, label: e.target.value })}
+                                            placeholder="e.g., HELB Loan"
+                                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#0066B3]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Type</label>
+                                        <select
+                                            value={profileDeductionForm.type}
+                                            onChange={(e) => setProfileDeductionForm({ ...profileDeductionForm, type: e.target.value })}
+                                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#0066B3]"
+                                        >
+                                            <option value="sacco">SACCO</option>
+                                            <option value="pension">Pension</option>
+                                            <option value="insurance">Insurance</option>
+                                            <option value="union">Union</option>
+                                            <option value="welfare">Welfare</option>
+                                            <option value="garnishment">Garnishment</option>
+                                            <option value="helb">HELB</option>
+                                            <option value="car_loan">Car Loan</option>
+                                            <option value="staff_loan">Staff Loan</option>
+                                            <option value="salary_advance">Salary Advance</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Amount (KES) *</label>
+                                        <input
+                                            type="number"
+                                            value={profileDeductionForm.amount}
+                                            onChange={(e) => setProfileDeductionForm({ ...profileDeductionForm, amount: e.target.value })}
+                                            placeholder="0"
+                                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#0066B3]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">From *</label>
+                                        <input
+                                            type="date"
+                                            value={profileDeductionForm.effective_from}
+                                            onChange={(e) => setProfileDeductionForm({ ...profileDeductionForm, effective_from: e.target.value })}
+                                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#0066B3]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">To</label>
+                                        <input
+                                            type="date"
+                                            value={profileDeductionForm.effective_to}
+                                            onChange={(e) => setProfileDeductionForm({ ...profileDeductionForm, effective_to: e.target.value })}
+                                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#0066B3]"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={profileDeductionForm.tax_relievable}
+                                            onChange={(e) => setProfileDeductionForm({ ...profileDeductionForm, tax_relievable: e.target.checked })}
+                                            className="w-3.5 h-3.5 rounded border-slate-300 text-[#0066B3]"
+                                        />
+                                        <span className="text-xs text-slate-600">Tax Relievable</span>
+                                    </label>
+                                    <button
+                                        onClick={() => addProfileDeductionMutation.mutate({
+                                            staff_id: id,
+                                            ...profileDeductionForm,
+                                            amount: Number(profileDeductionForm.amount),
+                                            effective_to: profileDeductionForm.effective_to || undefined,
+                                            notes: profileDeductionForm.notes || undefined,
+                                        })}
+                                        disabled={!profileDeductionForm.label || !profileDeductionForm.amount || addProfileDeductionMutation.isPending}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0066B3] text-white rounded-lg text-xs font-semibold hover:bg-[#005299] disabled:opacity-50"
+                                    >
+                                        {addProfileDeductionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                                        Save Deduction
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Deductions list */}
+                        <div className="flex-1 overflow-y-auto">
+                            {profileDeductions.length === 0 ? (
+                                <div className="text-center py-16">
+                                    <DollarSign className="mx-auto text-slate-300 mb-2" size={40} />
+                                    <p className="text-slate-500 text-sm font-medium">No deductions</p>
+                                    <p className="text-xs text-slate-400 mt-1">Add recurring deductions like HELB, loans, SACCO contributions, etc.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-slate-100">
+                                    {profileDeductions.map((d: any) => (
+                                        <div key={d.id} className="px-6 py-4 hover:bg-slate-50 transition-colors group">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="font-semibold text-slate-900 text-sm">{d.label}</p>
+                                                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-slate-100 text-slate-600 uppercase">
+                                                            {d.type?.replace('_', ' ')}
+                                                        </span>
+                                                        <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${d.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                            {d.is_active ? 'Active' : 'Ended'}
+                                                        </span>
+                                                        {d.tax_relievable && (
+                                                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700">Tax Relief</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                                                        <span className="font-bold text-slate-900 text-base">{new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(Number(d.amount || 0))}/mo</span>
+                                                        <span>{d.effective_from}{d.effective_to ? ` → ${d.effective_to}` : ' → ongoing'}</span>
+                                                    </div>
+                                                    {d.notes && <p className="text-xs text-slate-400 mt-1">{d.notes}</p>}
+                                                </div>
+                                                <button
+                                                    onClick={() => { if (confirm('Delete this deduction?')) deleteProfileDeductionMutation.mutate(d.id); }}
+                                                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-all"
+                                                    title="Delete deduction"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer summary */}
+                        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-500">Monthly Deductions Total</span>
+                                <span className="font-bold text-slate-900">
+                                    {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(
+                                        profileDeductions.filter((d: any) => d.is_active).reduce((s: number, d: any) => s + Number(d.amount || 0), 0)
+                                    )}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Toast */}
             {toast && (

@@ -233,6 +233,12 @@ export class PayrollController {
     }
 
     // ─────────── Staff Compensation: Recurring Deductions ───────────
+    @Get('deductions')
+    @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
+    listAllDeductions(@Query('type') type?: string) {
+        return this.comp.listAllDeductions({ type });
+    }
+
     @Get('staff/:staffId/deductions')
     @Roles('CEO', 'HR_MANAGER', 'ACCOUNTANT')
     listDeductions(@Param('staffId', ParseUUIDPipe) staffId: string) {

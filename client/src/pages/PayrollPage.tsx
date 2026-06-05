@@ -8,10 +8,10 @@ import {
     Calendar, Plus, Calculator, CheckCircle, DollarSign, Lock, FileText,
     Download, Eye, X, Loader2, AlertTriangle, RefreshCw,
     TrendingUp, FileSpreadsheet, Banknote, Receipt, Ban, Edit, Trash2,
-    AlertCircle, Sparkles, Info,
+    AlertCircle, Sparkles, Info, Search, Users, Filter,
 } from 'lucide-react';
 
-type Tab = 'periods' | 'runs' | 'rates';
+type Tab = 'periods' | 'runs' | 'rates' | 'deductions';
 
 interface Period {
     id: string;
@@ -96,6 +96,22 @@ const PayrollPage: React.FC = () => {
     const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
     const [editPeriod, setEditPeriod] = useState<Period | null>(null);
     const [editPeriodForm, setEditPeriodForm] = useState({ pay_date: '', notes: '' });
+    const [payslipSearch, setPayslipSearch] = useState('');
+
+    // Global Deductions Tab State
+    const [globalDeductionFilter, setGlobalDeductionFilter] = useState('');
+    const [globalDeductionSearch, setGlobalDeductionSearch] = useState('');
+    const [showAddGlobalDeduction, setShowAddGlobalDeduction] = useState(false);
+    const [globalDeductionForm, setGlobalDeductionForm] = useState({
+        staff_id: '',
+        label: '',
+        type: 'other',
+        amount: '',
+        tax_relievable: false,
+        effective_from: new Date().toISOString().slice(0, 10),
+        effective_to: '',
+        notes: '',
+    });
 
     // Statutory Rates Editing State
     const canEditRates = user?.roles?.some(r => ['CEO', 'HR_MANAGER'].includes(r.code));
@@ -142,6 +158,24 @@ const PayrollPage: React.FC = () => {
         queryKey: ['payroll-rates'],
         queryFn: async () => (await api.get('/payroll/statutory/rates')).data,
         enabled: tab === 'rates' || isEditingRates,
+    });
+
+    // Global deductions
+    const { data: allDeductions = [], isLoading: allDeductionsLoading, refetch: refetchGlobalDeductions } = useQuery<any[]>({
+        queryKey: ['all-deductions', globalDeductionFilter],
+        queryFn: async () => {
+            const params: any = {};
+            if (globalDeductionFilter) params.type = globalDeductionFilter;
+            return (await api.get('/payroll/deductions', { params })).data;
+        },
+        enabled: tab === 'deductions',
+    });
+
+    // Staff list for global deduction staff picker
+    const { data: staffList = [] } = useQuery<any[]>({
+        queryKey: ['staff-list-for-deductions'],
+        queryFn: async () => (await api.get('/staff')).data,
+        enabled: tab === 'deductions' && showAddGlobalDeduction,
     });
 
     const { data: payslips = [], isLoading: payslipsLoading } = useQuery<Payslip[]>({
@@ -314,6 +348,36 @@ const PayrollPage: React.FC = () => {
         onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to add deduction', 'error'),
     });
 
+    // Global deduction add (creates for specific staff from the global tab)
+    const addGlobalDeductionMutation = useMutation({
+        mutationFn: async (data: any) => (await api.post('/payroll/deductions', data)).data,
+        onSuccess: () => {
+            refetchGlobalDeductions();
+            setShowAddGlobalDeduction(false);
+            setGlobalDeductionForm({
+                staff_id: '',
+                label: '',
+                type: 'other',
+                amount: '',
+                tax_relievable: false,
+                effective_from: new Date().toISOString().slice(0, 10),
+                effective_to: '',
+                notes: '',
+            });
+            showToast('Deduction added successfully');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to add deduction', 'error'),
+    });
+
+    const deleteGlobalDeductionMutation = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/payroll/deductions/${id}`)).data,
+        onSuccess: () => {
+            refetchGlobalDeductions();
+            showToast('Deduction deleted');
+        },
+        onError: (e: any) => showToast(e?.response?.data?.message || 'Failed to delete', 'error'),
+    });
+
     const deleteDeductionMutation = useMutation({
         mutationFn: async (id: string) => (await api.delete(`/payroll/deductions/${id}`)).data,
         onSuccess: () => {
@@ -425,6 +489,7 @@ const PayrollPage: React.FC = () => {
                     { id: 'runs' as Tab, label: 'Payroll Runs', icon: Calculator },
                     { id: 'periods' as Tab, label: 'Periods', icon: Calendar },
                     { id: 'rates' as Tab, label: 'Statutory Rates', icon: TrendingUp },
+                    { id: 'deductions' as Tab, label: 'Deductions', icon: Receipt },
                 ]).map(t => {
                     const Icon = t.icon;
                     return (
@@ -944,6 +1009,282 @@ const PayrollPage: React.FC = () => {
                     )}
                 </div>
             )}
+            {/* DEDUCTIONS TAB */}
+            {tab === 'deductions' && (
+                <div className="space-y-4">
+                    {/* Toolbar */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
+                            <div className="relative flex-1 min-w-0">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={globalDeductionSearch}
+                                    onChange={(e) => setGlobalDeductionSearch(e.target.value)}
+                                    placeholder="Search deductions by label, staff name..."
+                                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066B3]/30 focus:border-[#0066B3]"
+                                />
+                            </div>
+                            <div className="relative">
+                                <Filter size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <select
+                                    value={globalDeductionFilter}
+                                    onChange={(e) => setGlobalDeductionFilter(e.target.value)}
+                                    className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]/30 appearance-none cursor-pointer"
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="sacco">SACCO</option>
+                                    <option value="pension">Pension</option>
+                                    <option value="insurance">Insurance</option>
+                                    <option value="union">Union</option>
+                                    <option value="welfare">Welfare</option>
+                                    <option value="garnishment">Garnishment</option>
+                                    <option value="helb">HELB</option>
+                                    <option value="car_loan">Car Loan</option>
+                                    <option value="staff_loan">Staff Loan</option>
+                                    <option value="salary_advance">Salary Advance</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowAddGlobalDeduction(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium hover:bg-[#005299] shadow-sm whitespace-nowrap"
+                        >
+                            <Plus size={16} />Add Deduction
+                        </button>
+                    </div>
+
+                    {/* Deductions Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-white rounded-xl border border-slate-200 p-4">
+                            <p className="text-xs uppercase text-slate-400 font-semibold mb-1">Total Deductions</p>
+                            <p className="text-2xl font-bold text-slate-900">{allDeductions.length}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4">
+                            <p className="text-xs uppercase text-slate-400 font-semibold mb-1">Active</p>
+                            <p className="text-2xl font-bold text-emerald-600">{allDeductions.filter((d: any) => d.is_active).length}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4">
+                            <p className="text-xs uppercase text-slate-400 font-semibold mb-1">Monthly Total</p>
+                            <p className="text-2xl font-bold text-slate-900">{fmtKES(allDeductions.filter((d: any) => d.is_active).reduce((s: number, d: any) => s + Number(d.amount || 0), 0))}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-4">
+                            <p className="text-xs uppercase text-slate-400 font-semibold mb-1">Unique Staff</p>
+                            <p className="text-2xl font-bold text-slate-900">{new Set(allDeductions.map((d: any) => d.staff_id)).size}</p>
+                        </div>
+                    </div>
+
+                    {/* Deductions Table */}
+                    {allDeductionsLoading ? (
+                        <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin text-[#0066B3]" size={28} /></div>
+                    ) : (() => {
+                        const filtered = globalDeductionSearch
+                            ? allDeductions.filter((d: any) =>
+                                d.label?.toLowerCase().includes(globalDeductionSearch.toLowerCase()) ||
+                                d.staff?.first_name?.toLowerCase().includes(globalDeductionSearch.toLowerCase()) ||
+                                d.staff?.last_name?.toLowerCase().includes(globalDeductionSearch.toLowerCase()) ||
+                                d.staff?.employee_number?.toLowerCase().includes(globalDeductionSearch.toLowerCase())
+                            )
+                            : allDeductions;
+                        return filtered.length === 0 ? (
+                            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                                <Receipt className="mx-auto text-slate-300 mb-3" size={48} />
+                                <p className="text-slate-500 font-medium">{globalDeductionSearch ? 'No matching deductions found' : 'No deductions yet'}</p>
+                                <p className="text-sm text-slate-400">Add recurring deductions for staff members.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <table className="w-full">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr className="text-left text-xs font-semibold text-slate-500 uppercase">
+                                            <th className="px-5 py-3">Staff</th>
+                                            <th className="px-5 py-3">Deduction</th>
+                                            <th className="px-5 py-3">Type</th>
+                                            <th className="px-5 py-3 text-right">Amount</th>
+                                            <th className="px-5 py-3">Effective</th>
+                                            <th className="px-5 py-3 text-center">Status</th>
+                                            <th className="px-5 py-3 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {filtered.map((d: any) => (
+                                            <tr key={d.id} className="hover:bg-slate-50">
+                                                <td className="px-5 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#0066B3] to-[#004d88] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                                                            {d.staff ? `${d.staff.first_name?.[0] || ''}${d.staff.last_name?.[0] || ''}`.toUpperCase() : '??'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-slate-900 text-sm">{d.staff ? `${d.staff.first_name} ${d.staff.last_name}` : '—'}</p>
+                                                            <p className="text-[11px] text-slate-400">{d.staff?.employee_number || ''}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    <p className="text-sm font-medium text-slate-900">{d.label}</p>
+                                                    {d.notes && <p className="text-[11px] text-slate-400 truncate max-w-[150px]">{d.notes}</p>}
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-slate-100 text-slate-600 uppercase">
+                                                        {d.type?.replace('_', ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-3 text-right font-semibold text-slate-900 text-sm">{fmtKES(d.amount)}</td>
+                                                <td className="px-5 py-3 text-sm text-slate-600">
+                                                    {d.effective_from}{d.effective_to ? ` → ${d.effective_to}` : ' → ongoing'}
+                                                </td>
+                                                <td className="px-5 py-3 text-center">
+                                                    <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${d.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {d.is_active ? 'Active' : 'Ended'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-3 text-right">
+                                                    <button
+                                                        onClick={() => { if (confirm('Delete this deduction?')) deleteGlobalDeductionMutation.mutate(d.id); }}
+                                                        className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-colors"
+                                                        title="Delete deduction"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
+                    })()}
+                </div>
+            )}
+
+            {/* ─── Add Global Deduction Modal ─── */}
+            {showAddGlobalDeduction && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Receipt size={18} className="text-[#0066B3]" />Add Recurring Deduction</h2>
+                            <button onClick={() => setShowAddGlobalDeduction(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Staff Member *</label>
+                                <select
+                                    value={globalDeductionForm.staff_id}
+                                    onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, staff_id: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                >
+                                    <option value="">— Select staff member —</option>
+                                    {staffList.filter((s: any) => s.status === 'active').map((s: any) => (
+                                        <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s.employee_number})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Label *</label>
+                                    <input
+                                        type="text"
+                                        value={globalDeductionForm.label}
+                                        onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, label: e.target.value })}
+                                        placeholder="e.g., HELB Loan Repayment"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                                    <select
+                                        value={globalDeductionForm.type}
+                                        onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, type: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    >
+                                        <option value="sacco">SACCO</option>
+                                        <option value="pension">Pension</option>
+                                        <option value="insurance">Insurance</option>
+                                        <option value="union">Union</option>
+                                        <option value="welfare">Welfare</option>
+                                        <option value="garnishment">Garnishment</option>
+                                        <option value="helb">HELB</option>
+                                        <option value="car_loan">Car Loan</option>
+                                        <option value="staff_loan">Staff Loan</option>
+                                        <option value="salary_advance">Salary Advance</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount (KES) *</label>
+                                    <input
+                                        type="number"
+                                        value={globalDeductionForm.amount}
+                                        onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, amount: e.target.value })}
+                                        placeholder="0"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    />
+                                </div>
+                                <div className="flex items-end pb-1">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={globalDeductionForm.tax_relievable}
+                                            onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, tax_relievable: e.target.checked })}
+                                            className="w-4 h-4 rounded border-slate-300 text-[#0066B3] focus:ring-[#0066B3]"
+                                        />
+                                        <span className="text-sm text-slate-700">Tax Relievable</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Effective From *</label>
+                                    <input
+                                        type="date"
+                                        value={globalDeductionForm.effective_from}
+                                        onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, effective_from: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Effective To <span className="text-slate-400">(optional)</span></label>
+                                    <input
+                                        type="date"
+                                        value={globalDeductionForm.effective_to}
+                                        onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, effective_to: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                                <textarea
+                                    value={globalDeductionForm.notes}
+                                    onChange={(e) => setGlobalDeductionForm({ ...globalDeductionForm, notes: e.target.value })}
+                                    rows={2}
+                                    placeholder="Optional notes..."
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0066B3]"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                            <button onClick={() => setShowAddGlobalDeduction(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm">Cancel</button>
+                            <button
+                                onClick={() => addGlobalDeductionMutation.mutate({
+                                    ...globalDeductionForm,
+                                    amount: Number(globalDeductionForm.amount),
+                                    effective_to: globalDeductionForm.effective_to || undefined,
+                                    notes: globalDeductionForm.notes || undefined,
+                                })}
+                                disabled={!globalDeductionForm.staff_id || !globalDeductionForm.label || !globalDeductionForm.amount || addGlobalDeductionMutation.isPending}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0066B3] text-white rounded-lg font-medium text-sm hover:bg-[#005299] disabled:opacity-50"
+                            >
+                                {addGlobalDeductionMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                                Add Deduction
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Edit Period Modal ─── */}
             {editPeriod && (
@@ -1130,7 +1471,33 @@ const PayrollPage: React.FC = () => {
                                     <FileText className="mx-auto text-slate-300 mb-2" size={40} />
                                     <p className="text-slate-500 text-sm">No payslips yet. Calculate the run to generate them.</p>
                                 </div>
-                            ) : (
+                            ) : (() => {
+                                const filteredPayslips = payslipSearch
+                                    ? payslips.filter(p =>
+                                        p.full_name_snapshot?.toLowerCase().includes(payslipSearch.toLowerCase()) ||
+                                        p.employee_number_snapshot?.toLowerCase().includes(payslipSearch.toLowerCase()) ||
+                                        p.position_snapshot?.toLowerCase().includes(payslipSearch.toLowerCase())
+                                    )
+                                    : payslips;
+                                return (
+                                <>
+                                {/* Search bar */}
+                                <div className="mb-3 relative">
+                                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        value={payslipSearch}
+                                        onChange={(e) => setPayslipSearch(e.target.value)}
+                                        placeholder="Search by name, employee number, or position..."
+                                        className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066B3]/30 focus:border-[#0066B3]"
+                                    />
+                                    {payslipSearch && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                            <span className="text-[11px] text-slate-400 font-medium">{filteredPayslips.length} of {payslips.length}</span>
+                                            <button onClick={() => setPayslipSearch('')} className="p-0.5 hover:bg-slate-200 rounded text-slate-400"><X size={14} /></button>
+                                        </div>
+                                    )}
+                                </div>
                                 <table className="w-full text-sm">
                                     <thead className="text-xs font-semibold text-slate-500 uppercase bg-slate-50">
                                         <tr>
@@ -1142,7 +1509,7 @@ const PayrollPage: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {payslips.map(p => (
+                                        {filteredPayslips.map(p => (
                                             <tr key={p.id} className="hover:bg-blue-50/40 transition-colors group">
                                                 <td className="px-3 py-3">
                                                     <div className="flex items-center gap-2">
@@ -1186,7 +1553,8 @@ const PayrollPage: React.FC = () => {
                                         ))}
                                     </tbody>
                                 </table>
-                            )}
+                                </>);
+                            })()}
                         </div>
                     </div>
                 </div>

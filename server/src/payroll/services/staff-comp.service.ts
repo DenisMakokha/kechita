@@ -42,6 +42,16 @@ export class StaffCompService {
         return this.deductionRepo.find({ where: { staff_id: staffId }, order: { effective_from: 'DESC' } });
     }
 
+    async listAllDeductions(filters?: { type?: string }): Promise<StaffRecurringDeduction[]> {
+        const qb = this.deductionRepo.createQueryBuilder('d')
+            .leftJoinAndSelect('d.staff', 'staff')
+            .orderBy('d.created_at', 'DESC');
+        if (filters?.type) {
+            qb.andWhere('d.type = :type', { type: filters.type });
+        }
+        return qb.getMany();
+    }
+
     async createDeduction(dto: CreateDeductionDto): Promise<StaffRecurringDeduction> {
         const d = this.deductionRepo.create(dto);
         return this.deductionRepo.save(d);
