@@ -310,4 +310,12 @@ export class Staff {
         return this.probation_status === ProbationStatus.IN_PROGRESS ||
             this.probation_status === ProbationStatus.EXTENDED;
     }
+
+    toJSON() {
+        return {
+            ...this,
+            full_name: this.full_name,
+            is_probationary: this.is_probationary,
+        };
+    }
 }

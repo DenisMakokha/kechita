@@ -179,4 +179,11 @@ export class Candidate {
     get full_name(): string {
         return `${this.first_name} ${this.last_name}`;
     }
+
+    toJSON() {
+        return {
+            ...this,
+            full_name: this.full_name,
+        };
+    }
 }
