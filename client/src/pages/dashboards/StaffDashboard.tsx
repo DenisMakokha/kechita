@@ -65,7 +65,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
                 <div className="space-y-1">
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
                     <div className="flex items-baseline gap-2 mt-1">
-                        <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">{value}</p>
+                        <p className="text-2xl font-bold text-slate-900 tracking-tight leading-none">{value}</p>
                         {trend && (
                             <span className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                                 trend.positive ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'

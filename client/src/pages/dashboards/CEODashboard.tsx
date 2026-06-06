@@ -37,7 +37,7 @@ const GlassStatCard: React.FC<GlassStatCardProps> = ({ title, value, subtitle, t
             <div>
                 <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest opacity-80">{title}</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                    <p className="text-2xl font-black text-white tracking-tight leading-none">{value}</p>
+                    <p className="text-2xl font-bold text-white tracking-tight leading-none">{value}</p>
                     {trend && trend.value !== 0 && (
                         <span className="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/25 text-white select-none">
                             {trend.positive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
@@ -72,7 +72,7 @@ const OperationalCard: React.FC<OperationalCardProps> = ({ title, value, subtitl
         >
             <div className="space-y-1 truncate pr-2">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{title}</p>
-                <p className="text-2xl font-black text-slate-900 tracking-tight leading-none mt-2">{value}</p>
+                <p className="text-2xl font-bold text-slate-900 tracking-tight leading-none mt-2">{value}</p>
                 {subtitle && (
                     <p className="text-[10px] text-slate-450 font-semibold truncate mt-2 select-none">
                         {subtitle}
@@ -332,7 +332,7 @@ export const CEODashboard: React.FC = () => {
             {/* Header / Top Panel */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-2">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Executive Dashboard</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Executive Dashboard</h1>
                     <p className="text-sm font-semibold text-slate-500 mt-0.5">Company-wide performance and insights</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -346,7 +346,7 @@ export const CEODashboard: React.FC = () => {
                         <Clock size={14} />
                         <span>Approvals</span>
                         {pendingApprovals?.length > 0 && (
-                            <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black">{pendingApprovals.length}</span>
+                            <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-bold">{pendingApprovals.length}</span>
                         )}
                     </Link>
                     <button
@@ -391,10 +391,10 @@ export const CEODashboard: React.FC = () => {
                 <div className="absolute inset-0 bg-radial-gradient from-white/10 to-transparent pointer-events-none opacity-30"></div>
                 
                 <div className="flex items-center justify-between pb-4 border-b border-white/20 mb-6 relative z-10">
-                    <h2 className="text-base font-extrabold flex items-center gap-2 tracking-tight">
+                    <h2 className="text-base font-bold flex items-center gap-2 tracking-tight">
                         <BarChart3 size={18} /> Monthly Performance Overview
                     </h2>
-                    <span className="text-xs font-black bg-white/20 border border-white/10 px-3.5 py-1 rounded-full uppercase tracking-wider select-none">
+                    <span className="text-xs font-bold bg-white/20 border border-white/10 px-3.5 py-1 rounded-full uppercase tracking-wider select-none">
                         {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
                 </div>
@@ -643,22 +643,22 @@ export const CEODashboard: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4 flex-1 py-1">
                         <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
-                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Balance</p>
-                            <p className="text-lg font-black text-slate-900 mt-1">KES {((pettyCashStats?.total_balance || 0) / 1000).toFixed(0)}K</p>
-                        </div>
-                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
-                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Floats</p>
-                            <p className="text-lg font-black text-slate-900 mt-1">{pettyCashStats?.total_floats || 0}</p>
-                        </div>
-                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
-                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Expenses</p>
-                            <p className="text-lg font-black text-slate-900 mt-1">KES {((pettyCashStats?.total_expenses_this_month || 0) / 1000).toFixed(0)}K</p>
-                        </div>
-                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
-                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Pending</p>
-                            <p className="text-lg font-black text-slate-900 mt-1">{pettyCashStats?.pending_replenishments || 0}</p>
-                        </div>
-                    </div>
+                             <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Balance</p>
+                             <p className="text-lg font-bold text-slate-900 mt-1">KES {((pettyCashStats?.total_balance || 0) / 1000).toFixed(0)}K</p>
+                         </div>
+                         <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                             <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Floats</p>
+                             <p className="text-lg font-bold text-slate-900 mt-1">{pettyCashStats?.total_floats || 0}</p>
+                         </div>
+                         <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                             <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Expenses</p>
+                             <p className="text-lg font-bold text-slate-900 mt-1">KES {((pettyCashStats?.total_expenses_this_month || 0) / 1000).toFixed(0)}K</p>
+                         </div>
+                         <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                             <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Pending</p>
+                             <p className="text-lg font-bold text-slate-900 mt-1">{pettyCashStats?.pending_replenishments || 0}</p>
+                         </div>
+                     </div>
                 </div>
 
                 {/* Column 3: Risk Alerts */}
@@ -670,7 +670,7 @@ export const CEODashboard: React.FC = () => {
                             </div>
                             <h3 className="text-base font-bold text-slate-900 tracking-tight">Risk Alerts</h3>
                         </div>
-                        <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-750 text-[10px] font-black rounded-full shadow-sm select-none">
+                        <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-750 text-[10px] font-bold rounded-full shadow-sm select-none">
                             {riskAlerts.length} Active
                         </span>
                     </div>

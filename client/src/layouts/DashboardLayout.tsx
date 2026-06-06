@@ -144,7 +144,7 @@ export const DashboardLayout: React.FC = () => {
     const mainMargin = sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64';
 
     return (
-        <div className="min-h-screen bg-[#f1f5f9]">
+        <div className="min-h-screen bg-[#f1f5f9] font-sans">
             {/* Search Modal */}
             {showSearch && (
                 <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh]">
