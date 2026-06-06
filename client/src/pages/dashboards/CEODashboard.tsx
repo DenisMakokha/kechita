@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import {
-    TrendingUp,
-    TrendingDown,
-    Users,
     DollarSign,
     AlertTriangle,
     CheckCircle,
     Clock,
     ChevronRight,
     BarChart3,
-    PieChart,
     ArrowUpRight,
     ArrowDownRight,
     AlertCircle,
-    MapPin,
     RefreshCw,
     Download,
     Briefcase,
@@ -25,48 +20,136 @@ import {
     ScrollText,
     ClipboardList,
     Calendar,
-    UserCheck,
+    Users,
+    X,
 } from 'lucide-react';
 
-interface StatCardProps {
+interface GlassStatCardProps {
+    title: string;
+    value: string | number;
+    subtitle?: string;
+    trend?: { value: number; positive: boolean };
+}
+
+const GlassStatCard: React.FC<GlassStatCardProps> = ({ title, value, subtitle, trend }) => {
+    return (
+        <div className="bg-white/12 backdrop-blur-md border border-white/20 rounded-2xl p-6 md:p-7 min-h-[165px] hover:bg-white/18 hover:border-white/25 transition-all duration-200 flex flex-col justify-between group h-full">
+            <div>
+                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest opacity-80">{title}</p>
+                <div className="flex items-baseline gap-2 mt-2">
+                    <p className="text-2xl font-black text-white tracking-tight leading-none">{value}</p>
+                    {trend && trend.value !== 0 && (
+                        <span className="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/25 text-white select-none">
+                            {trend.positive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                            {Math.abs(trend.value)}%
+                        </span>
+                    )}
+                </div>
+            </div>
+            {subtitle && (
+                <p className="text-xs text-blue-50/80 mt-4 pt-3 border-t border-white/10 font-semibold truncate">
+                    {subtitle}
+                </p>
+            )}
+        </div>
+    );
+};
+
+interface OperationalCardProps {
     title: string;
     value: string | number;
     subtitle?: string;
     icon: React.ReactNode;
-    color: string;
-    trend?: { value: number; positive: boolean };
-    link?: string;
+    iconBg: string;
+    link: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color, trend, link }) => {
-    const content = (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all hover:scale-[1.02]">
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-sm font-medium text-slate-500">{title}</p>
-                    <div className="flex items-end gap-2">
-                        <p className="text-3xl font-bold text-slate-900 mt-1">{value}</p>
-                        {trend && (
-                            <span className={`flex items-center text-xs font-medium mb-1 ${trend.positive ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {trend.positive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                                {trend.value}%
-                            </span>
-                        )}
-                    </div>
-                    {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
-                </div>
-                <div className={`p-3 rounded-xl ${color}`}>{icon}</div>
+const OperationalCard: React.FC<OperationalCardProps> = ({ title, value, subtitle, icon, iconBg, link }) => {
+    return (
+        <Link 
+            to={link}
+            className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-100/40 p-6 md:p-7 min-h-[135px] hover:border-slate-300 hover:shadow-md hover:scale-[1.01] transition-all duration-200 group flex items-center justify-between"
+        >
+            <div className="space-y-1 truncate pr-2">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{title}</p>
+                <p className="text-2xl font-black text-slate-900 tracking-tight leading-none mt-2">{value}</p>
+                {subtitle && (
+                    <p className="text-[10px] text-slate-450 font-semibold truncate mt-2 select-none">
+                        {subtitle}
+                    </p>
+                )}
             </div>
-        </div>
+            <div className={`p-4 rounded-2xl ${iconBg} text-white shrink-0 shadow-sm transition-transform duration-250 group-hover:scale-105 group-hover:rotate-3`}>
+                {icon}
+            </div>
+        </Link>
     );
-
-    return link ? <Link to={link}>{content}</Link> : content;
 };
 
 export const CEODashboard: React.FC = () => {
     const queryClient = useQueryClient();
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+
+    const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+    const [rejectingId, setRejectingId] = useState<string | null>(null);
+    const [rejectComment, setRejectComment] = useState('');
+
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 3000);
+    };
+
+    // Quick approve mutation
+    const approveMutation = useMutation({
+        mutationFn: async ({ id, comment }: { id: string; comment?: string }) => {
+            return api.post(`/approvals/instances/${id}/approve`, { comment });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['ceo-dashboard'] });
+            showToast('Request approved successfully!');
+        },
+        onError: (err: any) => {
+            showToast(err?.response?.data?.message || 'Failed to approve request', 'error');
+        },
+    });
+
+    // Quick reject mutation
+    const rejectMutation = useMutation({
+        mutationFn: async ({ id, comment }: { id: string; comment: string }) => {
+            return api.post(`/approvals/instances/${id}/reject`, { comment });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['ceo-dashboard'] });
+            setRejectingId(null);
+            setRejectComment('');
+            showToast('Request rejected successfully');
+        },
+        onError: (err: any) => {
+            showToast(err?.response?.data?.message || 'Failed to reject request', 'error');
+        },
+    });
+
+    const handleQuickApprove = (id: string) => {
+        approveMutation.mutate({ id });
+    };
+
+    const startQuickReject = (id: string) => {
+        setRejectingId(id);
+        setRejectComment('');
+    };
+
+    const handleQuickReject = (id: string) => {
+        if (!rejectComment.trim()) return;
+        rejectMutation.mutate({ id, comment: rejectComment });
+    };
+
+    const cancelReject = () => {
+        setRejectingId(null);
+        setRejectComment('');
+    };
 
     // Fetch CEO dashboard data
     const { data: dashboard, isLoading, error, refetch } = useQuery({
@@ -85,7 +168,6 @@ export const CEODashboard: React.FC = () => {
         queryKey: ['pending-approvals'],
         queryFn: async () => {
             const response = await api.get('/approvals/pending');
-            console.log('[DEBUG CEO] Pending approvals raw:', response.data);
             return response.data;
         },
     });
@@ -94,8 +176,6 @@ export const CEODashboard: React.FC = () => {
     const pendingApprovals = Array.isArray(pendingApprovalsRaw)
         ? pendingApprovalsRaw
         : (pendingApprovalsRaw as any)?.data || [];
-
-    console.log('[DEBUG CEO] Processed pendingApprovals:', pendingApprovals?.length || 0);
 
     // Fetch recruitment stats
     const { data: recruitmentStats } = useQuery({
@@ -181,13 +261,20 @@ export const CEODashboard: React.FC = () => {
         }
     };
 
+    // Format currency dynamically
+    const formatAmount = (val: number) => {
+        if (val >= 1000000) return `KES ${(val / 1000000).toFixed(1)}M`;
+        if (val >= 1000) return `KES ${(val / 1000).toFixed(0)}K`;
+        return `KES ${val}`;
+    };
+
     // Loading state
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0066B3] mx-auto"></div>
-                    <p className="mt-4 text-slate-500">Loading dashboard data...</p>
+            <div className="flex items-center justify-center min-h-[450px]">
+                <div className="text-center space-y-4">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#0066B3] mx-auto"></div>
+                    <p className="text-sm font-semibold text-slate-500 tracking-wide">Loading executive insights...</p>
                 </div>
             </div>
         );
@@ -196,16 +283,20 @@ export const CEODashboard: React.FC = () => {
     // Error state
     if (error) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
-                    <p className="text-lg font-medium text-slate-900">Failed to load dashboard</p>
-                    <p className="text-sm text-slate-500 mt-1">Please try again later</p>
+            <div className="flex items-center justify-center min-h-[450px]">
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-md text-center max-w-md space-y-4">
+                    <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto text-red-500">
+                        <AlertCircle size={28} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900">Failed to load dashboard</h3>
+                        <p className="text-sm text-slate-500 mt-1">We couldn't retrieve the report summary at this time.</p>
+                    </div>
                     <button
                         onClick={() => refetch()}
-                        className="mt-4 px-4 py-2 bg-[#0066B3] text-white rounded-lg hover:bg-[#005599] transition-colors"
+                        className="w-full py-3 bg-gradient-to-r from-[#005599] to-[#0066B3] hover:from-[#0066B3] hover:to-[#0077cc] text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95 cursor-pointer"
                     >
-                        Retry
+                        Retry Connection
                     </button>
                 </div>
             </div>
@@ -213,7 +304,6 @@ export const CEODashboard: React.FC = () => {
     }
 
     // Extract data from dashboard response
-    const regions = dashboard?.regionPerformance || [];
     const riskAlerts = dashboard?.riskAlerts || [];
     const trends = dashboard?.trends || { disbursedChange: 0, recoveriesChange: 0, newLoansChange: 0, parChange: 0 };
     const staffStats = dashboard?.staffStats || { total: 0, active: 0, onLeave: 0, onboarding: 0, probation: 0 };
@@ -223,54 +313,71 @@ export const CEODashboard: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                        Executive Dashboard
-                    </h1>
-                    <p className="text-slate-500">
-                        Company-wide performance and insights
-                    </p>
+            {/* Toast Notification */}
+            {toastMessage && (
+                <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+                    <div className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${
+                        toastMessage.type === 'success' ? 'bg-slate-900 text-white font-semibold' : 'bg-red-650 text-white font-semibold'
+                    }`}>
+                        {toastMessage.type === 'success' ? (
+                            <CheckCircle size={18} className="text-emerald-400" />
+                        ) : (
+                            <AlertCircle size={18} className="text-white" />
+                        )}
+                        <span className="text-xs">{toastMessage.text}</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500 hidden md:block">
+            )}
+
+            {/* Header / Top Panel */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-2">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Executive Dashboard</h1>
+                    <p className="text-sm font-semibold text-slate-500 mt-0.5">Company-wide performance and insights</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100/80 px-3.5 py-2 rounded-xl hidden md:inline-block border border-slate-200/50">
                         {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
                     <Link
                         to="/approvals"
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg hover:from-amber-600 hover:to-orange-700 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition-all shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer"
                     >
-                        <Clock size={16} />
-                        Approvals {pendingApprovals?.length > 0 && <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded-full text-xs">{pendingApprovals.length}</span>}
+                        <Clock size={14} />
+                        <span>Approvals</span>
+                        {pendingApprovals?.length > 0 && (
+                            <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black">{pendingApprovals.length}</span>
+                        )}
                     </Link>
                     <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
                     >
-                        <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+                        <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
                         Refresh
                     </button>
                     <div className="relative group">
                         <button
                             disabled={isExporting}
-                            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-[#0066B3] rounded-lg hover:bg-[#005599] transition-colors disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-[#0066B3] hover:bg-[#005599] rounded-xl transition-all shadow-sm hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer"
                         >
-                            <Download size={16} />
+                            <Download size={14} />
                             Export
                         </button>
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                        <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 py-1.5">
                             <button
                                 onClick={handleExportExcel}
-                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-t-lg"
+                                className="w-full px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                             >
+                                <FileText size={13} className="text-[#0066B3]" />
                                 Export to Excel
                             </button>
                             <button
                                 onClick={handleExportPdf}
-                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-b-lg"
+                                className="w-full px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                             >
+                                <FileText size={13} className="text-red-500" />
                                 Export to PDF
                             </button>
                         </div>
@@ -278,315 +385,329 @@ export const CEODashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Executive Summary Bar */}
-            <div className="bg-gradient-to-br from-[#0066B3] via-[#0088E0] to-[#00AEEF] rounded-2xl p-6 text-white shadow-xl shadow-blue-500/20">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <BarChart3 size={24} />
-                        Monthly Performance Overview
+            {/* Monthly Performance Overview Blue Banner */}
+            <div className="bg-gradient-to-r from-[#0066B3] to-[#00AEEF] rounded-3xl p-6 text-white shadow-lg shadow-blue-500/15 relative overflow-hidden">
+                {/* Dynamic radial gradient for highlights */}
+                <div className="absolute inset-0 bg-radial-gradient from-white/10 to-transparent pointer-events-none opacity-30"></div>
+                
+                <div className="flex items-center justify-between pb-4 border-b border-white/20 mb-6 relative z-10">
+                    <h2 className="text-base font-extrabold flex items-center gap-2 tracking-tight">
+                        <BarChart3 size={18} /> Monthly Performance Overview
                     </h2>
-                    <span className="text-sm text-blue-200">
-                        {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                    <span className="text-xs font-black bg-white/20 border border-white/10 px-3.5 py-1 rounded-full uppercase tracking-wider select-none">
+                        {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
-                        <p className="text-white text-sm font-medium">Total Disbursed</p>
-                        <p className="text-2xl font-bold mt-1 text-white">
-                            KES {((dashboard?.totalDisbursed || 0) / 1000000).toFixed(1)}M
-                        </p>
-                        <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trends.disbursedChange >= 0 ? 'text-emerald-200' : 'text-red-200'}`}>
-                            {trends.disbursedChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                            <span>{trends.disbursedChange >= 0 ? '+' : ''}{trends.disbursedChange}% from last month</span>
-                        </div>
-                    </div>
-                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
-                        <p className="text-white text-sm font-medium">Total Collections</p>
-                        <p className="text-2xl font-bold mt-1 text-white">
-                            KES {((dashboard?.totalRecoveries || 0) / 1000000).toFixed(1)}M
-                        </p>
-                        <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trends.recoveriesChange >= 0 ? 'text-emerald-200' : 'text-red-200'}`}>
-                            {trends.recoveriesChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                            <span>{trends.recoveriesChange >= 0 ? '+' : ''}{trends.recoveriesChange}% from last month</span>
-                        </div>
-                    </div>
-                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
-                        <p className="text-white text-sm font-medium">New Loans</p>
-                        <p className="text-2xl font-bold mt-1 text-white">{dashboard?.totalNewLoans || 0}</p>
-                        <div className="flex items-center gap-1 mt-2 text-white/80 text-xs">
-                            <span>{dashboard?.reportCount || 0} branches reporting</span>
-                        </div>
-                    </div>
-                    <div className="bg-white/25 backdrop-blur rounded-xl p-4 border border-white/30">
-                        <p className="text-white text-sm font-medium">Portfolio at Risk (PAR)</p>
-                        <p className={`text-2xl font-bold mt-1 ${(dashboard?.avgPAR || 0) > 5 ? 'text-red-200' : 'text-emerald-200'}`}>
-                            {(dashboard?.avgPAR || 0).toFixed(2)}%
-                        </p>
-                        <div className="flex items-center gap-1 mt-2 text-xs font-medium">
-                            {(dashboard?.avgPAR || 0) > 5 ? (
-                                <span className="text-red-200 flex items-center gap-1">
-                                    <AlertTriangle size={12} /> Above threshold
-                                </span>
-                            ) : (
-                                <span className="text-emerald-200 flex items-center gap-1">
-                                    <CheckCircle size={12} /> Within target
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 relative z-10">
+                    <GlassStatCard
+                        title="Total Disbursed"
+                        value={`KES ${((dashboard?.totalDisbursed || 0) / 1000000).toFixed(1)}M`}
+                        subtitle={`${dashboard?.reportCount || 0} reports compiled this month`}
+                        trend={{ value: trends.disbursedChange, positive: trends.disbursedChange >= 0 }}
+                    />
+                    <GlassStatCard
+                        title="Total Collections"
+                        value={`KES ${((dashboard?.totalRecoveries || 0) / 1000000).toFixed(1)}M`}
+                        subtitle="Payments collected MTD"
+                        trend={{ value: trends.recoveriesChange, positive: trends.recoveriesChange >= 0 }}
+                    />
+                    <GlassStatCard
+                        title="New Loans"
+                        value={dashboard?.totalNewLoans || 0}
+                        subtitle={`${dashboard?.reportCount || 0} reports compiled`}
+                        trend={{ value: trends.newLoansChange, positive: trends.newLoansChange >= 0 }}
+                    />
+                    <GlassStatCard
+                        title="Portfolio at Risk (PAR)"
+                        value={`${(dashboard?.avgPAR || 0).toFixed(2)}%`}
+                        subtitle={(dashboard?.avgPAR || 0) > 5 ? "Arrears above threshold" : "Collections within target"}
+                    />
                 </div>
             </div>
 
-            {/* Key Metrics */}
+            {/* Operational 8-Card Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <StatCard
+                <OperationalCard
                     title="Pending Approvals"
                     value={pendingApprovals?.length || 0}
                     subtitle="Awaiting your decision"
-                    icon={<Clock className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-amber-500 to-orange-600"
+                    icon={<Clock size={20} className="text-white" />}
+                    iconBg="bg-[#ff7700]"
                     link="/approvals"
                 />
-                <StatCard
+                <OperationalCard
                     title="Total Staff"
-                    value={staffStats.total || '--'}
+                    value={staffStats.total}
                     subtitle={`${staffStats.active} active, ${staffStats.onLeave} on leave`}
-                    icon={<Users className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-cyan-400 to-blue-600"
+                    icon={<Users size={20} className="text-white" />}
+                    iconBg="bg-[#00aeef]"
                     link="/staff-management"
                 />
-                <StatCard
+                <OperationalCard
                     title="Outstanding Loans"
-                    value={`KES ${((loanStats.totalOutstanding || 0) / 1000000).toFixed(1)}M`}
+                    value={formatAmount(loanStats.totalOutstanding || 0)}
                     subtitle={`${loanStats.active || 0} active loans`}
-                    icon={<DollarSign className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-emerald-400 to-teal-600"
+                    icon={<DollarSign size={20} className="text-white" />}
+                    iconBg="bg-[#00b074]"
                     link="/loans"
                 />
-                <StatCard
+                <OperationalCard
                     title="Open Positions"
-                    value={recruitmentStats?.openPositions || 0}
-                    subtitle={`${recruitmentStats?.applicationsThisMonth || 0} new applications`}
-                    icon={<Briefcase className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-[#0066B3] to-[#00AEEF]"
+                    value={recruitmentStats?.activeJobs || recruitmentStats?.openPositions || 0}
+                    subtitle={`${recruitmentStats?.totalApplications || 0} total applications`}
+                    icon={<Briefcase size={20} className="text-white" />}
+                    iconBg="bg-[#0066b3]"
                     link="/recruitment"
                 />
-            </div>
-
-            {/* Secondary Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <StatCard
+                <OperationalCard
                     title="Leave Requests"
-                    value={leaveStats.pending || 0}
-                    subtitle={`${leaveStats.approved || 0} approved this month`}
-                    icon={<Calendar className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-violet-500 to-purple-600"
+                    value={leaveStats.pending}
+                    subtitle={`${leaveStats.approved} approved this month`}
+                    icon={<Calendar size={20} className="text-white" />}
+                    iconBg="bg-[#8f39fa]"
                     link="/leave-management"
                 />
-                <StatCard
+                <OperationalCard
                     title="Expense Claims"
-                    value={claimsStats.pendingCount || 0}
-                    subtitle={`KES ${((claimsStats.pendingAmount || 0) / 1000).toFixed(0)}K pending`}
-                    icon={<FileText className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-rose-500 to-pink-600"
+                    value={claimsStats.pending || claimsStats.pendingCount || 0}
+                    subtitle={`KES ${((claimsStats?.pendingAmount || claimsStats?.totalAmount || 0) / 1000).toFixed(0)}K pending`}
+                    icon={<FileText size={20} className="text-white" />}
+                    iconBg="bg-[#f42b6b]"
                     link="/claims"
                 />
-                <StatCard
+                <OperationalCard
                     title="Onboarding"
-                    value={staffStats.onboarding || 0}
+                    value={onboardingStats?.activeCount || onboardingStats?.inProgress || 0}
                     subtitle={`${staffStats.probation || 0} on probation`}
-                    icon={<UserCheck className="text-white" size={24} />}
-                    color="bg-gradient-to-br from-teal-500 to-cyan-600"
-                    link="/onboarding"
+                    icon={<ClipboardList size={20} className="text-white" />}
+                    iconBg="bg-[#00a896]"
+                    link="/staff-management"
                 />
-                <StatCard
+                <OperationalCard
                     title="Expiring Contracts"
                     value={expiringContracts?.length || 0}
-                    subtitle="Within 30 days"
-                    icon={<AlertTriangle className="text-white" size={24} />}
-                    color={expiringContracts?.length > 0 ? "bg-gradient-to-br from-red-500 to-red-600" : "bg-gradient-to-br from-slate-500 to-slate-600"}
-                    link="/staff-management"
+                    subtitle="Expiring within 30 days"
+                    icon={<ScrollText size={20} className="text-white" />}
+                    iconBg="bg-[#5c6f84]"
+                    link="/hr-admin"
                 />
             </div>
 
-            {/* Main Content */}
+            {/* Bottom 3-Column Structured Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Regional Performance */}
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                        <h3 className="text-lg font-semibold text-slate-900">Regional Performance</h3>
-                        <Link to="/reports" className="text-sm text-[#0066B3] hover:text-[#005599] font-medium flex items-center gap-1">
-                            View details <ChevronRight size={16} />
+                {/* Column 1: Action List */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm shadow-slate-100 p-7 min-h-[460px] flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-500 shadow-sm">
+                                <Clock size={15} />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 tracking-tight">Action List</h3>
+                        </div>
+                        <Link to="/approvals" className="text-xs font-bold text-[#0066B3] hover:text-[#005599] bg-blue-50 hover:bg-blue-100/80 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:scale-[1.02] active:scale-95">
+                            Manage <ChevronRight size={13} />
                         </Link>
                     </div>
-                    {regions.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <PieChart className="mx-auto text-slate-300 mb-4" size={48} />
-                            <p className="text-slate-500">No regional data available</p>
+
+                    {pendingApprovals.length === 0 ? (
+                        <div className="p-8 text-center flex-1 flex flex-col items-center justify-center space-y-3">
+                            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shadow-md">
+                                <CheckCircle size={24} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-slate-900">All Clear!</p>
+                                <p className="text-xs text-slate-500 mt-0.5">No actions pending your approval.</p>
+                            </div>
                         </div>
                     ) : (
-                        <div className="divide-y divide-slate-100">
-                            {regions.map((region: any, idx: number) => (
-                                <div key={idx} className="p-4 hover:bg-slate-50">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-[#00AEEF]/10 flex items-center justify-center">
-                                                <MapPin className="text-[#0066B3]" size={16} />
+                        <div className="divide-y divide-slate-100 overflow-y-auto max-h-[330px] flex-1 pr-1 scrollbar-thin">
+                            {pendingApprovals.slice(0, 4).map((approval: any) => {
+                                const type = approval.targetType || approval.instance?.target_type;
+                                const requesterName = approval.requesterName || approval.instance?.requester?.full_name || 'Staff';
+                                const id = approval.instance?.id;
+
+                                // Determine icon and colors
+                                let icon = <FileText size={14} />;
+                                let iconBg = 'bg-slate-50 text-slate-600 border-slate-100';
+                                let typeLabel = 'Request';
+
+                                if (type === 'leave') {
+                                    icon = <Calendar size={14} />;
+                                    iconBg = 'bg-blue-50 text-blue-600 border-blue-100';
+                                    typeLabel = 'Leave';
+                                } else if (type === 'claim') {
+                                    icon = <DollarSign size={14} />;
+                                    iconBg = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+                                    typeLabel = 'Claim';
+                                } else if (type === 'staff_loan') {
+                                    icon = <Briefcase size={14} />;
+                                    iconBg = 'bg-orange-50 text-orange-600 border-orange-100';
+                                    typeLabel = 'Loan';
+                                } else if (type === 'petty_cash_replenishment') {
+                                    icon = <Wallet size={14} />;
+                                    iconBg = 'bg-purple-50 text-purple-600 border-purple-100';
+                                    typeLabel = 'Petty Cash';
+                                }
+
+                                return (
+                                    <div key={id} className="py-3.5 first:pt-0 last:pb-0 group/item">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3 min-w-0">
+                                                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${iconBg}`}>
+                                                    {icon}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-bold text-slate-900 truncate">
+                                                        {requesterName}
+                                                    </p>
+                                                    <p className="text-[10px] font-semibold text-slate-500 truncate mt-0.5">
+                                                        {typeLabel} · {approval.stepName || 'Pending approval'}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-medium text-slate-900">{region.name}</p>
-                                                <p className="text-xs text-slate-500">{region.branchCount || 0} branches</p>
+
+                                            {/* Inline Approval Action Buttons */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <button
+                                                    onClick={() => handleQuickApprove(id)}
+                                                    title="Approve"
+                                                    className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white border border-emerald-100 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                                                >
+                                                    <CheckCircle size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => startQuickReject(id)}
+                                                    title="Reject"
+                                                    className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-500 text-red-650 hover:text-white border border-red-100 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                                                >
+                                                    <X size={14} />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="font-bold text-slate-900">
-                                                KES {((region.collections || 0) / 1000000).toFixed(2)}M
-                                            </p>
-                                            <p className={`text-xs ${(region.par || 0) > 5 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                PAR: {(region.par || 0).toFixed(1)}%
-                                            </p>
-                                        </div>
+
+                                        {/* Inline Rejection Reason Form */}
+                                        {rejectingId === id && (
+                                            <div className="mt-2.5 bg-slate-50 border border-slate-100 rounded-xl p-2.5 animate-in slide-in-from-top-1 duration-200">
+                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Enter rejection comment:</p>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Reason (required)..."
+                                                        value={rejectComment}
+                                                        onChange={(e) => setRejectComment(e.target.value)}
+                                                        className="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800"
+                                                    />
+                                                    <button
+                                                        onClick={() => handleQuickReject(id)}
+                                                        disabled={!rejectComment.trim()}
+                                                        className="px-3 py-1.5 bg-red-650 text-white rounded-lg text-xs font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                                                    >
+                                                        Reject
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelReject}
+                                                        className="px-2 py-1.5 border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 rounded-lg text-xs font-semibold transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2">
-                                        <div
-                                            className="bg-gradient-to-r from-[#0066B3] to-[#00AEEF] h-2 rounded-full"
-                                            style={{ width: `${Math.min((region.collections || 0) / 10000000 * 100, 100)}%` }}
-                                        />
-                                    </div>
+                                );
+                            })}
+                            {pendingApprovals.length > 4 && (
+                                <div className="pt-3 text-center border-t border-slate-100">
+                                    <Link to="/approvals" className="text-[11px] font-bold text-[#0066B3] hover:text-[#005599] transition-colors">
+                                        + {pendingApprovals.length - 4} more actions pending
+                                    </Link>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Risk Alerts */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                        <h3 className="text-lg font-semibold text-slate-900">Risk Alerts</h3>
-                        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                            {riskAlerts.length}
+                {/* Column 2: Petty Cash */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm shadow-slate-100 p-7 min-h-[460px] flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                                <Wallet size={15} />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 tracking-tight">Petty Cash</h3>
+                        </div>
+                        <Link to="/petty-cash" className="text-xs font-bold text-[#0066B3] hover:text-[#005599] bg-blue-50 hover:bg-blue-100/80 px-3 py-1.5 rounded-lg transition-all hover:scale-[1.02] active:scale-95">
+                            Manage
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 flex-1 py-1">
+                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Balance</p>
+                            <p className="text-lg font-black text-slate-900 mt-1">KES {((pettyCashStats?.total_balance || 0) / 1000).toFixed(0)}K</p>
+                        </div>
+                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Floats</p>
+                            <p className="text-lg font-black text-slate-900 mt-1">{pettyCashStats?.total_floats || 0}</p>
+                        </div>
+                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Expenses</p>
+                            <p className="text-lg font-black text-slate-900 mt-1">KES {((pettyCashStats?.total_expenses_this_month || 0) / 1000).toFixed(0)}K</p>
+                        </div>
+                        <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4.5 flex flex-col justify-center">
+                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Pending</p>
+                            <p className="text-lg font-black text-slate-900 mt-1">{pettyCashStats?.pending_replenishments || 0}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Column 3: Risk Alerts */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm shadow-slate-100 p-7 min-h-[460px] flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-650 shadow-sm">
+                                <AlertTriangle size={15} />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 tracking-tight">Risk Alerts</h3>
+                        </div>
+                        <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-750 text-[10px] font-black rounded-full shadow-sm select-none">
+                            {riskAlerts.length} Active
                         </span>
                     </div>
                     {riskAlerts.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <CheckCircle className="mx-auto text-emerald-500 mb-4" size={48} />
-                            <p className="font-medium text-slate-900">All Clear!</p>
-                            <p className="text-sm text-slate-500">No critical alerts at this time</p>
+                        <div className="p-8 text-center py-12 flex-1 flex flex-col items-center justify-center space-y-3">
+                            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-505 shadow-md">
+                                <CheckCircle size={24} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-slate-900">All Clear!</p>
+                                <p className="text-xs text-slate-500 mt-0.5">No critical alerts detected today.</p>
+                            </div>
                         </div>
                     ) : (
-                        <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
-                            {riskAlerts.map((alert: any, idx: number) => (
-                                <div key={idx} className="p-4 hover:bg-slate-50">
-                                    <div className="flex items-start gap-3">
-                                        <div className={`p-2 rounded-lg ${alert.severity === 'high' ? 'bg-red-100' :
-                                            alert.severity === 'medium' ? 'bg-amber-100' : 'bg-blue-100'
+                        <div className="divide-y divide-slate-100 overflow-y-auto max-h-[300px] flex-1 pr-1 scrollbar-thin">
+                            {riskAlerts.map((alert: any, idx: number) => {
+                                const isHigh = alert.severity === 'high';
+                                const isMedium = alert.severity === 'medium';
+                                return (
+                                    <div key={idx} className="py-3.5 first:pt-0 last:pb-0 hover:bg-slate-50/50 transition-colors">
+                                        <div className="flex items-start gap-3">
+                                            <div className={`p-2 rounded-xl border shrink-0 shadow-sm ${
+                                                isHigh ? 'bg-red-50 border-red-100 text-red-600' :
+                                                isMedium ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-blue-50 border-blue-100 text-blue-600'
                                             }`}>
-                                            <AlertCircle className={`${alert.severity === 'high' ? 'text-red-600' :
-                                                alert.severity === 'medium' ? 'text-amber-600' : 'text-blue-600'
-                                                }`} size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-900">{alert.type}</p>
-                                            <p className="text-xs text-slate-500 mt-0.5">{alert.message}</p>
+                                                <AlertCircle size={14} />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-xs font-bold text-slate-955">{alert.type}</p>
+                                                <p className="text-[11px] font-semibold text-slate-500 leading-snug">{alert.message}</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
-                </div>
-            </div>
-
-            {/* Operational Alerts Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Petty Cash */}
-                <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl p-5 text-white">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2"><Wallet size={18} /> Petty Cash</h3>
-                        <Link to="/petty-cash" className="text-xs text-purple-200 hover:text-white">Manage</Link>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-purple-200 text-xs">Total Balance</p><p className="text-xl font-bold">KES {((pettyCashStats?.total_balance || 0) / 1000).toFixed(0)}K</p></div>
-                        <div><p className="text-purple-200 text-xs">Active Floats</p><p className="text-xl font-bold">{pettyCashStats?.total_floats || 0}</p></div>
-                        <div><p className="text-purple-200 text-xs">Month Expenses</p><p className="text-xl font-bold">KES {((pettyCashStats?.total_expenses_this_month || 0) / 1000).toFixed(0)}K</p></div>
-                        <div><p className="text-purple-200 text-xs">Pending Replenish</p><p className="text-xl font-bold">{pettyCashStats?.pending_replenishments || 0}</p></div>
-                    </div>
-                </div>
-
-                {/* Expiring Contracts */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><ScrollText size={18} className="text-amber-600" /> Contract Alerts</h3>
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">{expiringContracts?.length || 0}</span>
-                    </div>
-                    {!expiringContracts || expiringContracts.length === 0 ? (
-                        <div className="text-center py-4"><CheckCircle className="mx-auto text-emerald-500 mb-2" size={32} /><p className="text-sm text-slate-500">No contracts expiring in 30 days</p></div>
-                    ) : (
-                        <div className="space-y-2">
-                            {expiringContracts.slice(0, 4).map((c: any) => (
-                                <div key={c.id} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
-                                    <div><p className="text-sm font-medium text-slate-900">{c.staff?.first_name} {c.staff?.last_name}</p><p className="text-xs text-slate-500">{c.contract_type}</p></div>
-                                    <p className="text-xs font-medium text-amber-600">{c.end_date ? new Date(c.end_date).toLocaleDateString() : '--'}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Onboarding */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-slate-900 flex items-center gap-2"><ClipboardList size={18} className="text-emerald-600" /> Onboarding</h3>
-                        <Link to="/staff-management" className="text-sm text-[#0066B3]">View</Link>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-emerald-50 rounded-lg text-center"><p className="text-2xl font-bold text-emerald-700">{onboardingStats?.activeCount || onboardingStats?.inProgress || 0}</p><p className="text-xs text-emerald-600">In Progress</p></div>
-                        <div className="p-3 bg-amber-50 rounded-lg text-center"><p className="text-2xl font-bold text-amber-700">{onboardingStats?.pendingTasks || 0}</p><p className="text-xs text-amber-600">Pending Tasks</p></div>
-                        <div className="p-3 bg-blue-50 rounded-lg text-center"><p className="text-2xl font-bold text-blue-700">{onboardingStats?.completedThisMonth || 0}</p><p className="text-xs text-blue-600">Completed</p></div>
-                        <div className="p-3 bg-slate-50 rounded-lg text-center"><p className="text-2xl font-bold text-slate-700">{staffStats.probation || 0}</p><p className="text-xs text-slate-600">On Probation</p></div>
-                    </div>
-                </div>
-            </div>
-
-            {/* HR & Staff Loans Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2"><FileText size={18} /> Leave Summary</h3>
-                        <Link to="/leave-management" className="text-xs text-blue-200 hover:text-white">View all</Link>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-blue-200 text-xs">Total Requests</p><p className="text-2xl font-bold">{leaveStats.total}</p></div>
-                        <div><p className="text-blue-200 text-xs">Pending</p><p className="text-2xl font-bold">{leaveStats.pending}</p></div>
-                        <div><p className="text-blue-200 text-xs">Approved</p><p className="text-2xl font-bold">{leaveStats.approved}</p></div>
-                        <div><p className="text-blue-200 text-xs">Days Taken</p><p className="text-2xl font-bold">{leaveStats.totalDays}</p></div>
-                    </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-5 text-white">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2"><Wallet size={18} /> Claims Summary</h3>
-                        <Link to="/claims" className="text-xs text-emerald-200 hover:text-white">View all</Link>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-emerald-200 text-xs">Total Claims</p><p className="text-2xl font-bold">{claimsStats.total}</p></div>
-                        <div><p className="text-emerald-200 text-xs">Pending</p><p className="text-2xl font-bold">{claimsStats.pendingCount}</p></div>
-                        <div><p className="text-emerald-200 text-xs">Total Amount</p><p className="text-lg font-bold">KES {((claimsStats.totalAmount || 0) / 1000).toFixed(0)}K</p></div>
-                        <div><p className="text-emerald-200 text-xs">Approved</p><p className="text-lg font-bold">KES {((claimsStats.approvedAmount || 0) / 1000).toFixed(0)}K</p></div>
-                    </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-[#0066B3] to-[#00AEEF] rounded-xl p-5 text-white">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold flex items-center gap-2"><Briefcase size={18} /> Staff Loans</h3>
-                        <Link to="/loans" className="text-xs text-blue-100 hover:text-white">View all</Link>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-blue-100 text-xs">Total Loans</p><p className="text-2xl font-bold">{loanStats.total}</p></div>
-                        <div><p className="text-blue-100 text-xs">Pending Approval</p><p className="text-2xl font-bold">{loanStats.pending}</p></div>
-                        <div><p className="text-blue-100 text-xs">Disbursed</p><p className="text-lg font-bold">KES {((loanStats.totalDisbursed || 0) / 1000000).toFixed(1)}M</p></div>
-                        <div><p className="text-blue-100 text-xs">Outstanding</p><p className="text-lg font-bold">KES {((loanStats.totalOutstanding || 0) / 1000000).toFixed(1)}M</p></div>
-                    </div>
                 </div>
             </div>
         </div>

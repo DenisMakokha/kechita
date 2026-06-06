@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsEmail, IsNumber, IsBoolean, IsDateString, IsUUID, IsEnum } from 'class-validator';
-import { StaffStatus, Gender } from '../entities/staff.entity';
+import { StaffStatus, Gender, MaritalStatus, Religion, BloodGroup } from '../entities/staff.entity';
 
 export class CreateStaffDto {
     @IsEmail()
@@ -228,12 +228,44 @@ export class UpdateStaffDto {
     gender?: string;
 
     @IsOptional()
-    @IsString()
-    marital_status?: string;
+    @IsEnum(MaritalStatus)
+    marital_status?: MaritalStatus;
+
+    @IsOptional()
+    @IsEnum(Religion)
+    religion?: Religion;
+
+    @IsOptional()
+    @IsEnum(BloodGroup)
+    blood_group?: BloodGroup;
 
     @IsOptional()
     @IsString()
     nationality?: string;
+
+    @IsOptional()
+    @IsString()
+    place_of_birth?: string;
+
+    @IsOptional()
+    @IsString()
+    passport_number?: string;
+
+    @IsOptional()
+    @IsDateString()
+    passport_expiry?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    has_disability?: boolean;
+
+    @IsOptional()
+    @IsString()
+    disability_details?: string;
+
+    @IsOptional()
+    @IsDateString()
+    confirmation_date?: string;
 
     @IsOptional()
     @IsDateString()

@@ -37,28 +37,71 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color, trend, link }) => {
-    const content = (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all hover:scale-[1.02]">
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-sm font-medium text-slate-500">{title}</p>
-                    <div className="flex items-end gap-2">
-                        <p className="text-3xl font-bold text-slate-900 mt-1">{value}</p>
+    // Determine glow shadow and border colors based on the color string
+    const isAmber = color.includes('amber') || color.includes('orange');
+    const isEmerald = color.includes('emerald') || color.includes('teal');
+    const isBlue = color.includes('cyan') || color.includes('blue') || color.includes('#0066B3');
+    const isRose = color.includes('rose') || color.includes('pink') || color.includes('red');
+    const isViolet = color.includes('violet') || color.includes('purple');
+
+    const glowColor = isAmber 
+        ? 'group-hover:shadow-[0_15px_30px_-10px_rgba(245,158,11,0.3)] border-t-amber-500'
+        : isEmerald 
+        ? 'group-hover:shadow-[0_15px_30px_-10px_rgba(16,185,129,0.3)] border-t-emerald-500'
+        : isBlue 
+        ? 'group-hover:shadow-[0_15px_30px_-10px_rgba(0,102,179,0.3)] border-t-[#0066B3]'
+        : isRose 
+        ? 'group-hover:shadow-[0_15px_30px_-10px_rgba(244,63,94,0.3)] border-t-rose-500'
+        : isViolet 
+        ? 'group-hover:shadow-[0_15px_30px_-10px_rgba(139,92,246,0.3)] border-t-violet-500'
+        : 'group-hover:shadow-[0_15px_30px_-10px_rgba(100,116,139,0.3)] border-t-slate-500';
+
+    const iconGlow = isAmber
+        ? 'shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+        : isEmerald
+        ? 'shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+        : isBlue
+        ? 'shadow-[0_0_15px_rgba(0,102,179,0.2)]'
+        : isRose
+        ? 'shadow-[0_0_15px_rgba(244,63,94,0.2)]'
+        : isViolet
+        ? 'shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+        : 'shadow-[0_0_15px_rgba(100,116,139,0.2)]';
+
+    const cardContent = (
+        <div className={`bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/80 p-6 hover:border-slate-300 hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 group ${glowColor} border-t-4 relative overflow-hidden h-full flex flex-col justify-between`}>
+            <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                        <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">{value}</p>
                         {trend && (
-                            <span className={`flex items-center text-xs font-medium mb-1 ${trend.positive ? 'text-emerald-600' : 'text-red-600'}`}>
-                                <ArrowUpRight size={14} className={trend.positive ? '' : 'rotate-180'} />
+                            <span className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                trend.positive ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'
+                            }`}>
+                                <ArrowUpRight size={12} />
                                 {trend.value}%
                             </span>
                         )}
                     </div>
-                    {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
                 </div>
-                <div className={`p-3 rounded-xl ${color}`}>{icon}</div>
+                <div className={`p-3 rounded-xl ${color} text-white shrink-0 ${iconGlow} transition-transform duration-300 group-hover:scale-110`}>
+                    {icon}
+                </div>
             </div>
+            {subtitle && (
+                <p className="text-xs text-slate-500 mt-4 pt-3 border-t border-slate-100 font-medium">
+                    {subtitle}
+                </p>
+            )}
+            {/* Soft background glow ball */}
+            <div className={`absolute -right-8 -bottom-8 w-20 h-20 rounded-full opacity-[0.02] transition-all duration-500 group-hover:scale-150 ${
+                isAmber ? 'bg-amber-500' : isEmerald ? 'bg-emerald-500' : isBlue ? 'bg-[#0066B3]' : isRose ? 'bg-rose-500' : isViolet ? 'bg-violet-500' : 'bg-slate-500'
+            }`} />
         </div>
     );
 
-    return link ? <Link to={link}>{content}</Link> : content;
+    return link ? <Link to={link} className="block h-full">{cardContent}</Link> : cardContent;
 };
 
 export const HRDashboard: React.FC = () => {

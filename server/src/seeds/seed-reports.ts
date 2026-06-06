@@ -88,35 +88,75 @@ async function seed() {
             const daysInMonth = new Date(reportMonth.getFullYear(), reportMonth.getMonth() + 1, 0).getDate();
 
             for (const branchId of branchIds) {
-                // Weekly reports
-                for (let day = 1; day <= daysInMonth; day += 7) {
-                    const reportDate = new Date(reportMonth.getFullYear(), reportMonth.getMonth(), Math.min(day, daysInMonth));
+                if (monthOffset === 0) {
+                    // For the current month, generate daily reports up to today to populate MTD dashboard metrics
+                    const currentDay = today.getDate();
+                    for (let day = 1; day <= currentDay; day++) {
+                        const formatYear = reportMonth.getFullYear();
+                        const formatMonth = String(reportMonth.getMonth() + 1).padStart(2, '0');
+                        const formatDay = String(day).padStart(2, '0');
+                        const reportDateStr = `${formatYear}-${formatMonth}-${formatDay}`;
 
-                    const loansDisbursed = Math.floor(Math.random() * 500000) + 100000;
-                    const recoveries = Math.floor(loansDisbursed * (0.7 + Math.random() * 0.25));
-                    const newLoans = Math.floor(Math.random() * 10) + 5;
-                    const parRatio = Math.random() * 6 + 1;
-                    const parAmount = loansDisbursed * (parRatio / 100);
+                        const loansDisbursed = Math.floor(Math.random() * 80000) + 20000; // Daily instead of weekly amount
+                        const recoveries = Math.floor(loansDisbursed * (0.8 + Math.random() * 0.15));
+                        const newLoans = Math.floor(Math.random() * 3) + 1;
+                        const parRatio = Math.random() * 4 + 1;
+                        const parAmount = loansDisbursed * (parRatio / 100);
 
-                    await qr.query(
-                        `INSERT INTO branch_daily_reports 
-                         (report_date, branch_id, status, loans_new_count, loans_disbursed_amount, 
-                          recoveries_amount, arrears_collected, prepayments_due, par_amount, par_ratio)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                        [
-                            reportDate.toISOString().split('T')[0],
-                            branchId,
-                            'approved',
-                            newLoans,
-                            loansDisbursed,
-                            recoveries,
-                            Math.floor(Math.random() * 50000),
-                            Math.floor(Math.random() * 30000),
-                            parAmount,
-                            Number(parRatio.toFixed(2))
-                        ]
-                    );
-                    reportCount++;
+                        await qr.query(
+                            `INSERT INTO branch_daily_reports 
+                             (report_date, branch_id, status, loans_new_count, loans_disbursed_amount, 
+                              recoveries_amount, arrears_collected, prepayments_due, par_amount, par_ratio)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                            [
+                                reportDateStr,
+                                branchId,
+                                'approved',
+                                newLoans,
+                                loansDisbursed,
+                                recoveries,
+                                Math.floor(Math.random() * 10000),
+                                Math.floor(Math.random() * 5000),
+                                parAmount,
+                                Number(parRatio.toFixed(2))
+                            ]
+                        );
+                        reportCount++;
+                    }
+                } else {
+                    // For past months, weekly reports are sufficient
+                    for (let day = 1; day <= daysInMonth; day += 7) {
+                        const formatYear = reportMonth.getFullYear();
+                        const formatMonth = String(reportMonth.getMonth() + 1).padStart(2, '0');
+                        const formatDay = String(Math.min(day, daysInMonth)).padStart(2, '0');
+                        const reportDateStr = `${formatYear}-${formatMonth}-${formatDay}`;
+
+                        const loansDisbursed = Math.floor(Math.random() * 500000) + 100000;
+                        const recoveries = Math.floor(loansDisbursed * (0.7 + Math.random() * 0.25));
+                        const newLoans = Math.floor(Math.random() * 10) + 5;
+                        const parRatio = Math.random() * 6 + 1;
+                        const parAmount = loansDisbursed * (parRatio / 100);
+
+                        await qr.query(
+                            `INSERT INTO branch_daily_reports 
+                             (report_date, branch_id, status, loans_new_count, loans_disbursed_amount, 
+                              recoveries_amount, arrears_collected, prepayments_due, par_amount, par_ratio)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                            [
+                                reportDateStr,
+                                branchId,
+                                'approved',
+                                newLoans,
+                                loansDisbursed,
+                                recoveries,
+                                Math.floor(Math.random() * 50000),
+                                Math.floor(Math.random() * 30000),
+                                parAmount,
+                                Number(parRatio.toFixed(2))
+                            ]
+                        );
+                        reportCount++;
+                    }
                 }
             }
         }

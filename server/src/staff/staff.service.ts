@@ -383,6 +383,25 @@ export class StaffService {
         if (dto.nssf_number !== undefined) staff.nssf_number = dto.nssf_number;
         if (dto.nhif_number !== undefined) staff.nhif_number = dto.nhif_number;
         if (dto.status) staff.status = dto.status;
+        if (dto.gender !== undefined) staff.gender = dto.gender as any;
+        if (dto.marital_status !== undefined) staff.marital_status = dto.marital_status;
+        if (dto.religion !== undefined) staff.religion = dto.religion;
+        if (dto.blood_group !== undefined) staff.blood_group = dto.blood_group;
+        if (dto.nationality !== undefined) staff.nationality = dto.nationality;
+        if (dto.place_of_birth !== undefined) staff.place_of_birth = dto.place_of_birth;
+        if (dto.passport_number !== undefined) staff.passport_number = dto.passport_number;
+        if (dto.passport_expiry !== undefined) staff.passport_expiry = dto.passport_expiry ? new Date(dto.passport_expiry) : null as any;
+        if (dto.has_disability !== undefined) {
+            staff.has_disability = dto.has_disability;
+            if (!dto.has_disability) {
+                staff.disability_details = null as any;
+            } else if (dto.disability_details !== undefined) {
+                staff.disability_details = dto.disability_details;
+            }
+        }
+        if (dto.hire_date !== undefined) staff.hire_date = dto.hire_date ? new Date(dto.hire_date) : null as any;
+        if (dto.confirmation_date !== undefined) staff.confirmation_date = dto.confirmation_date ? new Date(dto.confirmation_date) : null as any;
+        if (dto.probation_end_date !== undefined) staff.probation_end_date = dto.probation_end_date ? new Date(dto.probation_end_date) : null as any;
 
         // Sync to staff_bank_accounts
         if (dto.bank_name !== undefined || dto.bank_branch !== undefined || dto.bank_account_number !== undefined || dto.bank_account_name !== undefined) {

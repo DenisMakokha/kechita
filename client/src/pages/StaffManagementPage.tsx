@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
-import { useFormValidation, validators } from '../hooks/useFormValidation';
+import { useFormValidation, validators, fieldErrorClass } from '../hooks/useFormValidation';
 import type { ValidationRules } from '../hooks/useFormValidation';
 import { useDebounce } from '../hooks/useDebounce';
 import { InputDialog } from '../components/ui/InputDialog';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Modal, ModalCancelButton, ModalPrimaryButton } from '../components/ui/Modal';
 import { Drawer, DrawerCloseButton } from '../components/ui/Drawer';
+import { FieldError } from '../components/ui/FieldError';
 import { StaffRowActions } from '../components/staff/StaffRowActions';
 import {
     Users, Plus, Search, MoreVertical, Edit, Trash2, X,
@@ -84,6 +85,130 @@ const LoginBadge: React.FC<{ user?: { email?: string; is_active?: boolean } | nu
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700" title="Login enabled"><Unlock size={11} />Login</span>;
 };
 
+interface TablePaginationFooterProps {
+    currentPage: number;
+    totalPages: number;
+    limit: number;
+    totalEntries: number;
+    onPageChange: (page: number) => void;
+    onLimitChange: (limit: number) => void;
+}
+
+const TablePaginationFooter: React.FC<TablePaginationFooterProps> = ({
+    currentPage,
+    totalPages,
+    limit,
+    totalEntries,
+    onPageChange,
+    onLimitChange,
+}) => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) {
+        if (i > 0) pages.push(i);
+    }
+
+    const startIdx = totalEntries === 0 ? 0 : (currentPage - 1) * limit + 1;
+    const endIdx = Math.min(currentPage * limit, totalEntries);
+
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 bg-slate-50">
+            <div className="flex flex-wrap items-center gap-4">
+                <span className="text-sm text-slate-500">
+                    Showing <span className="font-semibold text-slate-700">{startIdx}</span> to{' '}
+                    <span className="font-semibold text-slate-700">{endIdx}</span> of{' '}
+                    <span className="font-semibold text-slate-700">{totalEntries}</span> entries
+                </span>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <span>Show</span>
+                    <select
+                        value={limit}
+                        onChange={(e) => {
+                            onLimitChange(Number(e.target.value));
+                            onPageChange(1);
+                        }}
+                        className="px-2 py-1 border border-slate-200 rounded-lg bg-white font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0066B3]"
+                    >
+                        {[10, 25, 50, 100].map((val) => (
+                            <option key={val} value={val}>
+                                {val}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 transition-colors"
+                        aria-label="Previous page"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    {start > 1 && (
+                        <>
+                            <button
+                                onClick={() => onPageChange(1)}
+                                className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                                    currentPage === 1
+                                        ? 'bg-[#0066B3] border-[#0066B3] text-white shadow-sm shadow-blue-500/10'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                            >
+                                1
+                            </button>
+                            {start > 2 && <span className="text-slate-400 px-1 text-xs">...</span>}
+                        </>
+                    )}
+                    {pages.map((p) => (
+                        <button
+                            key={p}
+                            onClick={() => onPageChange(p)}
+                            className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                                currentPage === p
+                                    ? 'bg-[#0066B3] border-[#0066B3] text-white shadow-sm shadow-blue-500/15'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            {p}
+                        </button>
+                    ))}
+                    {end < totalPages && (
+                        <>
+                            {end < totalPages - 1 && <span className="text-slate-400 px-1 text-xs">...</span>}
+                            <button
+                                onClick={() => onPageChange(totalPages)}
+                                className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                                    currentPage === totalPages
+                                        ? 'bg-[#0066B3] border-[#0066B3] text-white shadow-sm shadow-blue-500/10'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                            >
+                                {totalPages}
+                            </button>
+                        </>
+                    )}
+                    <button
+                        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 transition-colors"
+                        aria-label="Next page"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ACTIVE_STATUSES = new Set(['onboarding', 'probation', 'active']);
 const INACTIVE_STATUSES = new Set(['suspended', 'resigned', 'terminated', 'ex-staff', 'ex_staff']);
 
@@ -107,6 +232,8 @@ export const StaffManagementPage: React.FC = () => {
     const [probationActionStaff, setProbationActionStaff] = useState<any | null>(null);
     const [probationNotes, setProbationNotes] = useState('');
     const [probationNewEndDate, setProbationNewEndDate] = useState('');
+    const [probationPage, setProbationPage] = useState(1);
+    const [probationLimit, setProbationLimit] = useState(10);
 
     // Contract management state
     const [contractSearch, setContractSearch] = useState('');
@@ -121,6 +248,8 @@ export const StaffManagementPage: React.FC = () => {
     const [contractNewTerms, setContractNewTerms] = useState('');
     const [contractReason, setContractReason] = useState('');
     const [contractTerminateDate, setContractTerminateDate] = useState(new Date().toISOString().split('T')[0]);
+    const [contractPage, setContractPage] = useState(1);
+    const [contractLimit, setContractLimit] = useState(10);
 
     // Staff state
     const [staffSearch, setStaffSearch] = useState('');
@@ -129,6 +258,7 @@ export const StaffManagementPage: React.FC = () => {
     const [directoryView, setDirectoryView] = useState<'active' | 'inactive' | 'archived'>('active');
     const [branchFilter, setBranchFilter] = useState('all');
     const [staffPage, setStaffPage] = useState(1);
+    const [staffLimit, setStaffLimit] = useState(10);
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
@@ -143,6 +273,7 @@ export const StaffManagementPage: React.FC = () => {
     const [roleFilter, setRoleFilter] = useState('');
     const [usersOrphansOnly, setUsersOrphansOnly] = useState(true);
     const [userPage, setUserPage] = useState(1);
+    const [userLimit, setUserLimit] = useState(25);
     const [showUserModal, setShowUserModal] = useState(false);
     const [showRoleAssignModal, setShowRoleAssignModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -224,6 +355,18 @@ export const StaffManagementPage: React.FC = () => {
         position_id: [v => validators.required(v, 'Position')],
     }), []);
     const staffValidation = useFormValidation(staffRules);
+
+    const editStaffRules = useMemo<ValidationRules<Record<string, any>>>(() => ({
+        first_name: [v => validators.required(v, 'First name')],
+        last_name: [v => validators.required(v, 'Last name')],
+    }), []);
+    const editStaffValidation = useFormValidation(editStaffRules);
+
+    const userRules = useMemo<ValidationRules<Record<string, any>>>(() => ({
+        email: [v => validators.required(v, 'Email'), validators.email],
+        role_code: [v => validators.required(v, 'Role')],
+    }), []);
+    const userValidation = useFormValidation(userRules);
 
     // Roles state
     const [roleSearch, setRoleSearch] = useState('');
@@ -499,8 +642,8 @@ export const StaffManagementPage: React.FC = () => {
     const { data: regions = [] } = useQuery({ queryKey: ['regions'], queryFn: async () => (await api.get('/org/regions')).data });
     const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get('/org/departments')).data });
     const { data: usersData, isLoading: usersLoading } = useQuery({
-        queryKey: ['users', userPage, userSearch, roleFilter],
-        queryFn: async () => { const p = new URLSearchParams(); p.append('page', userPage.toString()); p.append('limit', '15'); if (userSearch) p.append('search', userSearch); if (roleFilter) p.append('role_code', roleFilter); return (await api.get(`/users?${p}`)).data; },
+        queryKey: ['users', userPage, userLimit, userSearch, roleFilter],
+        queryFn: async () => { const p = new URLSearchParams(); p.append('page', userPage.toString()); p.append('limit', userLimit.toString()); if (userSearch) p.append('search', userSearch); if (roleFilter) p.append('role_code', roleFilter); return (await api.get(`/users?${p}`)).data; },
         enabled: activeTab === 'users',
     });
     const { data: roles = [] } = useQuery<Role[]>({ queryKey: ['roles'], queryFn: async () => { const res = (await api.get('/roles?include_inactive=true')).data; return Array.isArray(res) ? res : (res?.data ?? []); } });
@@ -612,8 +755,67 @@ export const StaffManagementPage: React.FC = () => {
     const activeCount = useMemo(() => (staff as Staff[]).filter((m) => ACTIVE_STATUSES.has(m.status)).length, [staff]);
     const inactiveCount = useMemo(() => (staff as Staff[]).filter((m) => INACTIVE_STATUSES.has(m.status)).length, [staff]);
     const archivedCount = staffStats?.deleted ?? 0;
-    const staffTotalPages = Math.ceil(filteredStaff.length / 10);
-    const paginatedStaff = filteredStaff.slice((staffPage - 1) * 10, staffPage * 10);
+    const staffTotalPages = Math.ceil(filteredStaff.length / staffLimit);
+    const paginatedStaff = filteredStaff.slice((staffPage - 1) * staffLimit, staffPage * staffLimit);
+
+    // Probationer filtering and pagination
+    const filteredProbationers = useMemo(() => {
+        const sourceData = probationFilter === 'all' ? staff : probationers;
+        return sourceData.filter((s: any) => {
+            const q = debouncedProbationSearch.toLowerCase();
+            const matchesSearch = q === '' ||
+                `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+                s.employee_number?.toLowerCase().includes(q);
+
+            if (!matchesSearch) return false;
+
+            if (probationFilter === 'on_probation') {
+                return s.probation_status === 'in_progress' || s.probation_status === 'extended';
+            }
+            if (probationFilter === 'expiring') {
+                if (!s.probation_end_date) return false;
+                const diff = Math.ceil((new Date(s.probation_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                return (s.probation_status === 'in_progress' || s.probation_status === 'extended') && diff >= 0 && diff <= 60;
+            }
+            if (probationFilter === 'overdue') {
+                if (!s.probation_end_date) return false;
+                return (s.probation_status === 'in_progress' || s.probation_status === 'extended') && new Date(s.probation_end_date) < new Date();
+            }
+            return true;
+        });
+    }, [staff, probationers, probationFilter, debouncedProbationSearch]);
+
+    const probationTotalPages = Math.max(1, Math.ceil(filteredProbationers.length / probationLimit));
+    const paginatedProbationers = useMemo(() => {
+        return filteredProbationers.slice((probationPage - 1) * probationLimit, probationPage * probationLimit);
+    }, [filteredProbationers, probationPage, probationLimit]);
+
+    // Contract filtering and pagination
+    const filteredContracts = useMemo(() => {
+        const q = debouncedContractSearch.toLowerCase();
+        return contracts.filter((c: any) => {
+            const matchesSearch = q === '' ||
+                `${c.staff?.first_name} ${c.staff?.last_name}`.toLowerCase().includes(q) ||
+                c.contract_number?.toLowerCase().includes(q);
+
+            if (!matchesSearch) return false;
+
+            if (contractFilter === 'active') return c.status === 'active';
+            if (contractFilter === 'expired') return c.status === 'expired';
+            if (contractFilter === 'expiring') {
+                if (c.status !== 'active' || !c.end_date) return false;
+                const diff = Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                return diff >= 0 && diff <= 60;
+            }
+            return true;
+        });
+    }, [contracts, contractFilter, debouncedContractSearch]);
+
+    const contractTotalPages = Math.max(1, Math.ceil(filteredContracts.length / contractLimit));
+    const paginatedContracts = useMemo(() => {
+        return filteredContracts.slice((contractPage - 1) * contractLimit, contractPage * contractLimit);
+    }, [filteredContracts, contractPage, contractLimit]);
+
     const usersRaw: User[] = usersData?.data || [];
     const users: User[] = usersOrphansOnly ? usersRaw.filter((u) => !u.staff) : usersRaw;
     const usersTotalPages = usersData?.totalPages || 1;
@@ -935,7 +1137,14 @@ export const StaffManagementPage: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                {staffTotalPages > 1 && <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50"><p className="text-sm text-slate-500">Page {staffPage} of {staffTotalPages}</p><div className="flex items-center gap-2"><button onClick={() => setStaffPage(p => Math.max(1, p - 1))} disabled={staffPage === 1} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronLeft size={18} /></button><button onClick={() => setStaffPage(p => Math.min(staffTotalPages, p + 1))} disabled={staffPage === staffTotalPages} className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-50"><ChevronRight size={18} /></button></div></div>}
+                    <TablePaginationFooter
+                        currentPage={staffPage}
+                        totalPages={staffTotalPages}
+                        limit={staffLimit}
+                        totalEntries={filteredStaff.length}
+                        onPageChange={setStaffPage}
+                        onLimitChange={setStaffLimit}
+                    />
                 </div>
             </>)}
 
@@ -1098,14 +1307,14 @@ export const StaffManagementPage: React.FC = () => {
                                     })}
                                 </tbody>
                             </table>
-                            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
-                                <p className="text-sm text-slate-500">Showing {users.length} of {usersTotal} users</p>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setUserPage(Math.max(1, userPage - 1))} disabled={userPage === 1} className="p-2 hover:bg-white rounded-lg disabled:opacity-40 border border-slate-200"><ChevronLeft size={16} /></button>
-                                    <span className="px-3 py-1 text-sm text-slate-600">Page {userPage} of {usersTotalPages}</span>
-                                    <button onClick={() => setUserPage(Math.min(usersTotalPages, userPage + 1))} disabled={userPage === usersTotalPages} className="p-2 hover:bg-white rounded-lg disabled:opacity-40 border border-slate-200"><ChevronRight size={16} /></button>
-                                </div>
-                            </div>
+                            <TablePaginationFooter
+                                currentPage={userPage}
+                                totalPages={usersTotalPages}
+                                limit={userLimit}
+                                totalEntries={usersTotal}
+                                onPageChange={setUserPage}
+                                onLimitChange={setUserLimit}
+                            />
                         </>
                     )}
                 </div>
@@ -1394,31 +1603,7 @@ export const StaffManagementPage: React.FC = () => {
                                         </td>
                                     </tr>
                                 ) : (() => {
-                                    const sourceData = probationFilter === 'all' ? staff : probationers;
-                                    const filtered = sourceData.filter((s: any) => {
-                                        const q = debouncedProbationSearch.toLowerCase();
-                                        const matchesSearch = q === '' ||
-                                            `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
-                                            s.employee_number?.toLowerCase().includes(q);
-
-                                        if (!matchesSearch) return false;
-
-                                        if (probationFilter === 'on_probation') {
-                                            return s.probation_status === 'in_progress' || s.probation_status === 'extended';
-                                        }
-                                        if (probationFilter === 'expiring') {
-                                            if (!s.probation_end_date) return false;
-                                            const diff = Math.ceil((new Date(s.probation_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                                            return (s.probation_status === 'in_progress' || s.probation_status === 'extended') && diff >= 0 && diff <= 60;
-                                        }
-                                        if (probationFilter === 'overdue') {
-                                            if (!s.probation_end_date) return false;
-                                            return (s.probation_status === 'in_progress' || s.probation_status === 'extended') && new Date(s.probation_end_date) < new Date();
-                                        }
-                                        return true;
-                                    });
-
-                                    if (filtered.length === 0) {
+                                    if (paginatedProbationers.length === 0) {
                                         return (
                                             <tr>
                                                 <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
@@ -1428,7 +1613,7 @@ export const StaffManagementPage: React.FC = () => {
                                         );
                                     }
 
-                                    return filtered.map((s: any) => {
+                                    return paginatedProbationers.map((s: any) => {
                                         const isOverdue = s.probation_end_date && new Date(s.probation_end_date) < new Date() && (s.probation_status === 'in_progress' || s.probation_status === 'extended');
                                         return (
                                             <tr key={s.id} className="hover:bg-slate-50 transition-colors">
@@ -1519,6 +1704,14 @@ export const StaffManagementPage: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+                    <TablePaginationFooter
+                        currentPage={probationPage}
+                        totalPages={probationTotalPages}
+                        limit={probationLimit}
+                        totalEntries={filteredProbationers.length}
+                        onPageChange={setProbationPage}
+                        onLimitChange={setProbationLimit}
+                    />
                 </>
             )}
 
@@ -1741,25 +1934,7 @@ export const StaffManagementPage: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (() => {
-                                        const q = debouncedContractSearch.toLowerCase();
-                                        const filtered = contracts.filter((c: any) => {
-                                            const matchesSearch = q === '' ||
-                                                `${c.staff?.first_name} ${c.staff?.last_name}`.toLowerCase().includes(q) ||
-                                                c.contract_number?.toLowerCase().includes(q);
-
-                                            if (!matchesSearch) return false;
-
-                                            if (contractFilter === 'active') return c.status === 'active';
-                                            if (contractFilter === 'expired') return c.status === 'expired';
-                                            if (contractFilter === 'expiring') {
-                                                if (c.status !== 'active' || !c.end_date) return false;
-                                                const diff = Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                                                return diff >= 0 && diff <= 60;
-                                            }
-                                            return true;
-                                        });
-
-                                        if (filtered.length === 0) {
+                                        if (paginatedContracts.length === 0) {
                                             return (
                                                 <tr>
                                                     <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
@@ -1769,7 +1944,7 @@ export const StaffManagementPage: React.FC = () => {
                                             );
                                         }
 
-                                        return filtered.map((c: any) => {
+                                        return paginatedContracts.map((c: any) => {
                                             const isExpiringSoon = c.status === 'active' && c.end_date && Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 60;
                                             return (
                                                 <tr key={c.id} className="hover:bg-slate-50 transition-colors">
@@ -1909,6 +2084,14 @@ export const StaffManagementPage: React.FC = () => {
                             </table>
                         )}
                     </div>
+                    <TablePaginationFooter
+                        currentPage={contractPage}
+                        totalPages={contractTotalPages}
+                        limit={contractLimit}
+                        totalEntries={filteredContracts.length}
+                        onPageChange={setContractPage}
+                        onLimitChange={setContractLimit}
+                    />
                 </>
             )}
 
@@ -2302,34 +2485,59 @@ export const StaffManagementPage: React.FC = () => {
             {/* USER MODAL */}
             <Modal
                 isOpen={showUserModal}
-                onClose={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); }}
+                onClose={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); userValidation.clearErrors(); }}
                 title={selectedUser ? 'Edit User' : 'Create User'}
                 icon={UserPlus}
                 tone="info"
                 size="lg"
                 footer={(
                     <>
-                        <ModalCancelButton onClick={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); }} />
-                        <ModalPrimaryButton onClick={() => createUserMutation.mutate(userFormData)} loading={createUserMutation.isPending} tone="primary" icon={Save}>Save</ModalPrimaryButton>
+                        <ModalCancelButton onClick={() => { setShowUserModal(false); setSelectedUser(null); setUserFormData({}); userValidation.clearErrors(); }} />
+                        <ModalPrimaryButton onClick={() => { if (userValidation.validateAll(userFormData)) createUserMutation.mutate(userFormData); }} loading={createUserMutation.isPending} tone="primary" icon={Save}>Save</ModalPrimaryButton>
                     </>
                 )}
             >
                 {showUserModal && (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Email Address *</label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input type="email" value={userFormData.email || ''} onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="user@company.com" disabled={!!selectedUser} />
+                                <input 
+                                    type="email" 
+                                    value={userFormData.email || ''} 
+                                    onChange={(e) => {
+                                        setUserFormData({ ...userFormData, email: e.target.value });
+                                        userValidation.onChange('email', e.target.value);
+                                    }} 
+                                    onBlur={(e) => userValidation.onBlur('email', e.target.value)}
+                                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                        fieldErrorClass(userValidation.getFieldError('email'))
+                                    }`} 
+                                    placeholder="user@company.com" 
+                                    disabled={!!selectedUser} 
+                                />
                             </div>
+                            <FieldError error={userValidation.getFieldError('email')} />
                         </div>
                         {!selectedUser && <>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Assign Role</label>
-                                <select value={userFormData.role_code || ''} onChange={(e) => setUserFormData({ ...userFormData, role_code: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Assign Role *</label>
+                                <select 
+                                    value={userFormData.role_code || ''} 
+                                    onChange={(e) => {
+                                        setUserFormData({ ...userFormData, role_code: e.target.value });
+                                        userValidation.onChange('role_code', e.target.value);
+                                    }} 
+                                    onBlur={(e) => userValidation.onBlur('role_code', e.target.value)}
+                                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${
+                                        fieldErrorClass(userValidation.getFieldError('role_code'))
+                                    }`}
+                                >
                                     <option value="">Select a role</option>
                                     {roles.map((role) => <option key={role.id} value={role.code}>{role.name}</option>)}
                                 </select>
+                                <FieldError error={userValidation.getFieldError('role_code')} />
                             </div>
                             <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                 <Mail className="text-blue-500 mt-0.5 flex-shrink-0" size={16} />
@@ -2408,16 +2616,55 @@ export const StaffManagementPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
-                                    <input type="text" value={staffFormData.first_name || ''} onChange={(e) => setStaffFormData({ ...staffFormData, first_name: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="John" />
+                                    <input 
+                                        type="text" 
+                                        value={staffFormData.first_name || ''} 
+                                        onChange={(e) => {
+                                            setStaffFormData({ ...staffFormData, first_name: e.target.value });
+                                            staffValidation.onChange('first_name', e.target.value);
+                                        }} 
+                                        onBlur={(e) => staffValidation.onBlur('first_name', e.target.value)}
+                                        className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                            fieldErrorClass(staffValidation.getFieldError('first_name'))
+                                        }`} 
+                                        placeholder="John" 
+                                    />
+                                    <FieldError error={staffValidation.getFieldError('first_name')} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Last Name *</label>
-                                    <input type="text" value={staffFormData.last_name || ''} onChange={(e) => setStaffFormData({ ...staffFormData, last_name: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="Doe" />
+                                    <input 
+                                        type="text" 
+                                        value={staffFormData.last_name || ''} 
+                                        onChange={(e) => {
+                                            setStaffFormData({ ...staffFormData, last_name: e.target.value });
+                                            staffValidation.onChange('last_name', e.target.value);
+                                        }} 
+                                        onBlur={(e) => staffValidation.onBlur('last_name', e.target.value)}
+                                        className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                            fieldErrorClass(staffValidation.getFieldError('last_name'))
+                                        }`} 
+                                        placeholder="Doe" 
+                                    />
+                                    <FieldError error={staffValidation.getFieldError('last_name')} />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Work Email *</label>
-                                <input type="email" value={staffFormData.email || ''} onChange={(e) => setStaffFormData({ ...staffFormData, email: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" placeholder="john.doe@company.com" />
+                                <input 
+                                    type="email" 
+                                    value={staffFormData.email || ''} 
+                                    onChange={(e) => {
+                                        setStaffFormData({ ...staffFormData, email: e.target.value });
+                                        staffValidation.onChange('email', e.target.value);
+                                    }} 
+                                    onBlur={(e) => staffValidation.onBlur('email', e.target.value)}
+                                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                        fieldErrorClass(staffValidation.getFieldError('email'))
+                                    }`} 
+                                    placeholder="john.doe@company.com" 
+                                />
+                                <FieldError error={staffValidation.getFieldError('email')} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -2437,17 +2684,39 @@ export const StaffManagementPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Role *</label>
-                                    <select value={staffFormData.role_id || ''} onChange={(e) => setStaffFormData({ ...staffFormData, role_id: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <select 
+                                        value={staffFormData.role_id || ''} 
+                                        onChange={(e) => {
+                                            setStaffFormData({ ...staffFormData, role_id: e.target.value });
+                                            staffValidation.onChange('role_id', e.target.value);
+                                        }} 
+                                        onBlur={(e) => staffValidation.onBlur('role_id', e.target.value)}
+                                        className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${
+                                            fieldErrorClass(staffValidation.getFieldError('role_id'))
+                                        }`}
+                                    >
                                         <option value="">Select Role</option>
                                         {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                                     </select>
+                                    <FieldError error={staffValidation.getFieldError('role_id')} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Position *</label>
-                                    <select value={staffFormData.position_id || ''} onChange={(e) => setStaffFormData({ ...staffFormData, position_id: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <select 
+                                        value={staffFormData.position_id || ''} 
+                                        onChange={(e) => {
+                                            setStaffFormData({ ...staffFormData, position_id: e.target.value });
+                                            staffValidation.onChange('position_id', e.target.value);
+                                        }} 
+                                        onBlur={(e) => staffValidation.onBlur('position_id', e.target.value)}
+                                        className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${
+                                            fieldErrorClass(staffValidation.getFieldError('position_id'))
+                                        }`}
+                                    >
                                         <option value="">Select Position</option>
                                         {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
+                                    <FieldError error={staffValidation.getFieldError('position_id')} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -2852,15 +3121,15 @@ export const StaffManagementPage: React.FC = () => {
             {/* EDIT STAFF MODAL (Quick Edit) */}
             <Modal
                 isOpen={showEditStaffModal && !!selectedStaff}
-                onClose={() => { setShowEditStaffModal(false); setSelectedStaff(null); }}
+                onClose={() => { setShowEditStaffModal(false); setSelectedStaff(null); editStaffValidation.clearErrors(); }}
                 title={selectedStaff ? `Quick Edit — ${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Quick Edit'}
                 icon={Edit}
                 tone="info"
                 size="lg"
                 footer={selectedStaff && (
                     <>
-                        <ModalCancelButton onClick={() => { setShowEditStaffModal(false); setSelectedStaff(null); }} />
-                        <ModalPrimaryButton onClick={() => updateStaffMutation.mutate({ id: selectedStaff.id, data: editStaffData })} loading={updateStaffMutation.isPending} tone="primary" icon={Save}>Save Changes</ModalPrimaryButton>
+                        <ModalCancelButton onClick={() => { setShowEditStaffModal(false); setSelectedStaff(null); editStaffValidation.clearErrors(); }} />
+                        <ModalPrimaryButton onClick={() => { if (editStaffValidation.validateAll(editStaffData)) updateStaffMutation.mutate({ id: selectedStaff.id, data: editStaffData }); }} loading={updateStaffMutation.isPending} tone="primary" icon={Save}>Save Changes</ModalPrimaryButton>
                     </>
                 )}
             >
@@ -2872,15 +3141,72 @@ export const StaffManagementPage: React.FC = () => {
                                 Edit core directory fields here. For salary, employment type, contracts, NOK, bank details and more, open the <button type="button" onClick={() => { setShowEditStaffModal(false); navigate(`/staff/${selectedStaff.id}`); }} className="font-semibold underline hover:text-blue-900">full profile</button>.
                             </p>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">First Name</label><input type="text" value={editStaffData.first_name || ''} onChange={(e) => setEditStaffData({ ...editStaffData, first_name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label><input type="text" value={editStaffData.last_name || ''} onChange={(e) => setEditStaffData({ ...editStaffData, last_name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
+                                <input 
+                                    type="text" 
+                                    value={editStaffData.first_name || ''} 
+                                    onChange={(e) => {
+                                        setEditStaffData({ ...editStaffData, first_name: e.target.value });
+                                        editStaffValidation.onChange('first_name', e.target.value);
+                                    }} 
+                                    onBlur={(e) => editStaffValidation.onBlur('first_name', e.target.value)}
+                                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                        fieldErrorClass(editStaffValidation.getFieldError('first_name'))
+                                    }`}
+                                />
+                                <FieldError error={editStaffValidation.getFieldError('first_name')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Last Name *</label>
+                                <input 
+                                    type="text" 
+                                    value={editStaffData.last_name || ''} 
+                                    onChange={(e) => {
+                                        setEditStaffData({ ...editStaffData, last_name: e.target.value });
+                                        editStaffValidation.onChange('last_name', e.target.value);
+                                    }} 
+                                    onBlur={(e) => editStaffValidation.onBlur('last_name', e.target.value)}
+                                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                        fieldErrorClass(editStaffValidation.getFieldError('last_name'))
+                                    }`}
+                                />
+                                <FieldError error={editStaffValidation.getFieldError('last_name')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                                <input type="text" value={editStaffData.phone || ''} onChange={(e) => setEditStaffData({ ...editStaffData, phone: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Position</label>
+                                <select value={editStaffData.position_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, position_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <option value="">Select position</option>
+                                    {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                                <select value={editStaffData.department_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, department_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <option value="">Select department</option>
+                                    {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Region</label>
+                                <select value={editStaffData.region_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, region_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <option value="">Select region</option>
+                                    {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Branch</label>
+                                <select value={editStaffData.branch_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, branch_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white">
+                                    <option value="">Select branch</option>
+                                    {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
                         </div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label><input type="text" value={editStaffData.phone || ''} onChange={(e) => setEditStaffData({ ...editStaffData, phone: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3]" /></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Position</label><select value={editStaffData.position_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, position_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select position</option>{positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Department</label><select value={editStaffData.department_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, department_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select department</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Region</label><select value={editStaffData.region_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, region_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select region</option>{regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Branch</label><select value={editStaffData.branch_id || ''} onChange={(e) => setEditStaffData({ ...editStaffData, branch_id: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066B3] bg-white"><option value="">Select branch</option>{branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
                     </div>
                 )}
             </Modal>

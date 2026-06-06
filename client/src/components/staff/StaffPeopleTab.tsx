@@ -37,34 +37,68 @@ export const StaffPeopleTab: React.FC<Props> = ({ staffId, canEdit, showToast })
     ];
 
     return (
-        <div className="space-y-5">
-            <div className="flex gap-2 border-b border-slate-200 overflow-x-auto -mb-px">
-                {tabs.map(s => {
-                    const I = s.icon;
-                    return (
-                        <button key={s.id} onClick={() => setSection(s.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap ${
-                                section === s.id ? 'border-[#0066B3] text-[#0066B3]' : 'border-transparent text-slate-500 hover:text-slate-700'
-                            }`}>
-                            <I size={15} />{s.label}
-                        </button>
-                    );
-                })}
+        <div className="flex flex-col md:flex-row gap-6">
+            {/* Sidebar Navigation */}
+            <div className="w-full md:w-64 shrink-0">
+                {/* Desktop sidebar list */}
+                <div className="hidden md:flex flex-col gap-1 bg-white p-2 rounded-2xl border border-slate-200/80 shadow-sm sticky top-24">
+                    {tabs.map(s => {
+                        const I = s.icon;
+                        const active = section === s.id;
+                        return (
+                            <button
+                                key={s.id}
+                                onClick={() => setSection(s.id)}
+                                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-150 ${
+                                    active
+                                        ? 'bg-blue-50 text-[#0066B3] font-semibold'
+                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                            >
+                                <I size={16} className={active ? 'text-[#0066B3]' : 'text-slate-400'} />
+                                <span>{s.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Mobile Dropdown */}
+                <div className="md:hidden">
+                    <label className="sr-only">Select Section</label>
+                    <select
+                        value={section}
+                        onChange={(e) => setSection(e.target.value as Section)}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0066B3]/20 focus:border-[#0066B3]"
+                    >
+                        {tabs.map(s => (
+                            <option key={s.id} value={s.id}>
+                                {s.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
-            {section === 'next-of-kin' && <NextOfKinSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'dependents' && <DependentsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'education' && <EducationSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'experience' && <ExperienceSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'skills' && <SkillsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'languages' && <LanguagesSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'assets' && <AssetsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'bank-accounts' && <BankAccountsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'salary' && <SalarySection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
-            {section === 'probation' && <ProbationSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+            {/* Content Display Area */}
+            <div className="flex-1 min-w-0">
+                {section === 'next-of-kin' && <NextOfKinSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'dependents' && <DependentsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'education' && <EducationSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'experience' && <ExperienceSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'skills' && <SkillsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'languages' && <LanguagesSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'assets' && <AssetsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'bank-accounts' && <BankAccountsSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'salary' && <SalarySection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+                {section === 'probation' && <ProbationSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
+            </div>
         </div>
     );
 };
+
+// Simple silence wrapper to avoid TS complaints if needed, but since it's just React, let's keep it clean:
+// Wait, is there any custom code/wrapper? No, let's just render ProbationSection directly like this:
+// {section === 'probation' && <ProbationSection staffId={staffId} canEdit={canEdit} qc={qc} showToast={showToast} />}
 
 // ─────────── Next of Kin ───────────
 const NextOfKinSection: React.FC<{ staffId: string; canEdit: boolean; qc: any; showToast: any }> = ({ staffId, canEdit, qc, showToast }) => {
