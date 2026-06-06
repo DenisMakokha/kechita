@@ -56,16 +56,9 @@ const ApprovalsPage: React.FC = () => {
     const queryClient = useQueryClient();
     const { user } = useAuthStore();
     const userRoles = user?.roles?.map((r) => r.code) || [];
-    const isApprover = userRoles.some(role => APPROVER_ROLES.includes(role));
-    const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'all'>(isApprover ? 'pending' : 'history');
-    const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
-    const [actionModal, setActionModal] = useState<{ approval: PendingApproval; action: 'approve' | 'reject' | 'delegate' | 'return' } | null>(null);
-    const [typeFilter, setTypeFilter] = useState<string>('all');
-    const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
-    const [bulkRejectReason, setBulkRejectReason] = useState<string | null>(null);
-    const [bulkRejectText, setBulkRejectText] = useState('');
+    const hasApproverRole = userRoles.some(role => APPROVER_ROLES.includes(role));
 
-    // Queries
+    // Queries (moved up to determine isApprover dynamically)
     const { data: pendingApprovalsRaw, isLoading } = useQuery<PendingApproval[]>({
         queryKey: ['pending-approvals'],
         queryFn: async () => {
@@ -82,6 +75,22 @@ const ApprovalsPage: React.FC = () => {
         : (pendingApprovalsRaw as any)?.data || [];
 
     console.log('[DEBUG] Processed pendingApprovals:', pendingApprovals, 'Count:', pendingApprovals?.length || 0);
+
+    const isApprover = hasApproverRole || pendingApprovals.length > 0;
+
+    const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'all'>(hasApproverRole ? 'pending' : 'history');
+    const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
+    const [actionModal, setActionModal] = useState<{ approval: PendingApproval; action: 'approve' | 'reject' | 'delegate' | 'return' } | null>(null);
+    const [typeFilter, setTypeFilter] = useState<string>('all');
+    const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+    const [bulkRejectReason, setBulkRejectReason] = useState<string | null>(null);
+    const [bulkRejectText, setBulkRejectText] = useState('');
+
+    React.useEffect(() => {
+        if (pendingApprovals.length > 0 && activeTab === 'history') {
+            setActiveTab('pending');
+        }
+    }, [pendingApprovals.length]);
 
     const { data: mySubmissions } = useQuery({
         queryKey: ['my-submissions'],
@@ -400,50 +409,48 @@ const ApprovalsPage: React.FC = () => {
                 })}
             </div>}
 
-            {/* Tabs - only show for approvers */}
-            {isApprover && (
-                <div className="border-b border-slate-200">
-                    <nav className="flex gap-8">
-                        <button
-                            onClick={() => setActiveTab('pending')}
-                            className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'pending' ? 'text-[#0066B3]' : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <Clock size={18} />
-                                Pending Approvals
+            {/* Tabs - always show for consistent navigation */}
+            <div className="border-b border-slate-200">
+                <nav className="flex gap-8">
+                    <button
+                        onClick={() => setActiveTab('pending')}
+                        className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'pending' ? 'text-[#0066B3]' : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <Clock size={18} />
+                            Pending Approvals
+                        </span>
+                        {(pendingApprovals?.length || 0) > 0 && (
+                            <span className="absolute -top-1 -right-3 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full min-w-[20px] text-center">
+                                {pendingApprovals?.length}
                             </span>
-                            {(pendingApprovals?.length || 0) > 0 && (
-                                <span className="absolute -top-1 -right-3 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full min-w-[20px] text-center">
-                                    {pendingApprovals?.length}
-                                </span>
-                            )}
-                            {activeTab === 'pending' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('history')}
-                            className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'history' ? 'text-[#0066B3]' : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <History size={18} />
-                                My Submissions
-                            </span>
-                            {activeTab === 'history' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
-                            )}
-                        </button>
-                    </nav>
-                </div>
-            )}
+                        )}
+                        {activeTab === 'pending' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`pb-4 px-1 font-medium transition-colors relative ${activeTab === 'history' ? 'text-[#0066B3]' : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <History size={18} />
+                            My Submissions
+                        </span>
+                        {activeTab === 'history' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066B3] rounded-full" />
+                        )}
+                    </button>
+                </nav>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content */}
                 <div className="lg:col-span-2">
-                    {/* Pending Approvals List - Approvers only */}
-                    {activeTab === 'pending' && isApprover && (
+                    {/* Pending Approvals List */}
+                    {activeTab === 'pending' && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isLoading ? (
                                 <div className="px-6 py-16 text-center text-slate-500">
@@ -611,7 +618,7 @@ const ApprovalsPage: React.FC = () => {
                     )}
 
                     {/* My Submissions */}
-                    {(activeTab === 'history' || !isApprover) && (
+                    {activeTab === 'history' && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isApprover && (
                                 <div className="px-6 py-4 border-b border-slate-200">

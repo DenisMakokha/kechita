@@ -444,16 +444,27 @@ export class ApprovalService {
         if (!staff) throw new NotFoundException('Staff not found');
 
         const roleCodes = staff.user?.roles?.map(r => r.code) || [];
+        const hasUniversalAccess = roleCodes.includes('CEO') || roleCodes.includes('REGIONAL_ADMIN');
 
-        // Find instances where current step matches staff's roles
-        const instances = await this.instanceRepo
+        const query = this.instanceRepo
             .createQueryBuilder('instance')
             .leftJoinAndSelect('instance.flow', 'flow')
             .leftJoinAndSelect('flow.steps', 'step')
             .leftJoinAndSelect('instance.requester', 'requester')
             .where('instance.status = :status', { status: ApprovalInstanceStatus.PENDING })
-            .andWhere('step.step_order = instance.current_step_order')
-            .andWhere('step.approver_role_code IN (:...roles)', { roles: roleCodes.length > 0 ? roleCodes : ['NONE'] })
+            .andWhere('step.step_order = instance.current_step_order');
+
+        if (!hasUniversalAccess) {
+            query.andWhere(
+                '(COALESCE(instance.current_approver_role, step.approver_role_code) IN (:...roles) OR instance.current_approver_id = :staffId)',
+                {
+                    roles: roleCodes.length > 0 ? roleCodes : ['NONE'],
+                    staffId,
+                }
+            );
+        }
+
+        const instances = await query
             .orderBy('instance.is_urgent', 'DESC')
             .addOrderBy('instance.created_at', 'ASC')
             .getMany();
@@ -514,17 +525,26 @@ export class ApprovalService {
                 relations: ['user', 'user.roles'],
             });
             const roleCodes = staff?.user?.roles?.map(r => r.code) || [];
+            const hasUniversalAccess = roleCodes.includes('CEO') || roleCodes.includes('REGIONAL_ADMIN');
 
-            // Same logic as getPendingApprovalsForStaff - filter by current step matching staff roles
-            const pendingInstances = await this.instanceRepo
+            const query = this.instanceRepo
                 .createQueryBuilder('instance')
                 .leftJoinAndSelect('instance.flow', 'flow')
                 .leftJoinAndSelect('flow.steps', 'step')
                 .where('instance.status = :status', { status: ApprovalInstanceStatus.PENDING })
-                .andWhere('step.step_order = instance.current_step_order')
-                .andWhere('step.approver_role_code IN (:...roles)', { roles: roleCodes.length > 0 ? roleCodes : ['NONE'] })
-                .getMany();
+                .andWhere('step.step_order = instance.current_step_order');
 
+            if (!hasUniversalAccess) {
+                query.andWhere(
+                    '(COALESCE(instance.current_approver_role, step.approver_role_code) IN (:...roles) OR instance.current_approver_id = :staffId)',
+                    {
+                        roles: roleCodes.length > 0 ? roleCodes : ['NONE'],
+                        staffId,
+                    }
+                );
+            }
+
+            const pendingInstances = await query.getMany();
             pending = pendingInstances.length;
         } else {
             // No staffId - count all pending (for global stats)
